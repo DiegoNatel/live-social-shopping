@@ -1,0 +1,249 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Montserrat:wght@700;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --primary: #FF6B00;
+    --primary-light: #FF923C;
+    --tropical-green: #22C55E;
+    --deep-ocean: #1F2937;
+    --sunset-gold: #FFD23F;
+    --coral-pink: #FF6B6B;
+    --sky-blue: #4ECDC4;
+    --purple-glow: #8B5CF6;
+  }
+
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-white text-gray-900 antialiased;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-gray-100;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-gray-300 rounded-full;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-gray-400;
+  }
+}
+
+@layer components {
+  /* Glass morphism effect */
+  .glass {
+    @apply bg-white/80 backdrop-blur-md border border-gray-200/50;
+  }
+
+  .glass-dark {
+    @apply bg-black/30 backdrop-blur-md border border-white/10;
+  }
+
+  /* Live indicator pulse */
+  .live-pulse {
+    @apply relative;
+  }
+
+  .live-pulse::before {
+    content: '';
+    @apply absolute inset-0 rounded-full bg-coral-pink animate-ping opacity-75;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    background: linear-gradient(to right, #FF6B00, #FB923C);
+    @apply text-white font-semibold
+           px-6 py-3 rounded-xl shadow-btn-primary 
+           hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]
+           transition-all duration-200 ease-out;
+  }
+
+  .btn-secondary {
+    border: 2px solid #FF6B00;
+    color: #FF6B00;
+    @apply font-medium px-6 py-3 rounded-xl bg-transparent
+           transition-all duration-200 ease-out;
+  }
+  
+  .btn-secondary:hover {
+    background-color: rgba(255, 107, 0, 0.1);
+  }
+  
+  .btn-secondary:active {
+    background-color: rgba(255, 107, 0, 0.2);
+  }
+
+  .btn-ghost {
+    @apply text-gray-600 font-medium px-4 py-2 rounded-lg
+           hover:bg-gray-100 active:bg-gray-200
+           transition-all duration-200 ease-out;
+  }
+
+  .btn-icon {
+    @apply w-12 h-12 rounded-full bg-gray-100
+           flex items-center justify-center
+           hover:bg-gray-200 active:bg-gray-300
+           transition-all duration-200 ease-out;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-2xl shadow-card p-4
+           hover:shadow-card-hover transition-shadow duration-300;
+  }
+
+  .card-dark {
+    @apply bg-gray-800 rounded-2xl shadow-card p-4 border border-gray-700
+           hover:border-gray-600 transition-all duration-300;
+  }
+
+  /* Input styles */
+  .input {
+    @apply w-full h-12 px-4 rounded-lg
+           bg-gray-50 border border-gray-200 text-gray-900
+           placeholder:text-gray-400
+           outline-none transition-all duration-200;
+  }
+
+  .input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(255, 107, 0, 0.2);
+  }
+
+  /* Product card */
+  .product-card {
+    @apply relative bg-white rounded-2xl overflow-hidden shadow-card
+           hover:shadow-card-hover hover:-translate-y-1
+           transition-all duration-300 cursor-pointer;
+  }
+
+  /* Stream card */
+  .stream-card {
+    @apply relative aspect-[9/16] rounded-xl overflow-hidden
+           hover:scale-[1.02] transition-transform duration-300 cursor-pointer;
+  }
+
+  /* Badge styles */
+  .badge-live {
+    @apply inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full
+           bg-coral-pink text-white text-xs font-semibold uppercase;
+  }
+
+  .badge-discount {
+    @apply inline-flex items-center px-2 py-0.5 rounded-md
+           text-white text-xs font-bold;
+    background-color: #FF6B00;
+  }
+
+  .badge-viewers {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-full
+           glass-dark text-white text-xs font-medium;
+  }
+
+  /* Floating hearts animation container */
+  .hearts-container {
+    @apply absolute right-4 bottom-32 w-12 pointer-events-none;
+  }
+
+  /* Chat styles */
+  .chat-message {
+    @apply flex items-start gap-2 p-2 rounded-lg
+           hover:bg-gray-50 transition-colors duration-200;
+  }
+
+  /* Safe areas for mobile */
+  .safe-top {
+    padding-top: max(env(safe-area-inset-top), 12px);
+  }
+
+  .safe-bottom {
+    padding-bottom: max(env(safe-area-inset-bottom), 12px);
+  }
+
+  /* Number input without spinner */
+  input[type='number']::-webkit-inner-spin-button,
+  input[type='number']::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Loading skeleton */
+  .skeleton {
+    @apply bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100
+           bg-[length:200%_100%] animate-shimmer rounded;
+  }
+}
+
+@layer utilities {
+  /* Text gradient */
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-hero;
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  /* Touch action for swipe */
+  .touch-pan-x {
+    touch-action: pan-x;
+  }
+
+  .touch-pan-y {
+    touch-action: pan-y;
+  }
+
+  /* Aspect ratios */
+  .aspect-stream {
+    aspect-ratio: 9/16;
+  }
+
+  .aspect-product {
+    aspect-ratio: 1/1;
+  }
+
+  /* Line clamp */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 1;
+  }
+
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+  }
+
+  .line-clamp-3 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 3;
+  }
+}
+
