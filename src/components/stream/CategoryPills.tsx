@@ -3,15 +3,16 @@
 import { useState, useRef } from 'react'
 import { motion } from 'framer-motion'
 import { cn } from '@/lib/utils'
-import { mockCategories } from '@/data/mock-data'
+import type { Category } from '@/types'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 interface CategoryPillsProps {
+  categories: Category[]
   onSelect?: (category: string | null) => void
   selected?: string | null
 }
 
-export function CategoryPills({ onSelect, selected }: CategoryPillsProps) {
+export function CategoryPills({ categories, onSelect, selected }: CategoryPillsProps) {
   const [activeCategory, setActiveCategory] = useState<string | null>(selected || null)
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -63,7 +64,7 @@ export function CategoryPills({ onSelect, selected }: CategoryPillsProps) {
         </motion.button>
 
         {/* Category pills */}
-        {mockCategories.map((category) => (
+        {categories.map((category) => (
           <motion.button
             key={category.id}
             onClick={() => handleSelect(category.slug)}

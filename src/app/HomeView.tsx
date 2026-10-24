@@ -8,7 +8,7 @@ import { StreamCard } from '@/components/stream/StreamCard'
 import { ProductCard } from '@/components/product/ProductCard'
 import { CourseCard } from '@/components/course/CourseCard'
 import { ProductModal } from '@/components/product/ProductModal'
-import type { Stream, Product, Course } from '@/types'
+import type { Stream, Product, Course, Category } from '@/types'
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
@@ -18,6 +18,7 @@ interface HomeViewProps {
   trendingProducts: Product[]
   flashDeals: Product[]
   featuredCourses: Course[]
+  categories: Category[]
 }
 
 export function HomeView({
@@ -26,6 +27,7 @@ export function HomeView({
   trendingProducts,
   flashDeals,
   featuredCourses,
+  categories,
 }: HomeViewProps) {
   return (
     <MainLayout>
@@ -37,7 +39,7 @@ export function HomeView({
 
         {/* Categories */}
         <section className="mt-4 px-4">
-          <CategoryPills />
+          <CategoryPills categories={categories} />
         </section>
 
         {/* Live Now Section */}
@@ -126,7 +128,7 @@ export function HomeView({
               </p>
               </div>
             <Link
-              href="/seller/register"
+              href="/seller/dashboard"
               className="relative z-10 inline-flex items-center gap-1 bg-primary text-white font-semibold text-sm px-5 py-2.5 rounded-md hover:bg-primary-600 transition-colors self-start md:self-auto"
             >
               Começar agora

@@ -4,7 +4,10 @@ import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { mockChatMessages, currentUser, mockUsers } from '@/data/mock-data'
+// Incoming messages stay simulated until real-time chat (phase 2)
+import { mockChatMessages, mockUsers } from '@/data/mock-data'
+import { useRouter } from 'next/navigation'
+import { useUserStore } from '@/store'
 import { formatRelativeTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import type { ChatMessage } from '@/types'
@@ -17,6 +20,8 @@ interface LiveChatProps {
 const quickEmojis = ['❤️', '🔥', '😍', '👏', '😂', '🎉', '💯', '✨']
 
 export function LiveChat({ streamId }: LiveChatProps) {
+  const router = useRouter()
+  const user = useUserStore(s => s.user)
   const [messages, setMessages] = useState<ChatMessage[]>(mockChatMessages)
   const [inputValue, setInputValue] = useState('')
   const [showEmojis, setShowEmojis] = useState(false)
@@ -61,10 +66,14 @@ export function LiveChat({ streamId }: LiveChatProps) {
 
   const handleSend = () => {
     if (!inputValue.trim()) return
+    if (!user) {
+      router.push('/login')
+      return
+    }
 
     const newMessage: ChatMessage = {
       id: `msg-${Date.now()}`,
-      user: currentUser,
+      user,
       message: inputValue,
       timestamp: new Date(),
       type: 'text',
@@ -154,7 +163,7 @@ export function LiveChat({ streamId }: LiveChatProps) {
               value={inputValue}
               onChange={(e) => setInputValue(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Envie uma mensagem..."
+              placeholder={user ? "Envie uma mensagem..." : "Entre para participar do chat"}
               className="w-full h-10 px-4 pr-12 rounded-full bg-white/10 text-white placeholder:text-white/40 outline-none focus:bg-white/15 transition-colors text-sm"
             />
           </div>

@@ -23,6 +23,10 @@
       "migrations_dir": "migrations"
     }
   ],
+  "vars": {
+    "BETTER_AUTH_URL": "https://vivobuy.diegonatel.workers.dev"
+  },
+  // BETTER_AUTH_SECRET is a secret: `wrangler secret put BETTER_AUTH_SECRET` (local: .dev.vars)
   "observability": {
     "enabled": true
   }

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { SessionSync } from '@/components/auth/SessionSync'
 
 export const metadata: Metadata = {
   title: 'VivoBuy - Live Social Shopping | Compras ao Vivo',
@@ -42,7 +43,8 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
-      <body className="min-h-screen bg-deep-ocean">
+      <body className="min-h-screen bg-page">
+        <SessionSync />
         {children}
       </body>
     </html>

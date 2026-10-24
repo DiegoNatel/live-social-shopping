@@ -161,6 +161,15 @@ export function Header({
                 />
               </Link>
             )}
+
+            {showAvatar && !user && (
+              <Link
+                href="/login"
+                className="ml-1 px-3 py-1.5 rounded-md text-sm font-medium text-sky-blue hover:bg-sky-blue-50 transition-colors"
+              >
+                Entrar
+              </Link>
+            )}
           </div>
         </div>
       </div>

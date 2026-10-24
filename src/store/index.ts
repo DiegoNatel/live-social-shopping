@@ -1,7 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, CartItem, Product, Notification } from '@/types'
-import { currentUser } from '@/data/mock-data'
 
 // Cart Store
 interface CartState {
@@ -86,13 +85,12 @@ export const useCartStore = create<CartState>()(
   )
 )
 
-// User Store
+// User Store — mirrors the server session (filled by SessionSync from /api/me)
 interface UserState {
   user: User | null
   isAuthenticated: boolean
   interests: string[]
-  login: (user: User) => void
-  logout: () => void
+  setSession: (session: { user: User; interests: string[]; followedHosts: string[] } | null) => void
   setInterests: (interests: string[]) => void
   followedHosts: string[]
   followHost: (hostId: string) => void
@@ -100,38 +98,46 @@ interface UserState {
   isFollowing: (hostId: string) => boolean
 }
 
-export const useUserStore = create<UserState>()(
-  persist(
-    (set, get) => ({
-      user: currentUser,
-      isAuthenticated: true,
-      interests: [],
-      
-      login: (user) => set({ user, isAuthenticated: true }),
-      logout: () => set({ user: null, isAuthenticated: false, interests: [] }),
-      setInterests: (interests) => set({ interests }),
-      
-      followedHosts: ['user-1', 'user-2'],
-      
-      followHost: (hostId) => {
-        if (!get().followedHosts.includes(hostId)) {
-          set({ followedHosts: [...get().followedHosts, hostId] })
-        }
-      },
-      
-      unfollowHost: (hostId) => {
-        set({
-          followedHosts: get().followedHosts.filter(id => id !== hostId),
-        })
-      },
-      
-      isFollowing: (hostId) => get().followedHosts.includes(hostId),
-    }),
-    {
-      name: 'vivobuy-user',
-    }
-  )
-)
+async function saveFollow(hostId: string, follow: boolean) {
+  const res = await fetch('/api/follows', {
+    method: follow ? 'POST' : 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ hostId }),
+  })
+  if (!res.ok) throw new Error(`follow failed: ${res.status}`)
+}
+
+export const useUserStore = create<UserState>()((set, get) => ({
+  user: null,
+  isAuthenticated: false,
+  interests: [],
+  followedHosts: [],
+
+  setSession: (session) =>
+    set(
+      session
+        ? { user: session.user, isAuthenticated: true, interests: session.interests, followedHosts: session.followedHosts }
+        : { user: null, isAuthenticated: false, interests: [], followedHosts: [] }
+    ),
+  setInterests: (interests) => set({ interests }),
+
+  // Optimistic update, rolled back if the request fails
+  followHost: (hostId) => {
+    if (!get().isAuthenticated || get().followedHosts.includes(hostId)) return
+    set({ followedHosts: [...get().followedHosts, hostId] })
+    saveFollow(hostId, true).catch(() =>
+      set({ followedHosts: get().followedHosts.filter(id => id !== hostId) })
+    )
+  },
+
+  unfollowHost: (hostId) => {
+    if (!get().followedHosts.includes(hostId)) return
+    set({ followedHosts: get().followedHosts.filter(id => id !== hostId) })
+    saveFollow(hostId, false).catch(() => set({ followedHosts: [...get().followedHosts, hostId] }))
+  },
+
+  isFollowing: (hostId) => get().followedHosts.includes(hostId),
+}))
 
 // Notifications Store
 interface NotificationState {

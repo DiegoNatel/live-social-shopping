@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { InterestsModal } from '@/components/onboarding/InterestsModal'
-import { useUserStore } from '@/store'
+import { authClient } from '@/lib/auth-client'
+import { loadSession } from '@/components/auth/SessionSync'
 import { cn } from '@/lib/utils'
 import { ChevronLeft, Eye, EyeOff, Check, Mail, Lock, User, Phone } from 'lucide-react'
 import { WhatsAppIcon } from '@/components/ui/Icons'
@@ -15,7 +16,7 @@ type Step = 'form' | 'interests'
 
 export default function SignupPage() {
   const router = useRouter()
-  const { login } = useUserStore()
+  
   
   const [step, setStep] = useState<Step>('form')
   const [isLoading, setIsLoading] = useState(false)
@@ -50,8 +51,8 @@ export default function SignupPage() {
     
     if (!formData.password) {
       newErrors.password = 'Senha é obrigatória'
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Senha deve ter pelo menos 6 caracteres'
+    } else if (formData.password.length < 8) {
+      newErrors.password = 'Senha deve ter pelo menos 8 caracteres'
     }
     
     if (!agreed) {
@@ -69,31 +70,46 @@ export default function SignupPage() {
     
     setIsLoading(true)
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
+    const { error } = await authClient.signUp.email({
+      name: formData.name.trim(),
+      email: formData.email.trim(),
+      password: formData.password,
+      phone: formData.phone.trim(),
+    })
     setIsLoading(false)
+
+    if (error) {
+      setErrors({
+        form: error.code === 'USER_ALREADY_EXISTS' || error.status === 422
+          ? 'Já existe uma conta com este e-mail'
+          : 'Não foi possível criar a conta. Tente novamente.',
+      })
+      return
+    }
+
     setStep('interests')
   }
 
-  const handleInterestsComplete = (interests: string[], channels: string[]) => {
-    // Create user with interests
-    const newUser = {
-      id: `user-${Date.now()}`,
-      name: formData.name,
-      username: formData.email.split('@')[0],
-      avatar: `https://i.pravatar.cc/150?u=${formData.email}`,
-      isVerified: false,
-      followers: 0,
-      following: channels.length,
-      bio: '',
-    }
-    
-    // Log the user in
-    login(newUser)
-    
-    // Redirect to home
+  const handleInterestsComplete = async (interests: string[], channels: string[]) => {
+    // The account already exists and is signed in; save onboarding choices
+    await Promise.allSettled([
+      fetch('/api/me/interests', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ interests }),
+      }),
+      ...channels.map(hostId =>
+        fetch('/api/follows', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hostId }),
+        })
+      ),
+    ])
+
+    await loadSession()
     router.push('/')
+    router.refresh()
   }
 
   return (
@@ -270,6 +286,8 @@ export default function SignupPage() {
                       </Link>
                     </p>
                   </div>
+
+                  {errors.form && <p className="text-coral-pink text-sm">{errors.form}</p>}
 
                   {/* Submit Button */}
                   <Button

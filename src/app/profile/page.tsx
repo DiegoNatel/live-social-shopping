@@ -1,12 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store'
+import { authClient } from '@/lib/auth-client'
 import { formatNumber, formatCurrency } from '@/lib/utils'
 import {
   Settings,
@@ -27,13 +29,26 @@ import {
 } from 'lucide-react'
 
 export default function ProfilePage() {
-  const { user, followedHosts } = useUserStore()
-  const [stats] = useState({
-    purchases: 12,
-    totalSpent: 2456.80,
-    watchTime: 45,
-    points: 2340,
-  })
+  const router = useRouter()
+  const { user, followedHosts, setSession } = useUserStore()
+  // Watch time and points aren't tracked yet
+  const [stats, setStats] = useState({ purchases: 0, totalSpent: 0, watchTime: 0, points: 0 })
+
+  useEffect(() => {
+    if (!user) return
+    fetch('/api/me/stats')
+      .then(res => (res.ok ? (res.json() as Promise<{ purchases: number; totalSpent: number }>) : null))
+      .then(data => {
+        if (data) setStats(s => ({ ...s, ...data, points: Math.floor(data.totalSpent) }))
+      })
+  }, [user])
+
+  const handleLogout = async () => {
+    await authClient.signOut()
+    setSession(null)
+    router.push('/')
+    router.refresh()
+  }
 
   if (!user) {
     return (
@@ -43,7 +58,9 @@ export default function ProfilePage() {
           <p className="text-white/60 mb-6">
             Entre para aproveitar todas as funcionalidades
           </p>
-          <Button>Entrar</Button>
+          <Link href="/login">
+            <Button>Entrar</Button>
+          </Link>
         </div>
       </MainLayout>
     )
@@ -204,7 +221,7 @@ export default function ProfilePage() {
             <MenuItem
               icon={<Award className="w-5 h-5" />}
               label="Seja um Vendedor"
-              href="/seller/register"
+              href="/seller/dashboard"
             />
             <MenuItem
               icon={<HelpCircle className="w-5 h-5" />}
@@ -215,7 +232,10 @@ export default function ProfilePage() {
         </div>
 
         {/* Logout */}
-        <button className="w-full mt-6 p-4 rounded-xl bg-coral-pink/10 text-coral-pink flex items-center justify-center gap-2 hover:bg-coral-pink/20 transition-colors">
+        <button
+          onClick={handleLogout}
+          className="w-full mt-6 p-4 rounded-xl bg-coral-pink/10 text-coral-pink flex items-center justify-center gap-2 hover:bg-coral-pink/20 transition-colors"
+        >
           <LogOut className="w-5 h-5" />
           <span className="font-medium">Sair da conta</span>
         </button>

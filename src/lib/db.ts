@@ -1,6 +1,6 @@
 import 'server-only'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
-import type { User, Product, ProductVariant, Stream, Course, CourseModule } from '@/types'
+import type { User, Product, ProductVariant, Stream, Course, CourseModule, Category, Auction, AuctionBid } from '@/types'
 
 export function getDb(): D1Database {
   return getCloudflareContext().env.DB
@@ -209,4 +209,157 @@ export async function getCourses({ limit = 20 } = {}): Promise<Course[]> {
     modules: modules.get(r.id) ?? [],
     certificateIncluded: !!r.certificate_included,
   }))
+}
+
+// ---------- Single stream ----------
+
+export async function getStream(id: string): Promise<Stream | null> {
+  const [live, scheduled] = await Promise.all([getStreams({ live: true }), getStreams({ live: false })])
+  return [...live, ...scheduled].find(s => s.id === id) ?? null
+}
+
+// ---------- Categories ----------
+
+export async function getCategories(): Promise<Category[]> {
+  const { results } = await getDb().prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>()
+  return results.map(r => ({ id: r.id, name: r.name, icon: r.icon ?? '', slug: r.slug, color: r.color ?? '' }))
+}
+
+// ---------- Users & follows ----------
+
+export async function getUser(id: string): Promise<{ user: User; interests: string[]; isSeller: boolean } | null> {
+  const row = await getDb().prepare('SELECT * FROM users WHERE id = ?').bind(id).first<Row>()
+  if (!row) return null
+  return { user: toUser(row), interests: parseList(row.interests), isSeller: !!row.is_seller }
+}
+
+export async function getFollowedHostIds(userId: string): Promise<string[]> {
+  const { results } = await getDb()
+    .prepare('SELECT followee_id FROM follows WHERE follower_id = ?')
+    .bind(userId)
+    .all<Row>()
+  return results.map(r => r.followee_id)
+}
+
+// Inserts/deletes the follow and keeps both users' counters in sync, atomically
+export async function setFollow(followerId: string, followeeId: string, follow: boolean) {
+  const db = getDb()
+  if (follow) {
+    await db.batch([
+      db.prepare('INSERT OR IGNORE INTO follows (follower_id, followee_id) VALUES (?, ?)').bind(followerId, followeeId),
+      db.prepare('UPDATE users SET followers_count = followers_count + changes() WHERE id = ?').bind(followeeId),
+      db.prepare(
+        `UPDATE users SET following_count = (SELECT count(*) FROM follows WHERE follower_id = ?1) WHERE id = ?1`
+      ).bind(followerId),
+    ])
+  } else {
+    await db.batch([
+      db.prepare('DELETE FROM follows WHERE follower_id = ? AND followee_id = ?').bind(followerId, followeeId),
+      db.prepare('UPDATE users SET followers_count = max(followers_count - changes(), 0) WHERE id = ?').bind(followeeId),
+      db.prepare(
+        `UPDATE users SET following_count = (SELECT count(*) FROM follows WHERE follower_id = ?1) WHERE id = ?1`
+      ).bind(followerId),
+    ])
+  }
+}
+
+export async function setInterests(userId: string, interests: string[]) {
+  await getDb().prepare('UPDATE users SET interests = ? WHERE id = ?').bind(JSON.stringify(interests), userId).run()
+}
+
+// ---------- Orders ----------
+
+export async function getPurchaseStats(userId: string) {
+  const row = await getDb()
+    .prepare(
+      `SELECT count(*) AS purchases, coalesce(sum(total_cents), 0) AS spent
+       FROM orders WHERE user_id = ? AND status != 'cancelled'`
+    )
+    .bind(userId)
+    .first<Row>()
+  return { purchases: row?.purchases ?? 0, totalSpent: fromCents(row?.spent ?? 0)! }
+}
+
+// ---------- Seller dashboard ----------
+
+export interface SellerOrder {
+  id: string
+  product: Product | undefined
+  name: string
+  status: string
+  createdAt: string
+  total: number
+}
+
+export async function getSellerDashboard(sellerId: string) {
+  const db = getDb()
+  const [{ results: productRows }, liveStreams, scheduledStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
+    await Promise.all([
+      db.prepare(`${PRODUCT_SELECT} AND p.seller_id = ? ORDER BY p.created_at DESC, p.id`).bind(sellerId).all<Row>(),
+      getStreams({ live: true }),
+      getStreams({ live: false }),
+      db
+        .prepare(
+          `SELECT a.*, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
+           FROM auctions a JOIN products p ON p.id = a.product_id
+           WHERE p.seller_id = ? ORDER BY a.starts_at`
+        )
+        .bind(sellerId)
+        .all<Row>(),
+      db
+        .prepare(
+          `SELECT count(DISTINCT oi.order_id) AS orders, coalesce(sum(oi.unit_price_cents * oi.quantity), 0) AS revenue
+           FROM order_items oi JOIN orders o ON o.id = oi.order_id
+           WHERE oi.seller_id = ? AND o.status != 'cancelled'`
+        )
+        .bind(sellerId)
+        .first<Row>(),
+      db
+        .prepare(
+          `SELECT o.id, o.status, o.created_at, oi.product_id, oi.name, oi.unit_price_cents * oi.quantity AS total_cents
+           FROM order_items oi JOIN orders o ON o.id = oi.order_id
+           WHERE oi.seller_id = ? ORDER BY o.created_at DESC LIMIT 5`
+        )
+        .bind(sellerId)
+        .all<Row>(),
+    ])
+
+  const products = await hydrateProducts(productRows)
+  const streams = [...liveStreams, ...scheduledStreams].filter(s => s.host.id === sellerId)
+  const productById = new Map(products.map(p => [p.id, p]))
+
+  const auctions: Auction[] = auctionRows.map(a => ({
+    id: a.id,
+    product: productById.get(a.product_id)!,
+    startingPrice: fromCents(a.starting_price_cents)!,
+    currentBid: fromCents(a.current_bid_cents)!,
+    minimumIncrement: fromCents(a.minimum_increment_cents)!,
+    startTime: a.starts_at,
+    endTime: a.ends_at,
+    bids: Array.from({ length: a.bid_count }, (_, i) => ({ id: `${a.id}-${i}` }) as AuctionBid),
+    status: a.status,
+    winnerId: a.winner_id ?? undefined,
+    streamId: a.stream_id ?? undefined,
+  }))
+
+  const recentOrders: SellerOrder[] = orderRows.map(o => ({
+    id: o.id,
+    product: productById.get(o.product_id),
+    name: o.name,
+    status: o.status,
+    createdAt: o.created_at,
+    total: fromCents(o.total_cents)!,
+  }))
+
+  return {
+    products,
+    streams,
+    auctions,
+    recentOrders,
+    stats: {
+      revenue: fromCents(salesRow?.revenue ?? 0)!,
+      orders: salesRow?.orders ?? 0,
+      viewers: streams.reduce((sum, s) => sum + (s.isLive ? s.viewerCount : 0), 0),
+    },
+  }
 }
