@@ -48,12 +48,12 @@ export function Header({
         'fixed top-0 left-0 right-0 z-50',
         transparent
           ? 'bg-gradient-to-b from-black/60 to-transparent'
-          : 'bg-white/95 backdrop-blur-lg border-b border-gray-200 shadow-sm',
+          : 'bg-white border-b border-gray-200',
         className
       )}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+      <div className="max-w-6xl mx-auto px-4">
+        <div className="flex items-center justify-between h-14">
           {/* Left section - Logo & Nav */}
           <div className="flex items-center gap-8">
             {showBack ? (
@@ -64,14 +64,10 @@ export function Header({
               </Link>
             ) : (
               <Link href="/" className="flex items-center gap-2">
-                <motion.div
-                  className="w-9 h-9 rounded-xl bg-gradient-to-br from-primary to-primary-400 flex items-center justify-center"
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  <span className="text-white font-bold text-lg">V</span>
-                </motion.div>
-                <span className="font-display font-bold text-xl text-gray-900">
+                <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+                  <span className="text-white font-semibold text-sm">V</span>
+                </div>
+                <span className="font-semibold text-lg text-gray-900">
                   VivoBuy
                 </span>
               </Link>
@@ -89,10 +85,10 @@ export function Header({
                       key={item.href}
                       href={item.href}
                       className={cn(
-                        'relative flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg font-medium transition-all text-sm sm:text-base',
+                        'relative flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-colors text-sm',
                         isActive
-                          ? 'text-primary bg-primary/10'
-                          : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                          ? 'text-gray-900'
+                          : 'text-gray-500 hover:text-gray-900'
                       )}
                     >
                       <Icon className="w-4 h-4" />
@@ -132,7 +128,7 @@ export function Header({
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-coral-pink text-white text-xs font-bold rounded-full flex items-center justify-center"
+                    className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-sky-blue text-white text-[10px] font-semibold rounded-full flex items-center justify-center"
                   >
                     {unreadCount > 9 ? '9+' : unreadCount}
                   </motion.span>
@@ -147,7 +143,7 @@ export function Header({
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-primary text-white text-xs font-bold rounded-full flex items-center justify-center"
+                    className="absolute top-0.5 right-0.5 min-w-4 h-4 px-1 bg-sky-blue text-white text-[10px] font-semibold rounded-full flex items-center justify-center"
                   >
                     {cartCount > 9 ? '9+' : cartCount}
                   </motion.span>
@@ -161,7 +157,7 @@ export function Header({
                   src={user.avatar}
                   alt={user.name}
                   size="sm"
-                  className="ring-2 ring-gray-200 hover:ring-primary transition-all"
+                  className="ring-1 ring-gray-200"
                 />
               </Link>
             )}

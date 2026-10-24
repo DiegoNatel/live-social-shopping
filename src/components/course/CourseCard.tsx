@@ -31,15 +31,15 @@ export function CourseCard({
   }
 
   const levelColors = {
-    beginner: 'bg-green-100 text-green-700',
-    intermediate: 'bg-yellow-100 text-yellow-700',
-    advanced: 'bg-red-100 text-red-700',
+    beginner: 'bg-gray-100 text-gray-600',
+    intermediate: 'bg-gray-100 text-gray-600',
+    advanced: 'bg-gray-100 text-gray-600',
   }
 
   if (variant === 'compact') {
     return (
       <motion.div
-        className="flex items-center gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-primary/30 hover:shadow-md cursor-pointer transition-all"
+        className="flex items-center gap-3 p-3 rounded-md bg-white shadow-card hover:shadow-card-hover cursor-pointer transition-shadow"
         initial={{ opacity: 0, x: -20 }}
         animate={{ opacity: 1, x: 0 }}
         transition={{ delay: index * 0.05 }}
@@ -59,7 +59,7 @@ export function CourseCard({
         <div className="flex-1 min-w-0">
           <h4 className="text-gray-900 text-sm font-medium line-clamp-1">{course.name}</h4>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-primary font-semibold text-sm">
+            <span className="text-gray-900 font-semibold text-sm">
               {formatCurrency(course.price)}
             </span>
             {course.originalPrice && (
@@ -76,7 +76,7 @@ export function CourseCard({
   if (variant === 'horizontal') {
     return (
       <motion.div
-        className="flex gap-4 p-4 rounded-xl bg-white border border-gray-100 hover:border-primary/30 hover:shadow-lg cursor-pointer transition-all"
+        className="flex gap-4 p-4 rounded-md bg-white shadow-card hover:shadow-card-hover cursor-pointer transition-shadow"
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: index * 0.1 }}
@@ -90,7 +90,7 @@ export function CourseCard({
             className="object-cover"
           />
           {discount > 0 && (
-            <span className="absolute top-2 left-2 px-2 py-0.5 bg-primary text-white text-xs font-bold rounded">
+            <span className="absolute top-2 left-2 px-2 py-0.5 bg-tropical-green text-white text-xs font-semibold rounded">
               -{discount}%
             </span>
           )}
@@ -106,7 +106,7 @@ export function CourseCard({
           <h4 className="text-gray-900 font-semibold line-clamp-2 mt-2">{course.name}</h4>
           <p className="text-gray-500 text-sm mt-1">{course.instructor.name}</p>
           <div className="flex items-center gap-3 mt-2 text-sm">
-            <div className="flex items-center gap-1 text-amber-500">
+            <div className="flex items-center gap-1 text-sky-blue">
               <Star className="w-4 h-4 fill-current" />
               <span className="font-medium">{course.rating}</span>
               <span className="text-gray-400">({course.reviews})</span>
@@ -117,7 +117,7 @@ export function CourseCard({
             </div>
           </div>
           <div className="flex items-baseline gap-2 mt-3">
-            <span className="text-primary font-bold text-lg">
+            <span className="text-gray-900 font-normal text-lg">
               {formatCurrency(course.price)}
             </span>
             {course.originalPrice && (
@@ -134,13 +134,13 @@ export function CourseCard({
   // Default card variant
   return (
     <motion.div
-      className="relative bg-white rounded-2xl overflow-hidden shadow-card hover:shadow-card-hover cursor-pointer group border border-gray-100"
+      className="relative bg-white rounded-md overflow-hidden shadow-card hover:shadow-card-hover cursor-pointer group"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
-      whileHover={{ y: -4 }}
+
       whileTap={{ scale: 0.98 }}
     >
       {/* Thumbnail */}
@@ -149,18 +149,18 @@ export function CourseCard({
           src={course.thumbnail}
           alt={course.name}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          className="object-cover"
         />
         
         {/* Discount badge */}
         {discount > 0 && (
-          <span className="absolute top-3 left-3 px-2.5 py-1 bg-primary text-white text-xs font-bold rounded-lg">
+          <span className="absolute top-3 left-3 px-1.5 py-0.5 bg-tropical-green text-white text-xs font-semibold rounded">
             -{discount}%
           </span>
         )}
 
         {/* Course badge */}
-        <span className="absolute top-3 right-3 px-2.5 py-1 bg-purple-glow text-white text-xs font-bold rounded-lg flex items-center gap-1">
+        <span className="absolute top-3 right-3 px-1.5 py-0.5 bg-black/50 text-white text-xs font-medium rounded flex items-center gap-1">
           <BookOpen className="w-3 h-3" />
           Curso
         </span>
@@ -205,7 +205,7 @@ export function CourseCard({
         
         {/* Stats */}
         <div className="flex items-center gap-3 mt-3 text-xs">
-          <div className="flex items-center gap-1 text-amber-500">
+          <div className="flex items-center gap-1 text-sky-blue">
             <Star className="w-3.5 h-3.5 fill-current" />
             <span className="font-medium">{course.rating}</span>
           </div>
@@ -223,7 +223,7 @@ export function CourseCard({
         
         {/* Price */}
         <div className="flex items-baseline gap-2 mt-3">
-          <span className="text-primary font-bold text-lg">
+          <span className="text-gray-900 font-normal text-lg">
             {formatCurrency(course.price)}
           </span>
           {course.originalPrice && (

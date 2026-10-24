@@ -52,14 +52,13 @@ export function CategoryPills({ onSelect, selected }: CategoryPillsProps) {
         <motion.button
           onClick={() => handleSelect(null)}
           className={cn(
-            'flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm whitespace-nowrap transition-colors',
+            'flex items-center px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors',
             activeCategory === null
-              ? 'bg-primary text-white shadow-md'
-              : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-primary/30'
+              ? 'bg-gray-900 text-white'
+              : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-400'
           )}
           whileTap={{ scale: 0.95 }}
         >
-          <span>✨</span>
           <span>Tudo</span>
         </motion.button>
 
@@ -69,17 +68,13 @@ export function CategoryPills({ onSelect, selected }: CategoryPillsProps) {
             key={category.id}
             onClick={() => handleSelect(category.slug)}
             className={cn(
-              'flex items-center gap-2 px-4 py-2 rounded-full font-medium text-sm whitespace-nowrap transition-colors',
+              'flex items-center px-3 py-1.5 rounded-full text-sm whitespace-nowrap transition-colors',
               activeCategory === category.slug
-                ? 'text-white shadow-md'
-                : 'bg-white text-gray-600 border border-gray-200 hover:bg-gray-50 hover:border-primary/30'
+                ? 'bg-gray-900 text-white'
+                : 'bg-white text-gray-700 border border-gray-200 hover:border-gray-400'
             )}
-            style={{
-              backgroundColor: activeCategory === category.slug ? category.color : undefined,
-            }}
             whileTap={{ scale: 0.95 }}
           >
-            <span>{category.icon}</span>
             <span>{category.name}</span>
           </motion.button>
         ))}

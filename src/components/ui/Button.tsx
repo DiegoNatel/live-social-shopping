@@ -31,13 +31,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ) => {
     const variants = {
       primary: `
-        bg-gradient-to-r from-primary to-primary-400 
-        text-white font-semibold shadow-btn-primary
-        hover:shadow-lg disabled:opacity-50 disabled:cursor-not-allowed
+        bg-primary text-white font-semibold
+        hover:bg-primary-600 disabled:opacity-50 disabled:cursor-not-allowed
       `,
       secondary: `
-        border-2 border-primary text-primary 
-        bg-transparent hover:bg-primary/10
+        border border-primary text-primary
+        bg-transparent hover:bg-primary/5
         disabled:opacity-50 disabled:cursor-not-allowed
       `,
       ghost: `
@@ -58,9 +57,9 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     }
 
     const sizes = {
-      sm: 'px-3 py-1.5 text-sm rounded-lg',
-      md: 'px-5 py-2.5 text-base rounded-xl',
-      lg: 'px-6 py-3 text-lg rounded-xl',
+      sm: 'px-3 py-1.5 text-sm rounded-md',
+      md: 'px-4 py-2 text-sm rounded-md',
+      lg: 'px-5 py-2.5 text-base rounded-md',
       icon: 'w-10 h-10 rounded-full p-0 flex items-center justify-center',
     }
 
@@ -68,7 +67,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       <motion.button
         ref={ref}
         className={cn(
-          'inline-flex items-center justify-center gap-2 font-medium transition-all duration-200',
+          'inline-flex items-center justify-center gap-2 font-medium transition-colors duration-150',
           variants[variant],
           sizes[size],
           fullWidth && 'w-full',
@@ -76,7 +75,6 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         )}
         disabled={disabled || isLoading}
         whileTap={{ scale: disabled || isLoading ? 1 : 0.98 }}
-        whileHover={{ scale: disabled || isLoading ? 1 : 1.02 }}
         {...props}
       >
         {isLoading ? (

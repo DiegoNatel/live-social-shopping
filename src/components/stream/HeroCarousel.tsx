@@ -48,7 +48,7 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
 
   return (
     <div
-      className="relative w-full aspect-[16/9] md:aspect-[21/9] rounded-2xl overflow-hidden"
+      className="relative w-full aspect-[16/9] md:aspect-auto md:h-[320px] rounded-md overflow-hidden bg-gray-900"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
@@ -56,10 +56,10 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
         <motion.div
           key={stream.id}
           className="absolute inset-0"
-          initial={{ opacity: 0, scale: 1.1 }}
-          animate={{ opacity: 1, scale: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.5 }}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.4 }}
         >
           {/* Background */}
           <Image
@@ -71,13 +71,12 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
           />
           
           {/* Gradient overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 via-transparent to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-black/70 via-black/30 to-transparent" />
         </motion.div>
       </AnimatePresence>
 
       {/* Content */}
-      <div className="absolute inset-0 flex flex-col justify-end p-4 md:p-6">
+      <div className="absolute inset-0 flex flex-col justify-end md:justify-center p-4 md:p-8 md:max-w-[55%]">
         <AnimatePresence mode="wait">
           <motion.div
             key={stream.id}
@@ -87,31 +86,31 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
             transition={{ duration: 0.3 }}
           >
             {/* Badges */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               {stream.isLive && <LiveBadge />}
               {stream.isLive && <ViewersBadge count={stream.viewerCount} />}
-              <span className="px-2 py-1 rounded-full bg-white/20 backdrop-blur-sm text-white text-xs font-medium capitalize">
+              <span className="text-white/70 text-xs font-medium capitalize">
                 {stream.category}
               </span>
             </div>
 
             {/* Title */}
-            <h2 className="text-xl md:text-2xl lg:text-3xl font-bold text-white mb-2 line-clamp-2">
+            <h2 className="text-lg md:text-2xl font-semibold text-white mb-3 line-clamp-2">
               {stream.title}
             </h2>
 
             {/* Host info */}
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-2 mb-4">
               <Avatar
                 src={stream.host.avatar}
                 alt={stream.host.name}
-                size="md"
+                size="sm"
                 isVerified={stream.host.isVerified}
                 isLive={stream.isLive}
               />
               <div>
-                <p className="text-white font-medium">{stream.host.name}</p>
-                <p className="text-white/60 text-sm">
+                <p className="text-white text-sm font-medium">{stream.host.name}</p>
+                <p className="text-white/60 text-xs">
                   {formatViewerCount(stream.host.followers)} seguidores
                 </p>
               </div>
@@ -120,8 +119,8 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
             {/* CTA */}
             <Link href={stream.isLive ? `/live/${stream.id}` : `/stream/${stream.id}`}>
               <Button
-                leftIcon={<Play className="w-5 h-5" fill="currentColor" />}
-                size="lg"
+                leftIcon={<Play className="w-4 h-4" fill="currentColor" />}
+                size="md"
               >
                 {stream.isLive ? 'Assistir Agora' : 'Ver Detalhes'}
               </Button>
@@ -157,7 +156,7 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
               onClick={() => goTo(index)}
               className={`h-1.5 rounded-full transition-all duration-300 ${
                 index === current
-                  ? 'w-6 bg-primary'
+                  ? 'w-4 bg-white'
                   : 'w-1.5 bg-white/40 hover:bg-white/60'
               }`}
             />

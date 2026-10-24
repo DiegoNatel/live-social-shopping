@@ -22,10 +22,10 @@ const liftVariants = {
     scale: 1,
     boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
   },
-  hover: { 
-    y: -8, 
-    scale: 1.02,
-    boxShadow: '0 20px 40px rgba(0,0,0,0.2)',
+  hover: {
+    y: 0,
+    scale: 1,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
     transition: {
       type: 'spring',
       stiffness: 400,
@@ -40,15 +40,15 @@ const liftVariants = {
 
 // Live stream gets extra emphasis with glow
 const liveLiftVariants = {
-  initial: { 
-    y: 0, 
+  initial: {
+    y: 0,
     scale: 1,
-    boxShadow: '0 4px 15px rgba(255,107,107,0.2)',
+    boxShadow: '0 1px 2px rgba(0,0,0,0.12)',
   },
-  hover: { 
-    y: -12, 
-    scale: 1.03,
-    boxShadow: '0 25px 50px rgba(255,107,107,0.35), 0 10px 20px rgba(0,0,0,0.2)',
+  hover: {
+    y: 0,
+    scale: 1,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
     transition: {
       type: 'spring',
       stiffness: 400,
@@ -68,7 +68,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
     return (
       <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
         <motion.div
-          className="flex gap-3 p-3 rounded-xl bg-white border border-gray-100 hover:border-primary/30 hover:shadow-md transition-all"
+          className="flex gap-3 p-3 rounded-md bg-white shadow-card hover:shadow-card-hover transition-shadow"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ delay: index * 0.1 }}
@@ -132,7 +132,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
             src={thumbnail}
             alt={title}
             fill
-            className="object-cover transition-transform duration-500 group-hover:scale-110"
+            className="object-cover"
           />
           
           {/* Gradient overlay */}
@@ -194,7 +194,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
               alt={host.name}
               size="md"
               className={cn(
-                isLive && 'ring-2 ring-coral-pink'
+                false && ''
               )}
             />
             <div className="flex-1 min-w-0">
@@ -209,7 +209,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
               <span className="text-gray-500 text-xs">{formatViewerCount(host.followers)} seguidores</span>
             </div>
             {isLive ? (
-              <span className="px-2.5 py-1 bg-coral-pink text-white text-xs font-bold rounded-full flex items-center gap-1.5 shadow-lg shadow-coral-pink/30">
+              <span className="px-2 py-0.5 bg-coral-pink text-white text-[11px] font-semibold rounded flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />
                 LIVE
               </span>
@@ -267,8 +267,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
     <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
       <motion.div
         className={cn(
-          "relative aspect-[9/16] rounded-xl overflow-hidden group",
-          isLive && "ring-2 ring-coral-pink/50"
+          "relative aspect-[9/16] rounded-md overflow-hidden group"
         )}
         initial="initial"
         animate={{ opacity: 1, y: 0 }}
@@ -282,7 +281,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
           src={thumbnail}
           alt={title}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-110"
+          className="object-cover"
         />
         
         {/* Gradient overlay */}
