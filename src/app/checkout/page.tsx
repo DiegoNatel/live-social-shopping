@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -87,10 +87,13 @@ export default function CheckoutPage() {
     setTimeout(() => setPixCopied(false), 3000)
   }
 
-  if (items.length === 0 && !orderComplete) {
-    router.push('/cart')
-    return null
-  }
+  const isEmpty = items.length === 0 && !orderComplete
+
+  useEffect(() => {
+    if (isEmpty) router.push('/cart')
+  }, [isEmpty, router])
+
+  if (isEmpty) return null
 
   return (
     <MainLayout
