@@ -120,12 +120,10 @@ export default function DiscoverPage() {
 
   const handleCreatorSelect = (creatorId: string) => {
     setSelectedCreator(prev => prev === creatorId ? null : creatorId)
-    setFeaturedIndex(0) // Reset featured index when changing creator
   }
 
   const clearCreatorFilter = () => {
     setSelectedCreator(null)
-    setFeaturedIndex(0)
   }
 
   // Get selected creator data
