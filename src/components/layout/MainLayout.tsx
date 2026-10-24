@@ -22,7 +22,7 @@ export function MainLayout({
 }: MainLayoutProps) {
   return (
     <div className={cn(
-      'min-h-screen bg-gray-50',
+      'min-h-screen bg-page',
       fullHeight && 'h-screen overflow-hidden'
     )}>
       {showHeader && <Header showNav={showNav} {...headerProps} />}

@@ -13,24 +13,24 @@ interface BadgeProps {
 export function Badge({ variant = 'default', children, className, pulse = false }: BadgeProps) {
   const variants = {
     live: `
-      bg-coral-pink text-white text-xs font-bold uppercase tracking-wide
-      px-2.5 py-1 rounded-full
+      bg-coral-pink text-white text-[11px] font-semibold uppercase tracking-wide
+      px-2 py-0.5 rounded
     `,
     discount: `
-      bg-sunset-gold text-deep-ocean text-xs font-bold
-      px-2 py-0.5 rounded-md
+      bg-tropical-green text-white text-xs font-semibold
+      px-1.5 py-0.5 rounded
     `,
     viewers: `
-      bg-black/40 backdrop-blur-sm text-white text-xs font-medium
-      px-2 py-1 rounded-full border border-white/20
+      bg-black/50 text-white text-[11px] font-medium
+      px-2 py-0.5 rounded
     `,
     new: `
-      bg-tropical-green text-white text-xs font-bold uppercase
-      px-2 py-0.5 rounded-md
+      bg-sky-blue-50 text-sky-blue text-xs font-semibold uppercase
+      px-1.5 py-0.5 rounded
     `,
     hot: `
-      bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-bold uppercase
-      px-2 py-0.5 rounded-md
+      bg-primary-50 text-primary-700 text-xs font-semibold uppercase
+      px-1.5 py-0.5 rounded
     `,
     default: `
       bg-deep-ocean-700 text-white/80 text-xs font-medium
@@ -102,7 +102,7 @@ export function NewBadge({ className }: { className?: string }) {
 export function HotBadge({ className }: { className?: string }) {
   return (
     <Badge variant="hot" className={className}>
-      🔥 OFERTA
+      OFERTA
     </Badge>
   )
 }
