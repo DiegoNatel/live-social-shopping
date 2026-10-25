@@ -6,6 +6,7 @@ import { getSession } from '@/lib/auth'
 import { getOrders } from '@/lib/orders'
 import { formatCurrency } from '@/lib/utils'
 import { variantLabel } from '@/lib/pricing'
+import { CancelOrderButton } from './CancelOrderButton'
 import type { OrderStatus, PaymentMethod } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -75,7 +76,15 @@ export default async function OrdersPage() {
                 ))}
               </ul>
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
-                <span className="text-gray-500">{PAYMENT_LABELS[order.paymentMethod]}</span>
+                <span className="text-gray-500">
+                  {PAYMENT_LABELS[order.paymentMethod]}
+                  {order.status === 'pending' && (
+                    <>
+                      {' · '}
+                      <CancelOrderButton orderId={order.id} />
+                    </>
+                  )}
+                </span>
                 <span className="text-gray-900 font-medium">{formatCurrency(order.total)}</span>
               </div>
             </div>
