@@ -4,6 +4,7 @@
 interface __BaseEnv_CloudflareEnv {
 	DB: D1Database;
 	UPLOADS: R2Bucket;
+	LIVE_ROOM: DurableObjectNamespace<import("./src/realtime/live-room").LiveRoom>;
 	ASSETS: Fetcher;
 	BETTER_AUTH_SECRET: string;
 	BETTER_AUTH_URL: string;
