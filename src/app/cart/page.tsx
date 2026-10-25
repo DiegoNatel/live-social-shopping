@@ -9,34 +9,53 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
+import { computeTotals, toCents, fromCents, type AppliedCoupon } from '@/lib/pricing'
 import { Minus, Plus, Trash2, ShoppingBag, ChevronRight, Tag, Truck } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
 
 export default function CartPage() {
   const router = useRouter()
-  const { items, removeItem, updateQuantity, getTotal, clearCart } = useCartStore()
+  const { items, removeItem, updateQuantity, getTotal, clearCart, appliedCoupon, setCoupon } = useCartStore()
   const [couponCode, setCouponCode] = useState('')
-  const [appliedCoupon, setAppliedCoupon] = useState<string | null>(null)
-  const [couponDiscount, setCouponDiscount] = useState(0)
+  const [couponError, setCouponError] = useState('')
+  const [isCheckingCoupon, setIsCheckingCoupon] = useState(false)
 
-  const subtotal = getTotal()
-  const shipping = subtotal >= 199 ? 0 : 19.90
-  const pixDiscount = Math.round((subtotal - couponDiscount) * 5) / 100 // centavos, like the server
-  const total = subtotal + shipping - couponDiscount
-  const pixTotal = total - pixDiscount
+  // Same rules the order API uses (src/lib/pricing.ts)
+  const card = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: false })
+  const pix = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: true })
+  const subtotal = fromCents(card.subtotal)
+  const couponDiscount = fromCents(card.coupon)
+  const shipping = fromCents(card.shipping)
+  const total = fromCents(card.total)
+  const pixDiscount = fromCents(pix.pix)
+  const pixTotal = fromCents(pix.total)
 
-  const handleApplyCoupon = () => {
-    if (couponCode.toUpperCase() === 'VIVOBUY10') {
-      setAppliedCoupon('VIVOBUY10')
-      setCouponDiscount(subtotal * 0.1)
+  const handleApplyCoupon = async () => {
+    if (!couponCode.trim()) return
+    setIsCheckingCoupon(true)
+    setCouponError('')
+    const res = await fetch('/api/coupons/check', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        code: couponCode,
+        items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
+      }),
+    })
+    const data = (await res.json().catch(() => null)) as (AppliedCoupon & { message?: string }) | null
+    setIsCheckingCoupon(false)
+    if (res.ok && data) {
+      setCoupon({ code: data.code, percentOff: data.percentOff, maxDiscountCents: data.maxDiscountCents })
       setCouponCode('')
+    } else {
+      setCouponError(data?.message ?? 'Cupom inválido')
     }
   }
 
   const handleRemoveCoupon = () => {
-    setAppliedCoupon(null)
-    setCouponDiscount(0)
+    setCoupon(null)
+    setCouponError('')
   }
 
   if (items.length === 0) {
@@ -156,11 +175,13 @@ export default function CartPage() {
                 className="w-full h-12 pl-10 pr-4 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
-            <Button variant="secondary" onClick={handleApplyCoupon}>
+            <Button variant="secondary" onClick={handleApplyCoupon} isLoading={isCheckingCoupon}>
               Aplicar
             </Button>
           </div>
-          
+
+          {couponError && <p className="text-coral-pink text-sm mt-2">{couponError}</p>}
+
           {appliedCoupon && (
             <motion.div
               className="flex items-center justify-between mt-2 p-3 rounded-xl bg-primary/10 border border-primary/20"
@@ -168,7 +189,7 @@ export default function CartPage() {
               animate={{ opacity: 1, y: 0 }}
             >
               <span className="text-primary text-sm font-medium">
-                ✓ Cupom {appliedCoupon} aplicado!
+                ✓ Cupom {appliedCoupon.code} aplicado ({appliedCoupon.percentOff}% OFF)
               </span>
               <button
                 onClick={handleRemoveCoupon}
@@ -179,9 +200,11 @@ export default function CartPage() {
             </motion.div>
           )}
           
-          <p className="text-gray-400 text-xs mt-2">
-            💡 Use o cupom <strong className="text-primary">VIVOBUY10</strong> e ganhe 10% OFF
-          </p>
+          {!appliedCoupon && (
+            <p className="text-gray-400 text-xs mt-2">
+              💡 Use o cupom <strong className="text-primary">VIVOBUY10</strong> e ganhe 10% OFF
+            </p>
+          )}
         </div>
 
         {/* Shipping info */}

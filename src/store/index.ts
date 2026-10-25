@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, CartItem, Product, Notification } from '@/types'
+import type { AppliedCoupon } from '@/lib/pricing'
 
 // Cart Store
 interface CartState {
@@ -11,12 +12,17 @@ interface CartState {
   clearCart: () => void
   getTotal: () => number
   getItemCount: () => number
+  // Validated by /api/coupons/check; the order API re-checks it
+  appliedCoupon: AppliedCoupon | null
+  setCoupon: (coupon: AppliedCoupon | null) => void
 }
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      appliedCoupon: null,
+      setCoupon: (coupon) => set({ appliedCoupon: coupon }),
       
       addItem: (product, quantity = 1, variants) => {
         const items = get().items
@@ -66,7 +72,7 @@ export const useCartStore = create<CartState>()(
         })
       },
       
-      clearCart: () => set({ items: [] }),
+      clearCart: () => set({ items: [], appliedCoupon: null }),
       
       getTotal: () => {
         return get().items.reduce(

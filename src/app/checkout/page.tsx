@@ -10,6 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { useCartStore, useUserStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
+import { computeTotals, toCents, fromCents } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 import {
   ChevronLeft,
@@ -32,7 +33,7 @@ type PaymentMethod = 'pix' | 'credit' | 'boleto'
 
 export default function CheckoutPage() {
   const router = useRouter()
-  const { items, getTotal, clearCart } = useCartStore()
+  const { items, getTotal, clearCart, appliedCoupon, setCoupon } = useCartStore()
   const { user } = useUserStore()
   
   const [step, setStep] = useState<Step>('address')
@@ -64,11 +65,13 @@ export default function CheckoutPage() {
     installments: '1',
   })
 
-  const subtotal = getTotal()
-  const shipping = subtotal >= 199 ? 0 : 19.90
-  // Rounded to centavos the same way the server does
-  const pixDiscount = paymentMethod === 'pix' ? Math.round(subtotal * 5) / 100 : 0
-  const total = subtotal + shipping - pixDiscount
+  // Same rules the order API uses (src/lib/pricing.ts)
+  const totals = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: paymentMethod === 'pix' })
+  const subtotal = fromCents(totals.subtotal)
+  const couponDiscount = fromCents(totals.coupon)
+  const shipping = fromCents(totals.shipping)
+  const pixDiscount = fromCents(totals.pix)
+  const total = fromCents(totals.total)
 
   // Checkout needs an account; prefill the last address used
   useEffect(() => {
@@ -107,6 +110,7 @@ export default function CheckoutPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         paymentMethod: paymentMethod === 'credit' ? 'credit_card' : paymentMethod,
+        couponCode: appliedCoupon?.code,
         address,
         items: items.map(item => ({
           productId: item.product.id,
@@ -115,11 +119,19 @@ export default function CheckoutPage() {
         })),
       }),
     })
-    const data = (await res.json().catch(() => null)) as { id: string; total: number; message?: string } | null
+    const data = (await res.json().catch(() => null)) as
+      | { id: string; total: number; error?: string; message?: string }
+      | null
     setIsProcessing(false)
 
     if (!res.ok) {
-      setOrderError(data?.message ?? 'Não foi possível finalizar o pedido. Tente novamente.')
+      if (data?.error === 'COUPON') {
+        // Drop the coupon so the totals update and the order can be placed without it
+        setCoupon(null)
+        setOrderError(`${data.message}. O cupom foi removido; confira o novo total.`)
+      } else {
+        setOrderError(data?.message ?? 'Não foi possível finalizar o pedido. Tente novamente.')
+      }
       return
     }
 
@@ -473,6 +485,12 @@ export default function CheckoutPage() {
                   <span>Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
+                {couponDiscount > 0 && appliedCoupon && (
+                  <div className="flex justify-between text-tropical-green text-sm">
+                    <span>Cupom {appliedCoupon.code}</span>
+                    <span>-{formatCurrency(couponDiscount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-500 text-sm">
                   <span>Frete</span>
                   <span>{shipping === 0 ? 'Grátis' : formatCurrency(shipping)}</span>

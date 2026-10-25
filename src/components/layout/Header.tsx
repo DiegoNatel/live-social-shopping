@@ -1,5 +1,6 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -40,7 +41,11 @@ export function Header({
   const { user } = useUserStore()
   const { getItemCount } = useCartStore()
   const { unreadCount } = useNotificationStore()
-  const cartCount = getItemCount()
+  // The saved cart only exists in the browser; render the count after mount so the
+  // first client render matches the server HTML (avoids a hydration mismatch)
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => setMounted(true), [])
+  const cartCount = mounted ? getItemCount() : 0
 
   return (
     <header

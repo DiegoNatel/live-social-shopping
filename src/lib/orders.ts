@@ -1,11 +1,8 @@
 import 'server-only'
 import { getDb } from './db'
+import { checkCoupon } from './coupons'
+import { computeTotals, type AppliedCoupon } from './pricing'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
-
-// Pricing rules (must match what checkout shows)
-export const FREE_SHIPPING_FROM_CENTS = 199_00
-export const SHIPPING_CENTS = 19_90
-export const PIX_DISCOUNT = 0.05
 
 export type NewAddress = Omit<Address, 'id' | 'isDefault'>
 
@@ -13,10 +10,11 @@ export interface NewOrderInput {
   items: { productId: string; quantity: number; variants?: Record<string, string> }[]
   paymentMethod: Extract<PaymentMethod, 'pix' | 'credit_card' | 'boleto'>
   address: NewAddress
+  couponCode?: string
 }
 
 export class OrderError extends Error {
-  constructor(public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID', message: string) {
+  constructor(public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON', message: string) {
     super(message)
   }
 }
@@ -60,19 +58,30 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     if (product.stock < qty) throw new OrderError('OUT_OF_STOCK', `Estoque insuficiente: ${product.name}`)
   }
 
-  const shipping = subtotal >= FREE_SHIPPING_FROM_CENTS ? 0 : SHIPPING_CENTS
-  const discount = input.paymentMethod === 'pix' ? Math.round(subtotal * PIX_DISCOUNT) : 0
-  const total = subtotal + shipping - discount
+  let coupon: AppliedCoupon | null = null
+  if (input.couponCode) {
+    const check = await checkCoupon(input.couponCode, userId, subtotal)
+    if (!check.ok) throw new OrderError('COUPON', check.message)
+    coupon = check.coupon
+  }
+
+  const totals = computeTotals(subtotal, { coupon, pix: input.paymentMethod === 'pix' })
 
   const orderId = orderNumber()
   const statements = [
     db
       .prepare(
         `INSERT INTO orders (id, user_id, status, payment_method, subtotal_cents, shipping_cents,
-                             discount_cents, total_cents, shipping_address)
-         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?)`
+                             discount_cents, total_cents, shipping_address, coupon_code, coupon_discount_cents)
+         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`
       )
-      .bind(orderId, userId, input.paymentMethod, subtotal, shipping, discount, total, JSON.stringify(input.address)),
+      .bind(
+        orderId, userId, input.paymentMethod, subtotal, totals.shipping, totals.coupon + totals.pix, totals.total,
+        JSON.stringify(input.address), coupon?.code ?? null, totals.coupon
+      ),
+    // coupons has CHECK (uses_count <= max_uses) and orders has a unique (user, coupon) index,
+    // so an exhausted or already-used coupon rolls the whole order back
+    ...(coupon ? [db.prepare('UPDATE coupons SET uses_count = uses_count + 1 WHERE code = ?').bind(coupon.code)] : []),
     // products.stock has CHECK (stock >= 0): if a concurrent order took the last units,
     // this fails and the whole batch (order included) is rolled back
     ...[...qtyByProduct].map(([productId, qty]) =>
@@ -112,13 +121,20 @@ export async function createOrder(userId: string, input: NewOrderInput) {
   try {
     await db.batch(statements)
   } catch (e) {
-    if (String(e).includes('CHECK constraint failed')) {
+    const message = String(e)
+    if (message.includes('idx_orders_user_coupon') || message.includes('orders.user_id, orders.coupon_code')) {
+      throw new OrderError('COUPON', 'Você já usou este cupom')
+    }
+    if (message.includes('CHECK constraint failed') && message.includes('uses_count')) {
+      throw new OrderError('COUPON', 'Este cupom esgotou')
+    }
+    if (message.includes('CHECK constraint failed')) {
       throw new OrderError('OUT_OF_STOCK', 'Um dos produtos acabou de esgotar')
     }
     throw e
   }
 
-  return { id: orderId, total: total / 100 }
+  return { id: orderId, total: totals.total / 100 }
 }
 
 export function notify(

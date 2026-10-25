@@ -56,6 +56,7 @@ export async function POST(request: Request) {
     const order = await createOrder(session.user.id, {
       items,
       paymentMethod,
+      couponCode: str(body.couponCode, 32) ?? undefined,
       address: {
         name: profile?.user.name ?? session.user.name,
         street,
