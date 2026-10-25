@@ -9,6 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { useUIStore, useCartStore, useUserStore } from '@/store'
 import { formatCurrency, calculateDiscount, calculateInstallments } from '@/lib/utils'
+import { availableStock, missingVariantTypes, unitPrice, VARIANT_LABELS } from '@/lib/pricing'
 import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
@@ -31,11 +32,21 @@ export function ProductModal() {
   const discount = product.originalPrice 
     ? calculateDiscount(product.originalPrice, product.price) 
     : 0
-  const installments = calculateInstallments(product.price * quantity)
-  const pixPrice = product.price * quantity * 0.95
+  const price = unitPrice(product, selectedVariants)
+  const stock = availableStock(product, selectedVariants)
+  const missing = missingVariantTypes(product, selectedVariants)
+  const installments = calculateInstallments(price * quantity)
+  const pixPrice = price * quantity * 0.95
 
   const sizeVariants = product.variants?.filter(v => v.type === 'size') || []
   const colorVariants = product.variants?.filter(v => v.type === 'color') || []
+
+  // Picking another variant can lower the stock available
+  const selectVariant = (type: 'size' | 'color', name: string) => {
+    const next = { ...selectedVariants, [type]: name }
+    setSelectedVariants(next)
+    setQuantity(q => Math.max(1, Math.min(q, availableStock(product, next))))
+  }
 
   const handleAddToCart = () => {
     addItem(product, quantity, selectedVariants)
@@ -175,7 +186,7 @@ export function ProductModal() {
                   <div className="mb-6">
                     <div className="flex items-baseline gap-3">
                       <span className="text-gray-900 font-normal text-2xl md:text-3xl">
-                        {formatCurrency(product.price * quantity)}
+                        {formatCurrency(price * quantity)}
                       </span>
                       {product.originalPrice && (
                         <span className="text-gray-400 text-lg line-through">
@@ -195,7 +206,7 @@ export function ProductModal() {
                     
                     {/* Installments */}
                     <p className="text-gray-500 text-sm mt-2">
-                      ou em até <strong>12x de {formatCurrency(installments[11]?.value || product.price / 12)}</strong>
+                      ou em até <strong>12x de {formatCurrency(installments[11]?.value || price / 12)}</strong>
                     </p>
                   </div>
 
@@ -218,15 +229,18 @@ export function ProductModal() {
                         {colorVariants.map((variant) => (
                           <button
                             key={variant.id}
-                            onClick={() => setSelectedVariants({ ...selectedVariants, color: variant.name })}
+                            onClick={() => selectVariant('color', variant.name)}
+                            disabled={variant.stock === 0}
                             className={cn(
                               'w-10 h-10 rounded-full border-2 transition-all',
                               selectedVariants.color === variant.name
                                 ? 'border-tropical-green scale-110'
+                                : variant.stock === 0
+                                ? 'border-gray-200 opacity-30 cursor-not-allowed'
                                 : 'border-gray-200 hover:border-gray-300'
                             )}
                             style={{ backgroundColor: variant.value }}
-                            title={variant.name}
+                            title={`${variant.name}${variant.priceModifier ? ` (+${formatCurrency(variant.priceModifier)})` : ''}${variant.stock === 0 ? ' — esgotado' : ''}`}
                           />
                         ))}
                       </div>
@@ -243,7 +257,7 @@ export function ProductModal() {
                         {sizeVariants.map((variant) => (
                           <button
                             key={variant.id}
-                            onClick={() => setSelectedVariants({ ...selectedVariants, size: variant.name })}
+                            onClick={() => selectVariant('size', variant.name)}
                             disabled={variant.stock === 0}
                             className={cn(
                               'min-w-[48px] h-10 px-3 rounded-lg font-medium text-sm transition-all',
@@ -255,6 +269,9 @@ export function ProductModal() {
                             )}
                           >
                             {variant.name}
+                            {!!variant.priceModifier && (
+                              <span className="ml-1 text-xs opacity-75">+{formatCurrency(variant.priceModifier)}</span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -274,13 +291,13 @@ export function ProductModal() {
                       </button>
                       <span className="w-12 text-center font-semibold text-deep-ocean">{quantity}</span>
                       <button
-                        onClick={() => setQuantity(Math.min(product.stock, quantity + 1))}
+                        onClick={() => setQuantity(Math.min(stock, quantity + 1))}
                         className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        disabled={quantity >= product.stock}
+                        disabled={quantity >= stock}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
-                      <span className="text-gray-400 text-sm ml-2">{product.stock} disponíveis</span>
+                      <span className="text-gray-400 text-sm ml-2">{stock} disponíveis</span>
                     </div>
                   </div>
 
@@ -307,11 +324,19 @@ export function ProductModal() {
 
                 {/* Actions */}
                 <div className="p-4 border-t border-gray-100 bg-white">
+                  {(missing.length > 0 || stock === 0) && (
+                    <p className="text-gray-500 text-sm mb-2 text-center">
+                      {stock === 0
+                        ? 'Esgotado'
+                        : `Selecione: ${missing.map(t => VARIANT_LABELS[t].toLowerCase()).join(' e ')}`}
+                    </p>
+                  )}
                   <div className="flex gap-3">
                     <Button
                       variant="secondary"
                       fullWidth
                       onClick={handleAddToCart}
+                      disabled={missing.length > 0 || stock === 0}
                       leftIcon={isAdded ? <Check className="w-5 h-5" /> : <ShoppingBag className="w-5 h-5" />}
                       className={cn(
                         'transition-colors',
@@ -324,6 +349,7 @@ export function ProductModal() {
                       variant="primary"
                       fullWidth
                       onClick={handleBuyNow}
+                      disabled={missing.length > 0 || stock === 0}
                     >
                       Comprar Agora
                     </Button>

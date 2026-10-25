@@ -5,6 +5,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { getSession } from '@/lib/auth'
 import { getOrders } from '@/lib/orders'
 import { formatCurrency } from '@/lib/utils'
+import { variantLabel } from '@/lib/pricing'
 import type { OrderStatus, PaymentMethod } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -67,6 +68,7 @@ export default async function OrdersPage() {
                       <p className="text-gray-700 text-sm truncate">{item.name}</p>
                       <p className="text-gray-400 text-xs">
                         {item.quantity} × {formatCurrency(item.unitPrice)}
+                        {item.variants && ` • ${variantLabel(item.variants)}`}
                       </p>
                     </div>
                   </li>

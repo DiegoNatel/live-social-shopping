@@ -36,7 +36,9 @@ export function ProductCard({
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation()
-    addItem(product)
+    // Size/color has to be chosen in the product modal first
+    if (product.variants?.length) openProductModal(product)
+    else addItem(product)
   }
 
   const handleLike = (e: React.MouseEvent) => {

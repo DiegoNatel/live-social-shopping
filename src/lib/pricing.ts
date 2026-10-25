@@ -1,6 +1,8 @@
 // Order pricing rules, shared by the cart/checkout pages and the order API so the
 // total shown is always the total charged. All amounts are in centavos.
 
+import type { Product, ProductVariant } from '@/types'
+
 export const FREE_SHIPPING_FROM_CENTS = 199_00
 export const SHIPPING_CENTS = 19_90
 export const PIX_DISCOUNT_PERCENT = 5
@@ -28,3 +30,40 @@ export function computeTotals(subtotalCents: number, opts: { coupon?: AppliedCou
 
 export const toCents = (reais: number) => Math.round(reais * 100)
 export const fromCents = (cents: number) => cents / 100
+
+// ---------- Variants ----------
+// A product can have size and/or color variants, each with its own stock and an
+// optional price modifier. Choices are stored as { size: 'M', color: 'Azul' }.
+
+export type VariantType = ProductVariant['type']
+export const VARIANT_TYPES: VariantType[] = ['size', 'color']
+export const VARIANT_LABELS: Record<VariantType, string> = { size: 'Tamanho', color: 'Cor' }
+
+export function chosenVariants(product: Pick<Product, 'variants'>, selected?: Record<string, string>) {
+  return VARIANT_TYPES.flatMap(type => {
+    const v = product.variants?.find(v => v.type === type && v.name === selected?.[type])
+    return v ? [v] : []
+  })
+}
+
+// Variant types the product offers that haven't been chosen yet
+export function missingVariantTypes(product: Pick<Product, 'variants'>, selected?: Record<string, string>) {
+  return VARIANT_TYPES.filter(
+    type => product.variants?.some(v => v.type === type) && !chosenVariants(product, selected).some(v => v.type === type)
+  )
+}
+
+// Unit price in reais, including the chosen variants' modifiers
+export function unitPrice(product: Pick<Product, 'price' | 'variants'>, selected?: Record<string, string>) {
+  const cents = toCents(product.price) + chosenVariants(product, selected).reduce((sum, v) => sum + toCents(v.priceModifier ?? 0), 0)
+  return fromCents(cents)
+}
+
+// Most units that can be bought with these choices
+export function availableStock(product: Pick<Product, 'stock' | 'variants'>, selected?: Record<string, string>) {
+  return Math.min(product.stock, ...chosenVariants(product, selected).map(v => v.stock))
+}
+
+export function variantLabel(selected?: Record<string, string>) {
+  return VARIANT_TYPES.filter(t => selected?.[t]).map(t => `${VARIANT_LABELS[t]}: ${selected![t]}`).join(' • ')
+}

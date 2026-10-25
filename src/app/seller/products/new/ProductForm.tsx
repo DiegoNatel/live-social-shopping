@@ -5,7 +5,24 @@ import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
+import { Plus, Trash2 } from 'lucide-react'
 import type { Category } from '@/types'
+
+interface VariantRow {
+  type: 'size' | 'color'
+  name: string
+  value: string
+  stock: string
+  priceModifier: string
+}
+
+const emptyVariant = (type: VariantRow['type']): VariantRow => ({
+  type,
+  name: '',
+  value: '#000000',
+  stock: '',
+  priceModifier: '',
+})
 
 export function ProductForm({ categories }: { categories: Category[] }) {
   const router = useRouter()
@@ -19,6 +36,9 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     images: '',
     tags: '',
   })
+  const [variants, setVariants] = useState<VariantRow[]>([])
+  const updateVariant = (i: number, patch: Partial<VariantRow>) =>
+    setVariants(vs => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)))
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
   const set = (key: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -40,6 +60,13 @@ export function ProductForm({ categories }: { categories: Category[] }) {
         category: form.category,
         images: form.images.split(/\s+/).filter(Boolean),
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+        variants: variants.map(v => ({
+          type: v.type,
+          name: v.name,
+          value: v.type === 'color' ? v.value : v.name,
+          stock: v.stock,
+          priceModifier: v.priceModifier ? v.priceModifier.replace(',', '.') : undefined,
+        })),
       }),
     })
     if (res.ok) {
@@ -96,6 +123,85 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               required
             />
           </FormField>
+          <div>
+            <span className="block text-sm text-gray-700 mb-1">Variações</span>
+            <p className="text-xs text-gray-400 mb-2">
+              Opcional. Cada tamanho e cada cor tem seu próprio estoque; o comprador precisa escolher um de cada tipo.
+              Use a diferença de preço para opções mais caras (ou mais baratas, com valor negativo).
+            </p>
+            {variants.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {variants.map((v, i) => (
+                  <div key={i} className="flex flex-wrap items-center gap-2">
+                    <span className="w-16 text-xs text-gray-500">{v.type === 'size' ? 'Tamanho' : 'Cor'}</span>
+                    {v.type === 'color' && (
+                      <input
+                        type="color"
+                        aria-label="Cor"
+                        className="h-10 w-10 rounded-md border border-gray-300 bg-white p-1"
+                        value={v.value}
+                        onChange={e => updateVariant(i, { value: e.target.value })}
+                      />
+                    )}
+                    <input
+                      className={`${inputClass} flex-1 min-w-[96px]`}
+                      placeholder={v.type === 'size' ? 'P, M, 42...' : 'Azul'}
+                      aria-label="Nome"
+                      value={v.name}
+                      maxLength={30}
+                      onChange={e => updateVariant(i, { name: e.target.value })}
+                      required
+                    />
+                    <input
+                      className={`${inputClass} w-24`}
+                      placeholder="Estoque"
+                      aria-label="Estoque da variação"
+                      inputMode="numeric"
+                      value={v.stock}
+                      onChange={e => updateVariant(i, { stock: e.target.value })}
+                      required
+                    />
+                    <input
+                      className={`${inputClass} w-28`}
+                      placeholder="+ R$ 0,00"
+                      aria-label="Diferença de preço (R$)"
+                      inputMode="decimal"
+                      value={v.priceModifier}
+                      onChange={e => updateVariant(i, { priceModifier: e.target.value })}
+                    />
+                    <button
+                      type="button"
+                      aria-label="Remover variação"
+                      className="h-10 w-10 flex items-center justify-center rounded-md text-gray-400 hover:text-coral-pink hover:bg-gray-50"
+                      onClick={() => setVariants(vs => vs.filter((_, j) => j !== i))}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={() => setVariants(vs => [...vs, emptyVariant('size')])}
+              >
+                Tamanho
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leftIcon={<Plus className="w-4 h-4" />}
+                onClick={() => setVariants(vs => [...vs, emptyVariant('color')])}
+              >
+                Cor
+              </Button>
+            </div>
+          </div>
           <FormField label="Tags" hint="Separadas por vírgula">
             <input className={inputClass} value={form.tags} onChange={set('tags')} placeholder="vestido, verão" />
           </FormField>

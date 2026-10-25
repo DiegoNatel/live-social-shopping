@@ -9,7 +9,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { useCartStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
-import { computeTotals, toCents, fromCents, type AppliedCoupon } from '@/lib/pricing'
+import { availableStock, computeTotals, toCents, fromCents, unitPrice, variantLabel, type AppliedCoupon } from '@/lib/pricing'
 import { Minus, Plus, Trash2, ShoppingBag, ChevronRight, Tag, Truck } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
@@ -109,16 +109,14 @@ export default function CartPage() {
                   </h3>
                   
                   {/* Variants */}
-                  {item.selectedVariants && Object.keys(item.selectedVariants).length > 0 && (
-                    <p className="text-gray-400 text-xs mb-2">
-                      {Object.entries(item.selectedVariants).map(([key, value]) => `${key}: ${value}`).join(' • ')}
-                    </p>
+                  {variantLabel(item.selectedVariants) && (
+                    <p className="text-gray-400 text-xs mb-2">{variantLabel(item.selectedVariants)}</p>
                   )}
 
                   {/* Price */}
                   <div className="flex items-baseline gap-2 mb-3">
                     <span className="text-primary font-bold">
-                      {formatCurrency(item.product.price)}
+                      {formatCurrency(unitPrice(item.product, item.selectedVariants))}
                     </span>
                     {item.product.originalPrice && (
                       <span className="text-gray-400 text-sm line-through">
@@ -131,7 +129,7 @@ export default function CartPage() {
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity - 1)}
                         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={item.quantity <= 1}
                       >
@@ -141,16 +139,16 @@ export default function CartPage() {
                         {item.quantity}
                       </span>
                       <button
-                        onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                        onClick={() => updateQuantity(item.id, item.quantity + 1)}
                         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
-                        disabled={item.quantity >= item.product.stock}
+                        disabled={item.quantity >= availableStock(item.product, item.selectedVariants)}
                       >
                         <Plus className="w-4 h-4" />
                       </button>
                     </div>
 
                     <button
-                      onClick={() => removeItem(item.product.id)}
+                      onClick={() => removeItem(item.id)}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />

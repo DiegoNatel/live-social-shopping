@@ -6,7 +6,7 @@ import Image from 'next/image'
 import { formatCurrency, calculateDiscount } from '@/lib/utils'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { useCartStore } from '@/store'
+import { useCartStore, useUIStore } from '@/store'
 import type { Product } from '@/types'
 import { ChevronLeft, ChevronRight, ShoppingBag, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -20,6 +20,7 @@ interface ProductCarouselProps {
 export function ProductCarousel({ products, onProductClick, variant = 'horizontal' }: ProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const { addItem } = useCartStore()
+  const openProductModal = useUIStore(s => s.openProductModal)
 
   const scroll = (direction: 'left' | 'right') => {
     if (scrollRef.current) {
@@ -30,7 +31,9 @@ export function ProductCarousel({ products, onProductClick, variant = 'horizonta
 
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation()
-    addItem(product)
+    // Size/color has to be chosen in the product modal first
+    if (product.variants?.length) openProductModal(product)
+    else addItem(product)
   }
 
   if (variant === 'vertical') {

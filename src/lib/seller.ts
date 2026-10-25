@@ -26,20 +26,31 @@ export interface ProductInput {
   category: string
   images: string[]
   tags: string[]
+  variants: { type: 'size' | 'color'; name: string; value: string; stock: number; priceModifier: number }[]
 }
 
 export async function createProduct(sellerId: string, p: ProductInput) {
+  const db = getDb()
   const id = newId()
-  await getDb()
-    .prepare(
-      `INSERT INTO products (id, seller_id, category_slug, name, description, price_cents, original_price_cents, stock, images, tags)
-       VALUES (?, ?, (SELECT slug FROM categories WHERE slug = ?), ?, ?, ?, ?, ?, ?, ?)`
-    )
-    .bind(
-      id, sellerId, p.category, p.name, p.description, cents(p.price),
-      p.originalPrice ? cents(p.originalPrice) : null, p.stock, JSON.stringify(p.images), JSON.stringify(p.tags)
-    )
-    .run()
+  await db.batch([
+    db
+      .prepare(
+        `INSERT INTO products (id, seller_id, category_slug, name, description, price_cents, original_price_cents, stock, images, tags)
+         VALUES (?, ?, (SELECT slug FROM categories WHERE slug = ?), ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .bind(
+        id, sellerId, p.category, p.name, p.description, cents(p.price),
+        p.originalPrice ? cents(p.originalPrice) : null, p.stock, JSON.stringify(p.images), JSON.stringify(p.tags)
+      ),
+    ...p.variants.map((v, i) =>
+      db
+        .prepare(
+          `INSERT INTO product_variants (id, product_id, type, name, value, stock, price_modifier_cents, sort_order)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(newId(), id, v.type, v.name, v.value, v.stock, cents(v.priceModifier), i)
+    ),
+  ])
   return id
 }
 

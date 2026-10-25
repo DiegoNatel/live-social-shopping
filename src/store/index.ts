@@ -1,14 +1,15 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { User, CartItem, Product, Notification } from '@/types'
-import type { AppliedCoupon } from '@/lib/pricing'
+import { availableStock, unitPrice, type AppliedCoupon } from '@/lib/pricing'
 
 // Cart Store
 interface CartState {
   items: CartItem[]
   addItem: (product: Product, quantity?: number, variants?: Record<string, string>) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  // Both take the cart line id: the same product can be in the cart with different variants
+  removeItem: (lineId: string) => void
+  updateQuantity: (lineId: string, quantity: number) => void
   clearCart: () => void
   getTotal: () => number
   getItemCount: () => number
@@ -31,11 +32,12 @@ export const useCartStore = create<CartState>()(
           JSON.stringify(item.selectedVariants) === JSON.stringify(variants)
         )
         
+        const max = availableStock(product, variants)
         if (existingItem) {
           set({
             items: items.map(item =>
               item.id === existingItem.id
-                ? { ...item, quantity: item.quantity + quantity }
+                ? { ...item, quantity: Math.min(max, item.quantity + quantity) }
                 : item
             ),
           })
@@ -46,7 +48,7 @@ export const useCartStore = create<CartState>()(
               {
                 id: `cart-${Date.now()}`,
                 product,
-                quantity,
+                quantity: Math.min(max, quantity),
                 selectedVariants: variants,
               },
             ],
@@ -54,20 +56,22 @@ export const useCartStore = create<CartState>()(
         }
       },
       
-      removeItem: (productId) => {
+      removeItem: (lineId) => {
         set({
-          items: get().items.filter(item => item.product.id !== productId),
+          items: get().items.filter(item => item.id !== lineId),
         })
       },
       
-      updateQuantity: (productId, quantity) => {
+      updateQuantity: (lineId, quantity) => {
         if (quantity <= 0) {
-          get().removeItem(productId)
+          get().removeItem(lineId)
           return
         }
         set({
           items: get().items.map(item =>
-            item.product.id === productId ? { ...item, quantity } : item
+            item.id === lineId
+              ? { ...item, quantity: Math.min(availableStock(item.product, item.selectedVariants), quantity) }
+              : item
           ),
         })
       },
@@ -76,7 +80,7 @@ export const useCartStore = create<CartState>()(
       
       getTotal: () => {
         return get().items.reduce(
-          (total, item) => total + item.product.price * item.quantity,
+          (total, item) => total + unitPrice(item.product, item.selectedVariants) * item.quantity,
           0
         )
       },

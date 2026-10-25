@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
 import { useCartStore, useUserStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
-import { computeTotals, toCents, fromCents } from '@/lib/pricing'
+import { computeTotals, toCents, fromCents, unitPrice, variantLabel } from '@/lib/pricing'
 import { cn } from '@/lib/utils'
 import {
   ChevronLeft,
@@ -471,10 +471,13 @@ export default function CheckoutPage() {
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-gray-900 text-sm line-clamp-1">{item.product.name}</p>
-                      <p className="text-gray-500 text-xs">Qtd: {item.quantity}</p>
+                      <p className="text-gray-500 text-xs">
+                        Qtd: {item.quantity}
+                        {variantLabel(item.selectedVariants) && ` • ${variantLabel(item.selectedVariants)}`}
+                      </p>
                     </div>
                     <span className="text-gray-900 text-sm font-medium">
-                      {formatCurrency(item.product.price * item.quantity)}
+                      {formatCurrency(unitPrice(item.product, item.selectedVariants) * item.quantity)}
                     </span>
                   </div>
                 ))}
