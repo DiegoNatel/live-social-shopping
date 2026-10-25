@@ -212,7 +212,7 @@ export default function ProfilePage() {
           <MenuSection title="Outros">
             <MenuItem
               icon={<Gift className="w-5 h-5" />}
-              label="Indique e Ganhe"
+              label="Convide amigos"
               href="/referral"
               badge="Novo"
             />

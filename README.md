@@ -28,7 +28,8 @@ A next-generation live social shopping platform for the Brazilian market, combin
 
 ## 🛠️ Tech Stack
 
-- **Framework:** Next.js 14 (App Router)
+- **Framework:** Next.js 15 (App Router) on Cloudflare Workers (OpenNext)
+- **Data:** Cloudflare D1 (SQLite), R2 for images, Better Auth for login
 - **Language:** TypeScript
 - **Styling:** Tailwind CSS
 - **State Management:** Zustand
@@ -38,19 +39,46 @@ A next-generation live social shopping platform for the Brazilian market, combin
 
 ## 📦 Installation
 
-```bash
-# Clone the repository
-git clone https://github.com/yourusername/vivobuy.git
-cd vivobuy
+Runs on Cloudflare Workers (via OpenNext) with a D1 database, R2 for uploaded images and Better Auth for login.
 
-# Install dependencies
+```bash
 npm install
 
-# Start development server
+# Local secrets: copy and set BETTER_AUTH_SECRET (any long random string)
+cp .dev.vars.example .dev.vars
+
+# Local database
+npm run db:migrate:local
+npm run db:seed:local
+
+# Start development server (D1 and R2 run locally through Wrangler)
 npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
+
+### Deploying
+
+```bash
+# One-time setup
+npx wrangler r2 bucket create vivobuy-images
+npx wrangler secret put BETTER_AUTH_SECRET
+
+npm run db:migrate:remote
+npm run deploy
+```
+
+### Google login (optional)
+
+1. In Google Cloud Console → APIs & Services → Credentials, create an OAuth client ID of type *Web application*.
+2. Add the redirect URI `<BETTER_AUTH_URL>/api/auth/callback/google` (and `http://localhost:3000/api/auth/callback/google` for local use).
+3. Set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` in `.dev.vars` locally and with `npx wrangler secret put` in production.
+
+The "Continuar com Google" button only appears once both are set.
+
+### Before launch
+
+`/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.
 
 ## 📁 Project Structure
 
@@ -106,13 +134,21 @@ npm run lint     # Run ESLint
 |-------|-------------|
 | `/` | Home page with live streams and products |
 | `/discover` | Browse all streams and products |
-| `/live` | All live and scheduled streams |
+| `/search` | Search products, lives and sellers |
+| `/deals`, `/trending` | Biggest discounts, best sellers of the last 30 days |
+| `/courses` | Courses |
+| `/schedule` | Upcoming lives by day |
 | `/live/[id]` | Watch a live stream |
-| `/cart` | Shopping cart |
-| `/checkout` | Checkout process |
-| `/profile` | User profile and settings |
+| `/cart`, `/checkout` | Cart and checkout |
+| `/orders` | Order history |
+| `/profile` | User profile |
+| `/wishlist`, `/reviews` | Favorites; rate purchased products |
+| `/addresses`, `/settings` | Address book; profile, password, sessions |
+| `/payment-methods`, `/referral`, `/help` | Payment info, invite link, FAQ |
+| `/terms`, `/privacy` | Terms of use and privacy policy (LGPD) — drafts |
 | `/notifications` | User notifications |
-| `/seller/dashboard` | Seller analytics dashboard |
+| `/seller/dashboard` | Seller dashboard |
+| `/seller/products/new`, `/seller/streams/new` | Add a product (with variants and images), schedule a live |
 
 ## 🌐 Localization
 

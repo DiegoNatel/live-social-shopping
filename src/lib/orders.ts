@@ -1,6 +1,7 @@
 import 'server-only'
 import { getDb } from './db'
 import { checkCoupon } from './coupons'
+import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
@@ -244,18 +245,5 @@ export async function getDefaultAddress(userId: string): Promise<Address | null>
     .prepare('SELECT * FROM addresses WHERE user_id = ? ORDER BY is_default DESC, rowid DESC LIMIT 1')
     .bind(userId)
     .first<Record<string, any>>()
-  if (!r) return null
-  return {
-    id: r.id,
-    name: r.name,
-    street: r.street,
-    number: r.number,
-    complement: r.complement ?? undefined,
-    neighborhood: r.neighborhood,
-    city: r.city,
-    state: r.state,
-    zipCode: r.zip_code,
-    phone: r.phone,
-    isDefault: !!r.is_default,
-  }
+  return r ? toAddress(r) : null
 }

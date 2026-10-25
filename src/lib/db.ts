@@ -43,7 +43,8 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
     category: row.category_slug,
     variants,
     stock: row.stock,
-    rating: row.rating,
+    // Stored unrounded (reviews update it incrementally)
+    rating: Math.round(row.rating * 10) / 10,
     reviews: row.reviews_count,
     seller: toUser(row, 'seller_'),
     tags: parseList(row.tags),
@@ -87,15 +88,78 @@ async function hydrateProducts(rows: Row[]): Promise<Product[]> {
   return rows.map(r => toProduct(r, variants.get(r.id)))
 }
 
-export async function getProducts({ onSale = false, limit = 20 } = {}): Promise<Product[]> {
+const PRODUCT_ORDER = {
+  default: 'p.created_at, p.id',
+  // Biggest discount first
+  discount: '(p.original_price_cents - p.price_cents) * 1.0 / p.original_price_cents DESC, p.id',
+  // Units ordered in the last 30 days, then rating weighted by review count
+  trending: `(SELECT coalesce(sum(oi.quantity), 0) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+              WHERE oi.product_id = p.id AND o.status != 'cancelled'
+                AND o.created_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-30 days')) DESC,
+             p.rating * p.reviews_count DESC, p.id`,
+}
+
+export async function getProducts({
+  onSale = false,
+  inStock = false,
+  sort = 'default' as keyof typeof PRODUCT_ORDER,
+  limit = 20,
+} = {}): Promise<Product[]> {
   const { results } = await getDb()
     .prepare(
-      `${PRODUCT_SELECT} ${onSale ? 'AND p.original_price_cents IS NOT NULL' : ''}
-       ORDER BY p.created_at, p.id LIMIT ?`
+      `${PRODUCT_SELECT} ${onSale ? 'AND p.original_price_cents > p.price_cents' : ''} ${inStock ? 'AND p.stock > 0' : ''}
+       ORDER BY ${PRODUCT_ORDER[sort]} LIMIT ?`
     )
     .bind(limit)
     .all<Row>()
   return hydrateProducts(results)
+}
+
+export async function getFavoriteProducts(userId: string): Promise<Product[]> {
+  const { results } = await getDb()
+    .prepare(
+      `${PRODUCT_SELECT} AND p.id IN (SELECT product_id FROM favorites WHERE user_id = ?)
+       ORDER BY (SELECT created_at FROM favorites WHERE user_id = ? AND product_id = p.id) DESC`
+    )
+    .bind(userId, userId)
+    .all<Row>()
+  return hydrateProducts(results)
+}
+
+// ---------- Search ----------
+
+// LIKE pattern with the user's %, _ and \ escaped
+const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`
+
+export async function search(q: string) {
+  const db = getDb()
+  const pattern = likePattern(q)
+  const [{ results: productRows }, { results: sellerRows }, streams] = await Promise.all([
+    db
+      .prepare(
+        `${PRODUCT_SELECT} AND (p.name LIKE ?1 ESCAPE '\\' OR p.description LIKE ?1 ESCAPE '\\' OR p.tags LIKE ?1 ESCAPE '\\')
+         ORDER BY p.name LIKE ?1 ESCAPE '\\' DESC, p.reviews_count DESC LIMIT 40`
+      )
+      .bind(pattern)
+      .all<Row>(),
+    db
+      .prepare(
+        `SELECT * FROM users WHERE is_seller = 1 AND (name LIKE ?1 ESCAPE '\\' OR username LIKE ?1 ESCAPE '\\')
+         ORDER BY followers_count DESC LIMIT 10`
+      )
+      .bind(pattern)
+      .all<Row>(),
+    Promise.all([getStreams({ live: true }), getStreams({ live: false })]),
+  ])
+  const needle = q.toLowerCase()
+  return {
+    products: await hydrateProducts(productRows),
+    sellers: sellerRows.map(r => toUser(r)),
+    streams: streams
+      .flat()
+      .filter(s => s.title.toLowerCase().includes(needle) || s.host.name.toLowerCase().includes(needle))
+      .slice(0, 12),
+  }
 }
 
 export async function getProductsByIds(ids: string[]): Promise<Product[]> {

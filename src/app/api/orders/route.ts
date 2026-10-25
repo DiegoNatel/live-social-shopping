@@ -2,6 +2,7 @@ import { getSession } from '@/lib/auth'
 import { getUser } from '@/lib/db'
 import { createOrder, getOrders, OrderError, type NewOrderInput } from '@/lib/orders'
 import { str } from '@/lib/validate'
+import { parseAddress } from '@/lib/addresses'
 
 const PAYMENT_METHODS = ['pix', 'credit_card', 'boleto'] as const
 
@@ -39,35 +40,20 @@ export async function POST(request: Request) {
     items.push({ productId, quantity, variants })
   }
 
-  const a = body.address ?? {}
-  const zipCode = str(a.zipCode, 9)?.replace(/\D/g, '') ?? ''
-  const street = str(a.street)
-  const number = str(a.number, 20)
-  const neighborhood = str(a.neighborhood, 100)
-  const city = str(a.city, 100)
-  const state = str(a.state, 2)?.toUpperCase()
-  if (zipCode.length !== 8 || !street || !number || !neighborhood || !city || !state) return bad('Endereço incompleto')
-
   // Recipient defaults to the account holder
   const profile = await getUser(session.user.id)
-  const phone = (session.user as { phone?: string | null }).phone ?? ''
+  const address = parseAddress(body.address ?? {}, {
+    name: profile?.user.name ?? session.user.name,
+    phone: (session.user as { phone?: string | null }).phone ?? '',
+  })
+  if (!address) return bad('Endereço incompleto')
 
   try {
     const order = await createOrder(session.user.id, {
       items,
       paymentMethod,
       couponCode: str(body.couponCode, 32) ?? undefined,
-      address: {
-        name: profile?.user.name ?? session.user.name,
-        street,
-        number,
-        complement: str(a.complement, 100) ?? undefined,
-        neighborhood,
-        city,
-        state,
-        zipCode,
-        phone,
-      },
+      address,
     })
     return Response.json(order, { status: 201 })
   } catch (e) {

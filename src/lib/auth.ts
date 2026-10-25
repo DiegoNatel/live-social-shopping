@@ -33,6 +33,7 @@ function createAuth(env: CloudflareEnv) {
       additionalFields: {
         username: { type: 'string', required: false, input: false },
         phone: { type: 'string', required: false },
+        bio: { type: 'string', required: false },
         isSeller: { type: 'boolean', fieldName: 'is_seller', required: false, input: false, defaultValue: false },
         isVerified: { type: 'boolean', fieldName: 'is_verified', required: false, input: false, defaultValue: false },
       },
