@@ -13,6 +13,7 @@ import { CreateAuctionModal, type AuctionFormData } from '@/components/auction/C
 import { formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
 import type { User, Product, Stream, Auction } from '@/types'
 import type { SellerOrder } from '@/lib/db'
+import { ProductRow } from './ProductRow'
 import {
   Radio,
   TrendingUp,
@@ -24,7 +25,6 @@ import {
   Calendar,
   Settings,
   Plus,
-  MoreVertical,
   ChevronRight,
   BarChart2,
   ArrowUp,
@@ -193,7 +193,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                   <LiveBadge />
                   <span className="text-gray-900 font-medium">Sua próxima live</span>
                 </div>
-                <Button variant="ghost" size="sm">Editar</Button>
+                <Button variant="ghost" size="sm" onClick={() => setActiveTab('streams')}>Gerenciar</Button>
               </div>
               <div className="flex items-center gap-3">
                 <div className="relative w-20 h-20 rounded-lg overflow-hidden">
@@ -324,27 +324,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             </div>
             <div className="space-y-2">
               {products.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white shadow-card"
-                >
-                  <div className="relative w-16 h-16 rounded-lg overflow-hidden">
-                    <Image
-                      src={product.images[0]}
-                      alt={product.name}
-                      fill
-                      className="object-cover"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 font-medium truncate">{product.name}</p>
-                    <p className="text-gray-900 font-bold">{formatCurrency(product.price)}</p>
-                    <p className="text-gray-400 text-xs">{product.stock} em estoque</p>
-                  </div>
-                  <button className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                </div>
+                <ProductRow key={product.id} product={product} />
               ))}
             </div>
           </div>
@@ -480,9 +460,6 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                           </span>
                         </div>
                       </div>
-                      <button className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 self-start">
-                        <MoreVertical className="w-4 h-4" />
-                      </button>
                     </div>
                   </div>
                 )
@@ -534,7 +511,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
       <CreateAuctionModal
         isOpen={showAuctionModal}
         onClose={() => setShowAuctionModal(false)}
-        products={products}
+        products={products.filter(p => p.isActive !== false)}
         onCreateAuction={createAuction}
       />
     </MainLayout>

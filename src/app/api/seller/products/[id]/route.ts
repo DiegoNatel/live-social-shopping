@@ -14,6 +14,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const isActive = typeof b.isActive === 'boolean' ? b.isActive : undefined
   if (price === null || stock === null) return badRequest('Valores inválidos')
 
-  const ok = await updateProduct(sellerId, id, { price, stock, isActive })
-  return ok ? new Response(null, { status: 204 }) : new Response('Not found', { status: 404 })
+  const result = await updateProduct(sellerId, id, { price, stock, isActive })
+  if (result === 'price_too_low') return badRequest('Com esse preço, uma variação ficaria sem valor')
+  return result === 'ok' ? new Response(null, { status: 204 }) : new Response('Not found', { status: 404 })
 }

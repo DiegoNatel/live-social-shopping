@@ -199,6 +199,7 @@ export async function votePoll(userId: string, pollId: string, optionId: string)
        SELECT ?1, ?2, ?3 WHERE EXISTS (
          SELECT 1 FROM poll_options o JOIN polls p ON p.id = o.poll_id
          WHERE o.id = ?3 AND p.id = ?1 AND p.is_active = 1
+           AND (p.ends_at IS NULL OR p.ends_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
        )
        ON CONFLICT (poll_id, user_id) DO UPDATE SET option_id = excluded.option_id`
     )

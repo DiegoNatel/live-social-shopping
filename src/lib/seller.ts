@@ -58,8 +58,17 @@ export async function updateProduct(
   sellerId: string,
   productId: string,
   patch: { price?: number; stock?: number; isActive?: boolean }
-) {
-  const result = await getDb()
+): Promise<'ok' | 'not_found' | 'price_too_low'> {
+  const db = getDb()
+  // A cheaper variant (negative modifier) must still cost at least R$ 0,01
+  if (patch.price !== undefined) {
+    const lowest = await db
+      .prepare('SELECT coalesce(min(price_modifier_cents), 0) AS m FROM product_variants WHERE product_id = ?')
+      .bind(productId)
+      .first<number>('m')
+    if (cents(patch.price) + Math.min(lowest ?? 0, 0) < 1) return 'price_too_low'
+  }
+  const result = await db
     .prepare(
       `UPDATE products SET
          price_cents = coalesce(?, price_cents),
@@ -75,7 +84,7 @@ export async function updateProduct(
       sellerId
     )
     .run()
-  return result.meta.changes > 0
+  return result.meta.changes > 0 ? 'ok' : 'not_found'
 }
 
 // ---------- Streams ----------
