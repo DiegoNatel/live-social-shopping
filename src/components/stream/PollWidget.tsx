@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import { Button } from '@/components/ui/Button'
 import type { Poll } from '@/types'
@@ -13,25 +13,28 @@ interface PollWidgetProps {
   // Saves the vote; resolves false if it wasn't recorded
   onVote?: (optionId: string) => Promise<boolean>
   onClose?: () => void
+  // Totals come from the live room after each vote, so don't count our vote locally
+  live?: boolean
 }
 
-export function PollWidget({ poll, myVote, onVote, onClose }: PollWidgetProps) {
+export function PollWidget({ poll, myVote, onVote, onClose, live = false }: PollWidgetProps) {
   const [selectedOption, setSelectedOption] = useState<string | null>(myVote ?? null)
   const [hasVoted, setHasVoted] = useState(!!myVote)
   const [voteCounts, setVoteCounts] = useState(
     poll.options.reduce((acc, opt) => ({ ...acc, [opt.id]: opt.votes }), {} as Record<string, number>)
   )
 
+  // New totals from the live room
+  useEffect(() => {
+    setVoteCounts(poll.options.reduce((acc, opt) => ({ ...acc, [opt.id]: opt.votes }), {} as Record<string, number>))
+  }, [poll])
+
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0)
 
   const handleVote = async () => {
     if (!selectedOption) return
     if (onVote && !(await onVote(selectedOption))) return
-    
-    setVoteCounts(prev => ({
-      ...prev,
-      [selectedOption]: prev[selectedOption] + 1
-    }))
+    if (!live) setVoteCounts(prev => ({ ...prev, [selectedOption]: prev[selectedOption] + 1 }))
     setHasVoted(true)
   }
 
@@ -133,7 +136,7 @@ export function PollWidget({ poll, myVote, onVote, onClose }: PollWidgetProps) {
       <div className="mt-3 flex items-center justify-between">
         <div className="flex items-center gap-1 text-white/60 text-xs">
           <Users className="w-3 h-3" />
-          <span>{totalVotes} votos</span>
+          <span>{totalVotes} {totalVotes === 1 ? 'voto' : 'votos'}</span>
         </div>
         
         {!hasVoted ? (

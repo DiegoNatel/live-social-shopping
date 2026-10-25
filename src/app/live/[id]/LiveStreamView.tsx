@@ -10,14 +10,17 @@ import { LiveBadge, ViewersBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ProductCarousel } from '@/components/stream/ProductCarousel'
 import { LiveChat } from '@/components/stream/LiveChat'
-import { FloatingReactions } from '@/components/stream/FloatingReactions'
+import { FloatingReactions, useFloatingReactions } from '@/components/stream/FloatingReactions'
 import { PollWidget } from '@/components/stream/PollWidget'
 import { FlashSaleTimer } from '@/components/stream/FlashSaleTimer'
 import { ProductModal } from '@/components/product/ProductModal'
 import { AuctionCard } from '@/components/auction/AuctionCard'
-import type { Stream, Poll, FlashSale, Auction } from '@/types'
+import { HostPanel } from '@/components/stream/HostPanel'
+import { useLiveRoom } from '@/hooks/useLiveRoom'
+import type { ServerMessage } from '@/realtime/protocol'
+import type { Stream, Poll, FlashSale, Auction, Product } from '@/types'
 import { useUserStore, useUIStore } from '@/store'
-import { formatViewerCount } from '@/lib/utils'
+import { formatCurrency, formatViewerCount } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   ChevronLeft,
@@ -26,8 +29,10 @@ import {
   VolumeX,
   Maximize,
   Heart,
-  Gift,
   MessageCircle,
+  Gavel,
+  BarChart2,
+  Wrench,
 } from 'lucide-react'
 
 interface LiveStreamViewProps {
@@ -37,7 +42,7 @@ interface LiveStreamViewProps {
   auctions: Auction[]
 }
 
-export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStreamViewProps) {
+export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const router = useRouter()
   const { isFollowing, followHost, unfollowHost, isAuthenticated } = useUserStore()
   const { openProductModal } = useUIStore()
@@ -48,7 +53,84 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [showPoll, setShowPoll] = useState(true)
   const [bidMessage, setBidMessage] = useState('')
-  const [viewerCount, setViewerCount] = useState(stream?.viewerCount || 0)
+  const [notice, setNotice] = useState('')
+  const [mobilePanel, setMobilePanel] = useState<'poll' | 'auctions' | 'host' | null>(null)
+
+  // Server data, then kept up to date by the live room
+  const [poll, setPoll] = useState(initial.poll)
+  const [flashSale, setFlashSale] = useState(initial.flashSale)
+  const [auctions, setAuctions] = useState(initial.auctions)
+  const [pinnedId, setPinnedId] = useState(stream?.pinnedProductId ?? null)
+  const [pinnedExtra, setPinnedExtra] = useState<Product | null>(null)
+  const [hasEnded, setHasEnded] = useState(false)
+  const [likes, setLikes] = useState(stream?.likes ?? 0)
+  const floating = useFloatingReactions()
+
+  const handleRoomEvent = useCallback(
+    (msg: ServerMessage) => {
+      switch (msg.t) {
+        case 'react':
+          floating.add(msg.emoji)
+          if (msg.emoji === '❤️') setLikes(n => n + 1)
+          break
+        case 'bid':
+          setAuctions(list =>
+            list.map(a =>
+              a.id === msg.auctionId
+                ? { ...a, currentBid: msg.currentBid, endTime: msg.endTime, bids: [...a.bids, msg.bid] }
+                : a
+            )
+          )
+          break
+        case 'auction':
+          setAuctions(list => [...list.filter(a => a.id !== msg.auction.id), msg.auction])
+          break
+        case 'auction_end': {
+          setAuctions(list => list.map(a => (a.id === msg.auctionId ? { ...a, status: 'ended', winnerId: msg.winner?.id } : a)))
+          const product = auctions.find(a => a.id === msg.auctionId)?.product.name ?? 'o produto'
+          setNotice(
+            msg.winner
+              ? `🔨 ${msg.winner.name} arrematou ${product} por ${formatCurrency(msg.amount)}!`
+              : `O leilão de ${product} terminou sem lances.`
+          )
+          break
+        }
+        case 'poll':
+          setPoll(msg.poll ? { ...msg.poll, myVote: poll?.id === msg.poll.id ? poll.myVote : undefined } : null)
+          if (msg.poll) setShowPoll(true)
+          break
+        case 'flash':
+          setFlashSale(msg.flashSale)
+          break
+        case 'pin':
+          setPinnedId(msg.productId)
+          break
+        case 'status':
+          if (msg.status === 'ended') setHasEnded(true)
+          else router.refresh()
+          break
+      }
+    },
+    [floating, auctions, poll, router]
+  )
+  const room = useLiveRoom(stream?.id ?? '', handleRoomEvent)
+  const viewerCount = room.viewers ?? stream?.viewerCount ?? 0
+
+  // A pinned product that isn't in the stream's list is loaded on demand
+  const pinnedProduct = pinnedId ? (stream?.products.find(p => p.id === pinnedId) ?? (pinnedExtra?.id === pinnedId ? pinnedExtra : null)) : null
+  useEffect(() => {
+    if (!pinnedId || stream?.products.some(p => p.id === pinnedId)) return
+    fetch('/api/cart/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [pinnedId] }) })
+      .then(r => (r.ok ? (r.json() as Promise<Product[]>) : []))
+      .then(list => setPinnedExtra(list[0] ?? null))
+      .catch(() => {})
+  }, [pinnedId, stream?.products])
+
+  useEffect(() => {
+    if (!notice) return
+    const timer = setTimeout(() => setNotice(''), 6000)
+    return () => clearTimeout(timer)
+  }, [notice])
   const [chatHeight, setChatHeight] = useState(50) // percentage of viewport height
   
   const videoRef = useRef<HTMLDivElement>(null)
@@ -83,14 +165,6 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
     // Reset motion value
     animate(y, 0, { type: 'spring', stiffness: 300, damping: 30 })
   }, [chatHeight, y])
-
-  // Simulate changing viewer count
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setViewerCount(prev => prev + Math.floor(Math.random() * 10) - 3)
-    }, 5000)
-    return () => clearInterval(interval)
-  }, [])
 
   // Auto-hide controls
   useEffect(() => {
@@ -153,8 +227,47 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
       const data = (await res.json().catch(() => null)) as { message?: string } | null
       setBidMessage(data?.message ?? 'Não foi possível registrar o lance.')
     }
-    router.refresh()
+    // Without the live room, reload to see the new price
+    if (room.status !== 'open') router.refresh()
   }
+
+  const toggleMobilePanel = (panel: 'poll' | 'auctions' | 'host') => {
+    const opening = mobilePanel !== panel
+    setMobilePanel(opening ? panel : null)
+    if (opening) setIsChatOpen(false)
+  }
+
+  const sendHeart = () => {
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    if (room.sendReaction('❤️')) {
+      floating.add('❤️')
+      setLikes(n => n + 1)
+    }
+  }
+
+  const share = () => {
+    const url = window.location.href
+    if (navigator.share) navigator.share({ title: stream.title, url }).catch(() => {})
+    else navigator.clipboard.writeText(url).then(() => setNotice('Link copiado!'))
+  }
+
+  const activeAuctions = auctions.filter(a => a.status === 'active' && new Date(a.endTime).getTime() > Date.now() - 1000)
+  const chat = (
+    <LiveChat
+      messages={room.messages}
+      status={room.status}
+      canChat={room.canChat}
+      isHost={room.isHost}
+      hostId={stream.host.id}
+      error={room.error}
+      onSend={room.sendChat}
+      onDelete={room.deleteMessage}
+      onClearError={room.clearError}
+    />
+  )
 
   const votePoll = async (optionId: string) => {
     if (!isAuthenticated || !poll) {
@@ -198,7 +311,11 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
         </div>
 
         {/* === MOBILE LAYOUT === */}
-        <div className="lg:hidden absolute inset-0 flex flex-col">
+        {/* Leaves room for the chat panel so the products and action bar stay above it */}
+        <div
+          className="lg:hidden absolute inset-0 flex flex-col transition-[padding] duration-300"
+          style={{ paddingBottom: isChatOpen ? `${chatHeight}vh` : 0 }}
+        >
           {/* Top Bar */}
           <div className="flex items-center justify-between p-3 z-20">
             <div className="flex items-center gap-2">
@@ -207,7 +324,7 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               </Link>
-              <LiveBadge />
+              <StatusBadge isLive={stream.isLive} hasEnded={hasEnded} />
               <ViewersBadge count={viewerCount} />
             </div>
 
@@ -218,7 +335,11 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
               >
                 {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
               </button>
-              <button className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
+              <button
+                onClick={(e) => { e.stopPropagation(); share(); }}
+                aria-label="Compartilhar"
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white"
+              >
                 <Share2 className="w-5 h-5" />
               </button>
             </div>
@@ -252,20 +373,54 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
           {/* Spacer - Video area */}
           <div className="flex-1 relative">
             {/* Floating Reactions in the middle */}
-            <FloatingReactions />
+            <FloatingReactions reactions={floating.reactions} onTap={sendHeart} />
+
+            {/* Poll / auctions / host tools, opened from the action bar */}
+            <AnimatePresence>
+              {mobilePanel && (
+                <motion.div
+                  className="absolute inset-x-3 bottom-2 max-h-full overflow-y-auto z-20"
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: 20 }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  {mobilePanel === 'poll' && poll && (
+                    <PollWidget key={poll.id} poll={poll} myVote={poll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setMobilePanel(null)} />
+                  )}
+                  {mobilePanel === 'auctions' && (
+                    <div className="space-y-2">
+                      {bidMessage && <p className="text-coral-pink text-sm bg-black/60 rounded px-2 py-1">{bidMessage}</p>}
+                      {activeAuctions.map(auction => (
+                        <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+                      ))}
+                    </div>
+                  )}
+                  {mobilePanel === 'host' && room.isHost && (
+                    <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!poll} hasFlashSale={!!flashSale} onClose={() => setMobilePanel(null)} />
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Bottom Section - Products + Actions */}
           <div className="z-10">
-            {/* Stream Title */}
-            <div className="px-3 pb-2">
+            {/* Stream Title (hidden when the chat takes most of the screen) */}
+            <div className={cn('px-3 pb-2', isChatOpen && chatHeight === 75 && 'hidden')}>
               <h1 className="text-white font-semibold text-sm line-clamp-2 drop-shadow-lg">
                 {stream.title}
               </h1>
             </div>
 
+            {pinnedProduct && (
+              <div className="px-3 pb-2">
+                <PinnedProduct product={pinnedProduct} onOpen={() => openProductModal(pinnedProduct)} />
+              </div>
+            )}
+
             {/* Products Carousel */}
-            <div className="pb-2">
+            <div className={cn('pb-2', isChatOpen && chatHeight === 75 && 'hidden')}>
               <ProductCarousel 
                 products={stream.products} 
                 onProductClick={(product) => openProductModal(product)}
@@ -273,30 +428,54 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
             </div>
 
             {/* Action Bar */}
-            <div className="flex items-center justify-between px-3 pb-3">
-              <div className="flex items-center gap-3">
-                <ActionButton 
-                  icon={<Heart className="w-5 h-5" />} 
-                  label="23K" 
-                  active={false}
+            {/* Scrolls sideways when a live has an auction, a poll and host tools at once */}
+            <div className="flex items-center justify-between gap-2 px-3 pb-3">
+              <div className="flex items-center gap-2 min-w-0 overflow-x-auto no-scrollbar">
+                <ActionButton
+                  icon={<Heart className="w-5 h-5" />}
+                  label={formatViewerCount(likes)}
+                  onClick={sendHeart}
                 />
                 <ActionButton 
                   icon={<MessageCircle className="w-5 h-5" />} 
                   label="Chat" 
                   active={isChatOpen}
-                  onClick={() => setIsChatOpen(!isChatOpen)}
+                  onClick={() => {
+                    // The chat and a poll/auction panel don't both fit on a phone
+                    if (!isChatOpen) setMobilePanel(null)
+                    setIsChatOpen(!isChatOpen)
+                  }}
                 />
-                <ActionButton 
-                  icon={<Gift className="w-5 h-5" />} 
-                  label="Presente" 
-                  active={false}
-                />
+                {activeAuctions.length > 0 && (
+                  <ActionButton
+                    icon={<Gavel className="w-5 h-5" />}
+                    label="Leilão"
+                    active={mobilePanel === 'auctions'}
+                    onClick={() => toggleMobilePanel('auctions')}
+                  />
+                )}
+                {poll && (
+                  <ActionButton
+                    icon={<BarChart2 className="w-5 h-5" />}
+                    label="Enquete"
+                    active={mobilePanel === 'poll'}
+                    onClick={() => toggleMobilePanel('poll')}
+                  />
+                )}
+                {room.isHost && (
+                  <ActionButton
+                    icon={<Wrench className="w-5 h-5" />}
+                    label="Ferramentas"
+                    active={mobilePanel === 'host'}
+                    onClick={() => toggleMobilePanel('host')}
+                  />
+                )}
               </div>
               
               {/* Flash Sale Indicator */}
               {flashSale && (
                 <motion.button
-                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
+                  className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
                   onClick={(e) => { e.stopPropagation(); openProductModal(flashSale.product); }}
                   whileTap={{ scale: 0.95 }}
                 >
@@ -325,7 +504,7 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
                       <ChevronLeft className="w-6 h-6" />
                     </button>
                   </Link>
-                  <LiveBadge />
+                  <StatusBadge isLive={stream.isLive} hasEnded={hasEnded} />
                   <ViewersBadge count={viewerCount} />
                 </div>
 
@@ -336,7 +515,11 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
                   >
                     {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
                   </button>
-                  <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white">
+                  <button
+                    onClick={share}
+                    aria-label="Compartilhar"
+                    className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
+                  >
                     <Share2 className="w-5 h-5" />
                   </button>
                   <button
@@ -400,12 +583,18 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
             )}
           </AnimatePresence>
 
-          <FloatingReactions />
+          <FloatingReactions reactions={floating.reactions} onTap={sendHeart} />
         </div>
       </div>
 
       {/* Side Panel - Desktop */}
       <div className="hidden lg:flex lg:w-96 flex-col h-screen bg-deep-ocean border-l border-white/10">
+        {room.isHost && (
+          <div className="p-4 border-b border-white/10">
+            <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!poll} hasFlashSale={!!flashSale} />
+          </div>
+        )}
+
         {/* Poll Widget */}
         <AnimatePresence>
           {showPoll && poll && (
@@ -415,20 +604,24 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <PollWidget poll={poll} myVote={poll.myVote} onVote={votePoll} onClose={() => setShowPoll(false)} />
+              <PollWidget key={poll.id} poll={poll} myVote={poll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setShowPoll(false)} />
             </motion.div>
           )}
         </AnimatePresence>
 
         {/* Auctions */}
-        {auctions.some(a => a.status === 'active') && (
+        {activeAuctions.length > 0 && (
           <div className="p-4 border-b border-white/10 space-y-3 max-h-[50vh] overflow-y-auto">
             {bidMessage && <p className="text-coral-pink text-sm">{bidMessage}</p>}
-            {auctions
-              .filter(a => a.status === 'active')
-              .map(auction => (
-                <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
-              ))}
+            {activeAuctions.map(auction => (
+              <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+            ))}
+          </div>
+        )}
+
+        {pinnedProduct && (
+          <div className="p-4 border-b border-white/10">
+            <PinnedProduct product={pinnedProduct} onOpen={() => openProductModal(pinnedProduct)} />
           </div>
         )}
 
@@ -447,7 +640,7 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
 
         {/* Chat */}
         <div className="flex-1 overflow-hidden">
-          <LiveChat streamId={stream.id} />
+          {chat}
         </div>
       </div>
 
@@ -494,11 +687,35 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
             
             {/* Chat Content */}
             <div className="flex-1 overflow-hidden">
-              <LiveChat streamId={stream.id} />
+              {chat}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Auction results and other notices */}
+      <AnimatePresence>
+        {notice && (
+          <motion.div
+            className="fixed top-16 inset-x-0 mx-auto w-fit max-w-[90vw] z-40 px-4 py-2 rounded-full bg-black/80 text-white text-sm text-center"
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+          >
+            {notice}
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {hasEnded && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
+          <div className="text-center">
+            <h2 className="text-white text-xl font-semibold mb-2">A live terminou</h2>
+            <p className="text-white/60 text-sm mb-4">Obrigado por assistir! Siga {stream.host.name} para saber da próxima.</p>
+            <Button onClick={() => router.push('/')}>Ver outras lives</Button>
+          </div>
+        </div>
+      )}
 
       {/* Product Modal */}
       <ProductModal />
@@ -519,7 +736,7 @@ function ActionButton({ icon, label, onClick, active }: ActionButtonProps) {
     <motion.button
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       className={cn(
-        'flex items-center gap-1.5 px-3 py-2 rounded-full transition-all',
+        'flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full transition-all',
         active 
           ? 'bg-sky-blue/20 text-sky-blue' 
           : 'bg-black/40 backdrop-blur-sm text-white hover:bg-black/60'
@@ -532,3 +749,33 @@ function ActionButton({ icon, label, onClick, active }: ActionButtonProps) {
   )
 }
 
+function StatusBadge({ isLive, hasEnded }: { isLive: boolean; hasEnded: boolean }) {
+  if (isLive && !hasEnded) return <LiveBadge />
+  return (
+    <span className="px-2 py-0.5 rounded bg-black/50 text-white/80 text-xs font-medium">
+      {hasEnded ? 'Encerrada' : 'Agendada'}
+    </span>
+  )
+}
+
+// The product the host is showing right now
+function PinnedProduct({ product, onOpen }: { product: Product; onOpen: () => void }) {
+  return (
+    <button
+      onClick={e => {
+        e.stopPropagation()
+        onOpen()
+      }}
+      className="w-full flex items-center gap-3 p-2 rounded-xl bg-white text-left shadow-lg"
+    >
+      <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0">
+        {product.images[0] && <Image src={product.images[0]} alt={product.name} fill className="object-cover" />}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-coral-pink text-[10px] font-bold uppercase">Mostrando agora</p>
+        <p className="text-gray-900 text-sm font-medium truncate">{product.name}</p>
+      </div>
+      <span className="text-gray-900 font-semibold text-sm">{formatCurrency(product.price)}</span>
+    </button>
+  )
+}

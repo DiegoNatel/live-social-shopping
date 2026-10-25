@@ -21,6 +21,11 @@ export function AuctionCard({ auction, onBid, className }: AuctionCardProps) {
   const [timeLeft, setTimeLeft] = useState('')
   const [showBidHistory, setShowBidHistory] = useState(false)
   const [isEnding, setIsEnding] = useState(false)
+
+  // Someone else bid: the next bid has to beat the new price
+  useEffect(() => {
+    setBidAmount(prev => Math.max(prev, auction.currentBid + auction.minimumIncrement))
+  }, [auction.currentBid, auction.minimumIncrement])
   
   // Calculate time remaining
   useEffect(() => {
@@ -66,8 +71,6 @@ export function AuctionCard({ auction, onBid, className }: AuctionCardProps) {
   
   const handleBidConfirmed = () => {
     onBid(bidAmount)
-    // After bid, update minimum bid amount
-    setBidAmount(bidAmount + auction.minimumIncrement)
   }
   
   const isActive = auction.status === 'active'

@@ -57,6 +57,23 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Live features (chat, reactions, viewers, polls, auctions)
+
+Each live stream has a `LiveRoom` Durable Object (`src/realtime/live-room.ts`) that holds the viewers'
+WebSockets, saves chat to D1, counts viewers and closes auctions when they end. `worker.ts` wraps the
+OpenNext worker to export it and route `/api/live/<id>/ws` to it. Signed-in viewers connect with a
+short-lived ticket from `/api/live/<id>/ticket`; signed-out viewers can watch and are counted but can't chat.
+
+`npm run dev` (Next.js dev server) can't run Durable Objects, so the chat shows as unavailable there.
+To try the live features locally, build and run the real Worker:
+
+```bash
+npm run preview   # opennextjs-cloudflare build, then serves the Worker locally
+```
+
+Better Auth only accepts requests from `BETTER_AUTH_URL`, so set it in `.dev.vars` to the address the
+preview prints.
+
 ### Deploying
 
 ```bash
@@ -64,8 +81,8 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 npx wrangler r2 bucket create vivobuy-images
 npx wrangler secret put BETTER_AUTH_SECRET
 
-npm run db:migrate:remote
-npm run deploy
+npm run db:migrate:remote   # also after pulling new migrations
+npm run deploy              # creates the LiveRoom Durable Object on first deploy
 ```
 
 ### Google login (optional)
