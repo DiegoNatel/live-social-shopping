@@ -457,7 +457,8 @@ export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStream
           <motion.div
             ref={chatPanelRef}
             className="fixed inset-x-0 bottom-0 bg-deep-ocean backdrop-blur-lg rounded-t-2xl lg:hidden flex flex-col z-30"
-            style={{ height: `${chatHeight}vh`, y }}
+            // The slide-in uses its own y; the shared `y` motion value belongs to the drag handle
+            style={{ height: `${chatHeight}vh` }}
             initial={{ y: '100%' }}
             animate={{ y: 0 }}
             exit={{ y: '100%' }}
