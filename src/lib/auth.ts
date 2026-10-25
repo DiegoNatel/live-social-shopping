@@ -7,6 +7,12 @@ import { hashPassword, verifyPassword } from './password'
 
 const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' }
 
+const googleConfigured = (env: CloudflareEnv) => !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)
+
+export function isGoogleEnabled() {
+  return googleConfigured(getCloudflareContext().env)
+}
+
 function createAuth(env: CloudflareEnv) {
   return betterAuth({
     database: env.DB,
@@ -17,6 +23,10 @@ function createAuth(env: CloudflareEnv) {
       minPasswordLength: 8,
       password: { hash: hashPassword, verify: verifyPassword },
     },
+    // Enabled once GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are set
+    socialProviders: googleConfigured(env)
+      ? { google: { clientId: env.GOOGLE_CLIENT_ID!, clientSecret: env.GOOGLE_CLIENT_SECRET! } }
+      : undefined,
     user: {
       modelName: 'users',
       fields: { emailVerified: 'email_verified', image: 'avatar', ...timestamps },
@@ -41,6 +51,8 @@ function createAuth(env: CloudflareEnv) {
     },
     account: {
       modelName: 'accounts',
+      // Google verifies e-mails, so logging in with Google joins an existing e-mail/password account
+      accountLinking: { enabled: true, trustedProviders: ['google'] },
       fields: {
         userId: 'user_id',
         accountId: 'account_id',
