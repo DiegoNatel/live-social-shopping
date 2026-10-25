@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
+import { ImageUpload } from '@/components/seller/ImageUpload'
 import type { Category } from '@/types'
 
 interface StreamFormProps {
@@ -19,8 +20,8 @@ export function StreamForm({ categories, products }: StreamFormProps) {
     description: '',
     category: categories[0]?.slug ?? '',
     scheduledAt: '',
-    thumbnail: '',
   })
+  const [thumbnail, setThumbnail] = useState<string[]>([])
   const [productIds, setProductIds] = useState<string[]>([])
   const [error, setError] = useState('')
   const [isSaving, setIsSaving] = useState(false)
@@ -40,7 +41,7 @@ export function StreamForm({ categories, products }: StreamFormProps) {
         ...form,
         // datetime-local is in the seller's timezone; send an absolute time
         scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : '',
-        thumbnail: form.thumbnail || undefined,
+        thumbnail: thumbnail[0],
         productIds,
       }),
     })
@@ -78,9 +79,10 @@ export function StreamForm({ categories, products }: StreamFormProps) {
               <input type="datetime-local" className={inputClass} value={form.scheduledAt} onChange={set('scheduledAt')} required />
             </FormField>
           </div>
-          <FormField label="Imagem de capa" hint="Link https (opcional)">
-            <input className={inputClass} value={form.thumbnail} onChange={set('thumbnail')} placeholder="https://..." />
-          </FormField>
+          <div>
+            <span className="block text-sm text-gray-700 mb-1">Imagem de capa (opcional)</span>
+            <ImageUpload value={thumbnail} onChange={setThumbnail} max={1} />
+          </div>
 
           <div>
             <span className="block text-sm text-gray-700 mb-2">Produtos na live</span>

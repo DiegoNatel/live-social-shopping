@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
+import { ImageUpload } from '@/components/seller/ImageUpload'
 import { Plus, Trash2 } from 'lucide-react'
 import type { Category } from '@/types'
 
@@ -33,9 +34,9 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     originalPrice: '',
     stock: '',
     category: categories[0]?.slug ?? '',
-    images: '',
     tags: '',
   })
+  const [images, setImages] = useState<string[]>([])
   const [variants, setVariants] = useState<VariantRow[]>([])
   const updateVariant = (i: number, patch: Partial<VariantRow>) =>
     setVariants(vs => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)))
@@ -46,6 +47,10 @@ export function ProductForm({ categories }: { categories: Category[] }) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (images.length === 0) {
+      setError('Adicione pelo menos uma imagem.')
+      return
+    }
     setIsSaving(true)
     setError('')
     const res = await fetch('/api/seller/products', {
@@ -58,7 +63,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
         originalPrice: form.originalPrice ? form.originalPrice.replace(',', '.') : undefined,
         stock: form.stock,
         category: form.category,
-        images: form.images.split(/\s+/).filter(Boolean),
+        images,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         variants: variants.map(v => ({
           type: v.type,
@@ -114,15 +119,10 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               </select>
             </FormField>
           </div>
-          <FormField label="Imagens" hint="Links https das imagens, um por linha (upload de arquivos em breve)">
-            <textarea
-              className={`${inputClass} h-20 py-2`}
-              value={form.images}
-              onChange={set('images')}
-              placeholder="https://..."
-              required
-            />
-          </FormField>
+          <div>
+            <span className="block text-sm text-gray-700 mb-1">Imagens</span>
+            <ImageUpload value={images} onChange={setImages} max={8} />
+          </div>
           <div>
             <span className="block text-sm text-gray-700 mb-1">Variações</span>
             <p className="text-xs text-gray-400 mb-2">

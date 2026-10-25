@@ -1,5 +1,5 @@
 import { requireSeller, createStream } from '@/lib/seller'
-import { str, strList, httpsUrls, isoDate, badRequest, readJson } from '@/lib/validate'
+import { str, strList, imageUrls, isoDate, badRequest, readJson } from '@/lib/validate'
 
 export async function POST(request: Request) {
   const sellerId = await requireSeller()
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     description: str(b.description, 2000) ?? '',
     category,
     scheduledAt,
-    thumbnail: httpsUrls([b.thumbnail], 1)[0],
+    thumbnail: imageUrls([b.thumbnail], 1)[0],
     productIds: strList(b.productIds, 20, 64),
     tags: strList(b.tags, 10, 30),
   })

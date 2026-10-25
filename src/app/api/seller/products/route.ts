@@ -1,5 +1,5 @@
 import { requireSeller, createProduct, type ProductInput } from '@/lib/seller'
-import { str, num, int, strList, httpsUrls, badRequest, readJson } from '@/lib/validate'
+import { str, num, int, strList, imageUrls, badRequest, readJson } from '@/lib/validate'
 
 export async function POST(request: Request) {
   const sellerId = await requireSeller()
@@ -11,9 +11,9 @@ export async function POST(request: Request) {
   const price = num(b.price, 0.01, 1_000_000)
   const stock = int(b.stock, 0, 100_000)
   const category = str(b.category, 40)
-  const images = httpsUrls(b.images, 8)
+  const images = imageUrls(b.images, 8)
   if (!name || price === null || stock === null || !category) return badRequest('Preencha nome, preço, estoque e categoria')
-  if (images.length === 0) return badRequest('Adicione pelo menos uma imagem (URL https)')
+  if (images.length === 0) return badRequest('Adicione pelo menos uma imagem')
   const originalPrice = b.originalPrice ? num(b.originalPrice, price, 1_000_000) : undefined
   if (originalPrice === null) return badRequest('O preço original deve ser maior que o preço')
 

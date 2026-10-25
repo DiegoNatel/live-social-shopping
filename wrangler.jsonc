@@ -23,6 +23,14 @@
       "migrations_dir": "migrations"
     }
   ],
+  // Product photos and stream thumbnails uploaded by sellers (served by /images/[...key])
+  // Create once with: npx wrangler r2 bucket create vivobuy-images
+  "r2_buckets": [
+    {
+      "binding": "UPLOADS",
+      "bucket_name": "vivobuy-images"
+    }
+  ],
   "vars": {
     "BETTER_AUTH_URL": "https://vivobuy.diegonatel.workers.dev"
   },

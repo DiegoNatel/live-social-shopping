@@ -14,9 +14,11 @@ export const int = (v: unknown, min: number, max: number) => {
 export const strList = (v: unknown, maxItems: number, maxLen = 60) =>
   Array.isArray(v) ? v.map(x => str(x, maxLen)).filter((x): x is string => !!x).slice(0, maxItems) : []
 
-// Only absolute https URLs (images are hotlinked until uploads to R2 exist)
-export const httpsUrls = (v: unknown, maxItems: number) =>
+// Images: our own uploads (/images/u/<user>/<file>, see lib/uploads.ts) or absolute https URLs
+const UPLOADED_IMAGE = /^\/images\/u\/[\w-]+\/[\w-]+\.(jpg|png|gif|webp)$/
+export const imageUrls = (v: unknown, maxItems: number) =>
   strList(v, maxItems, 500).filter(u => {
+    if (UPLOADED_IMAGE.test(u)) return true
     try {
       return new URL(u).protocol === 'https:'
     } catch {
