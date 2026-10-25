@@ -155,9 +155,9 @@ export function ProductModal() {
                   {/* Header */}
                   <div className="flex items-start justify-between gap-4 mb-4">
                     <div className="flex-1">
-                      <h2 className="text-deep-ocean font-semibold text-lg md:text-xl leading-tight">
+                      <Dialog.Title className="text-deep-ocean font-semibold text-lg md:text-xl leading-tight">
                         {product.name}
-                      </h2>
+                      </Dialog.Title>
                       
                       {/* Rating */}
                       <div className="flex items-center gap-2 mt-2">

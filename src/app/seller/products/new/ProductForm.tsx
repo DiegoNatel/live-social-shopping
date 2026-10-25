@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
 import { ImageUpload } from '@/components/seller/ImageUpload'
 import { Plus, Trash2 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import type { Category } from '@/types'
 
 interface VariantRow {
@@ -144,7 +145,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
                       />
                     )}
                     <input
-                      className={`${inputClass} flex-1 min-w-[96px]`}
+                      className={cn(inputClass, 'w-auto flex-1 min-w-[96px]')}
                       placeholder={v.type === 'size' ? 'P, M, 42...' : 'Azul'}
                       aria-label="Nome"
                       value={v.name}
@@ -153,7 +154,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
                       required
                     />
                     <input
-                      className={`${inputClass} w-24`}
+                      className={cn(inputClass, 'w-24')}
                       placeholder="Estoque"
                       aria-label="Estoque da variação"
                       inputMode="numeric"
@@ -162,7 +163,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
                       required
                     />
                     <input
-                      className={`${inputClass} w-28`}
+                      className={cn(inputClass, 'w-28')}
                       placeholder="+ R$ 0,00"
                       aria-label="Diferença de preço (R$)"
                       inputMode="decimal"
