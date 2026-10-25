@@ -1,5 +1,6 @@
 import { getSession } from '@/lib/auth'
-import { votePoll } from '@/lib/engagement'
+import { getActivePoll, votePoll } from '@/lib/engagement'
+import { broadcast } from '@/lib/live'
 import { str, badRequest, readJson } from '@/lib/validate'
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -11,6 +12,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const optionId = str(b?.optionId, 64)
   if (!optionId) return badRequest('Opção inválida')
 
-  const ok = await votePoll(session.user.id, id, optionId)
-  return ok ? new Response(null, { status: 204 }) : new Response('Not found', { status: 404 })
+  const streamId = await votePoll(session.user.id, id, optionId)
+  if (!streamId) return new Response('Not found', { status: 404 })
+  // Everyone in the live sees the new totals
+  broadcast(streamId, { t: 'poll', poll: await getActivePoll(streamId) })
+  return new Response(null, { status: 204 })
 }

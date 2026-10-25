@@ -1,5 +1,6 @@
 import { requireSeller, setStreamStatus } from '@/lib/seller'
 import { badRequest, readJson } from '@/lib/validate'
+import { broadcast } from '@/lib/live'
 
 // { status: 'live' } starts the stream (notifies followers); { status: 'ended' } finishes it
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -12,5 +13,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!status) return badRequest('Status inválido')
 
   const ok = await setStreamStatus(sellerId, id, status)
-  return ok ? new Response(null, { status: 204 }) : new Response('Not found', { status: 404 })
+  if (!ok) return new Response('Not found', { status: 404 })
+  broadcast(id, { t: 'status', status })
+  return new Response(null, { status: 204 })
 }

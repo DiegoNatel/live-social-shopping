@@ -227,7 +227,18 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     throw e
   }
 
-  return { id: orderId, total: totals.total / 100 }
+  // Lives running these flash sales show the new "units left"
+  const flashIds = [...qtyByFlashSale.keys()]
+  const { results: flashStreams } = flashIds.length
+    ? await db
+        .prepare(
+          `SELECT DISTINCT stream_id FROM flash_sales WHERE stream_id IS NOT NULL AND id IN (${flashIds.map(() => '?').join(',')})`
+        )
+        .bind(...flashIds)
+        .all<{ stream_id: string }>()
+    : { results: [] }
+
+  return { id: orderId, total: totals.total / 100, flashStreamIds: flashStreams.map(r => r.stream_id) }
 }
 
 // Buyers can cancel orders that haven't been paid. Everything the order took is given back:

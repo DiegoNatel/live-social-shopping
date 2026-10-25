@@ -107,6 +107,7 @@ export interface Stream {
   products: Product[]
   tags: string[]
   likes: number
+  pinnedProductId?: string // product the host is showing now
 }
 
 // Cart Types

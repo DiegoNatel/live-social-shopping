@@ -3,6 +3,8 @@ import { getUser } from '@/lib/db'
 import { createOrder, getOrders, OrderError, type NewOrderInput } from '@/lib/orders'
 import { str } from '@/lib/validate'
 import { parseAddress } from '@/lib/addresses'
+import { getActiveFlashSale } from '@/lib/engagement'
+import { broadcast } from '@/lib/live'
 
 const PAYMENT_METHODS = ['pix', 'credit_card', 'boleto'] as const
 
@@ -56,7 +58,10 @@ export async function POST(request: Request) {
       expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
       address,
     })
-    return Response.json(order, { status: 201 })
+    for (const streamId of order.flashStreamIds) {
+      broadcast(streamId, { t: 'flash', flashSale: await getActiveFlashSale(streamId) })
+    }
+    return Response.json({ id: order.id, total: order.total }, { status: 201 })
   } catch (e) {
     if (e instanceof OrderError) {
       return Response.json({ error: e.code, message: e.message }, { status: e.code === 'OUT_OF_STOCK' || e.code === 'PRICE_CHANGED' ? 409 : 400 })

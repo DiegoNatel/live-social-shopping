@@ -69,7 +69,7 @@ export async function getStreamAuctions(streamId: string, products: Product[]): 
 }
 
 export type BidResult =
-  | { ok: true; currentBid: number }
+  | { ok: true; currentBid: number; endTime: string; streamId: string | null; bid: AuctionBid }
   | { ok: false; reason: 'NOT_FOUND' | 'CLOSED' | 'TOO_LOW' | 'OWN_AUCTION'; currentBid?: number; minimumBid?: number }
 
 export async function placeBid(userId: string, auctionId: string, amount: number): Promise<BidResult> {
@@ -82,7 +82,9 @@ export async function placeBid(userId: string, auctionId: string, amount: number
   await db.batch([
     db
       .prepare(
-        `UPDATE auctions SET current_bid_cents = ?1
+        // A bid in the last 30 seconds pushes the end to 30 seconds from now (anti-sniping)
+        `UPDATE auctions SET current_bid_cents = ?1,
+           ends_at = max(ends_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))
          WHERE id = ?2
            AND starts_at <= ${NOW} AND ends_at > ${NOW}
            AND ?1 >= current_bid_cents + minimum_increment_cents
@@ -107,16 +109,46 @@ export async function placeBid(userId: string, auctionId: string, amount: number
       .bind(amountCents, auctionId, bidId, userId),
   ])
 
-  const placed = await db.prepare('SELECT 1 FROM bids WHERE id = ?').bind(bidId).first()
-  const a = await db
-    .prepare(
-      `SELECT a.current_bid_cents, a.minimum_increment_cents, ${AUCTION_STATUS} AS live_status, p.seller_id
-       FROM auctions a JOIN products p ON p.id = a.product_id WHERE a.id = ?`
-    )
-    .bind(auctionId)
-    .first<Row>()
+  const [placed, a] = await Promise.all([
+    db
+      .prepare(
+        `SELECT b.id, b.amount_cents, b.created_at, u.id AS user_id, u.name, u.username, u.avatar, u.is_verified
+         FROM bids b JOIN users u ON u.id = b.user_id WHERE b.id = ?`
+      )
+      .bind(bidId)
+      .first<Row>(),
+    db
+      .prepare(
+        `SELECT a.current_bid_cents, a.minimum_increment_cents, a.ends_at, a.stream_id, ${AUCTION_STATUS} AS live_status, p.seller_id
+         FROM auctions a JOIN products p ON p.id = a.product_id WHERE a.id = ?`
+      )
+      .bind(auctionId)
+      .first<Row>(),
+  ])
   if (!a) return { ok: false, reason: 'NOT_FOUND' }
-  if (placed) return { ok: true, currentBid: a.current_bid_cents / 100 }
+  if (placed) {
+    return {
+      ok: true,
+      currentBid: a.current_bid_cents / 100,
+      endTime: a.ends_at,
+      streamId: a.stream_id,
+      bid: {
+        id: placed.id,
+        auctionId,
+        amount: placed.amount_cents / 100,
+        timestamp: placed.created_at,
+        user: {
+          id: placed.user_id,
+          name: placed.name,
+          username: placed.username,
+          avatar: placed.avatar ?? '',
+          isVerified: !!placed.is_verified,
+          followers: 0,
+          following: 0,
+        },
+      },
+    }
+  }
 
   const currentBid = a.current_bid_cents / 100
   if (a.seller_id === userId) return { ok: false, reason: 'OWN_AUCTION' }
@@ -191,9 +223,10 @@ export async function getActivePoll(streamId: string, userId?: string): Promise<
   }
 }
 
-// One vote per user per poll; voting again changes the vote
-export async function votePoll(userId: string, pollId: string, optionId: string) {
-  const result = await getDb()
+// One vote per user per poll; voting again changes the vote. Returns the poll's stream id, or null if not recorded.
+export async function votePoll(userId: string, pollId: string, optionId: string): Promise<string | null> {
+  const db = getDb()
+  const result = await db
     .prepare(
       `INSERT INTO poll_votes (poll_id, user_id, option_id)
        SELECT ?1, ?2, ?3 WHERE EXISTS (
@@ -205,7 +238,8 @@ export async function votePoll(userId: string, pollId: string, optionId: string)
     )
     .bind(pollId, userId, optionId)
     .run()
-  return result.meta.changes > 0
+  if (result.meta.changes === 0) return null
+  return db.prepare('SELECT stream_id FROM polls WHERE id = ?').bind(pollId).first<string>('stream_id')
 }
 
 // ---------- Favorites ----------

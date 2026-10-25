@@ -278,6 +278,7 @@ export async function getStreams({ live, hostId, id }: { live: boolean; hostId?:
     products: byStream.get(r.id) ?? [],
     tags: parseList(r.tags),
     likes: r.likes,
+    pinnedProductId: r.pinned_product_id ?? undefined,
   }))
 }
 
