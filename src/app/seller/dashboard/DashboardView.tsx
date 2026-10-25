@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
@@ -46,6 +47,41 @@ export interface DashboardData {
 export function DashboardView({ seller, products, streams, auctions, recentOrders, stats: totals }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
+  const [busyStreamId, setBusyStreamId] = useState<string | null>(null)
+  const [actionError, setActionError] = useState('')
+  const router = useRouter()
+
+  const setStreamStatus = async (streamId: string, status: 'live' | 'ended') => {
+    setBusyStreamId(streamId)
+    setActionError('')
+    const res = await fetch(`/api/seller/streams/${streamId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    setBusyStreamId(null)
+    if (!res.ok) setActionError('Não foi possível atualizar a live.')
+    router.refresh()
+  }
+
+  const createAuction = async (data: AuctionFormData) => {
+    setActionError('')
+    const res = await fetch('/api/seller/auctions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        productId: data.productId,
+        startingPrice: data.startingPrice,
+        minimumIncrement: data.minimumIncrement,
+        durationMinutes: data.duration,
+        startsAt: data.startTime === 'now' ? 'now' : new Date(data.startTime).toISOString(),
+        streamId: streams.find(st => st.isLive)?.id,
+      }),
+    })
+    setShowAuctionModal(false)
+    if (!res.ok) setActionError('Não foi possível criar o leilão.')
+    router.refresh()
+  }
 
   // Period-over-period changes and conversion need analytics we don't collect yet
   const stats = {
@@ -82,10 +118,13 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             size="sm"
             leftIcon={<Radio className="w-4 h-4" />}
             className="bg-coral-pink hover:bg-coral-pink-600"
+            onClick={() => setActiveTab('streams')}
           >
             Iniciar Live
           </Button>
         </div>
+
+        {actionError && <p className="text-coral-pink text-sm mb-4">{actionError}</p>}
 
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
@@ -282,9 +321,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-white/60">{products.length} produtos</p>
-              <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-                Adicionar
-              </Button>
+              <Link href="/seller/products/new">
+                <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                  Adicionar
+                </Button>
+              </Link>
             </div>
             <div className="space-y-2">
               {products.map((product) => (
@@ -318,9 +359,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
           <div>
             <div className="flex items-center justify-between mb-4">
               <p className="text-white/60">Suas lives</p>
-              <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
-                Agendar
-              </Button>
+              <Link href="/seller/streams/new">
+                <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
+                  Agendar
+                </Button>
+              </Link>
             </div>
             <div className="space-y-3">
               {streams.length === 0 && <p className="text-white/40 text-sm">Nenhuma live ainda</p>}
@@ -354,6 +397,19 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                       </div>
                     </div>
                   </div>
+                  {stream.isLive ? (
+                    <div className="p-3 flex justify-end">
+                      <Button size="sm" variant="secondary" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'ended')}>
+                        Encerrar live
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="p-3 flex justify-end">
+                      <Button size="sm" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'live')}>
+                        Iniciar agora
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
@@ -469,7 +525,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
       </div>
 
       {/* Floating Action Button */}
-      <Link href="/seller/go-live">
+      <Link href="/seller/streams/new">
         <motion.button
           className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-coral-pink text-white shadow-lg flex items-center justify-center"
           whileHover={{ scale: 1.1 }}
@@ -484,10 +540,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         isOpen={showAuctionModal}
         onClose={() => setShowAuctionModal(false)}
         products={products}
-        onCreateAuction={(data: AuctionFormData) => {
-          console.log('Creating auction:', data)
-          setShowAuctionModal(false)
-        }}
+        onCreateAuction={createAuction}
       />
     </MainLayout>
   )

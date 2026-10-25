@@ -90,35 +90,59 @@ interface UserState {
   user: User | null
   isAuthenticated: boolean
   interests: string[]
-  setSession: (session: { user: User; interests: string[]; followedHosts: string[] } | null) => void
+  setSession: (
+    session: { user: User; interests: string[]; followedHosts: string[]; favoriteIds: string[] } | null
+  ) => void
   setInterests: (interests: string[]) => void
   followedHosts: string[]
   followHost: (hostId: string) => void
   unfollowHost: (hostId: string) => void
   isFollowing: (hostId: string) => boolean
+  favoriteIds: string[]
+  toggleFavorite: (productId: string) => void
 }
 
-async function saveFollow(hostId: string, follow: boolean) {
-  const res = await fetch('/api/follows', {
-    method: follow ? 'POST' : 'DELETE',
+async function send(url: string, method: 'POST' | 'DELETE', body: object) {
+  const res = await fetch(url, {
+    method,
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ hostId }),
+    body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`follow failed: ${res.status}`)
+  if (!res.ok) throw new Error(`${url} failed: ${res.status}`)
 }
+
+const saveFollow = (hostId: string, follow: boolean) => send('/api/follows', follow ? 'POST' : 'DELETE', { hostId })
 
 export const useUserStore = create<UserState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
   interests: [],
   followedHosts: [],
+  favoriteIds: [],
 
   setSession: (session) =>
     set(
       session
-        ? { user: session.user, isAuthenticated: true, interests: session.interests, followedHosts: session.followedHosts }
-        : { user: null, isAuthenticated: false, interests: [], followedHosts: [] }
+        ? {
+            user: session.user,
+            isAuthenticated: true,
+            interests: session.interests,
+            followedHosts: session.followedHosts,
+            favoriteIds: session.favoriteIds,
+          }
+        : { user: null, isAuthenticated: false, interests: [], followedHosts: [], favoriteIds: [] }
     ),
+
+  // Optimistic, rolled back if the request fails
+  toggleFavorite: (productId) => {
+    if (!get().isAuthenticated) return
+    const isFav = get().favoriteIds.includes(productId)
+    const without = () => get().favoriteIds.filter(id => id !== productId)
+    set({ favoriteIds: isFav ? without() : [...get().favoriteIds, productId] })
+    send('/api/favorites', isFav ? 'DELETE' : 'POST', { productId }).catch(() =>
+      set({ favoriteIds: isFav ? [...get().favoriteIds, productId] : without() })
+    )
+  },
   setInterests: (interests) => set({ interests }),
 
   // Optimistic update, rolled back if the request fails
@@ -139,81 +163,59 @@ export const useUserStore = create<UserState>()((set, get) => ({
   isFollowing: (hostId) => get().followedHosts.includes(hostId),
 }))
 
-// Notifications Store
+// Notifications Store — server-backed (/api/notifications); loaded by SessionSync
 interface NotificationState {
   notifications: Notification[]
   unreadCount: number
-  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'isRead'>) => void
+  load: () => Promise<void>
+  reset: () => void
   markAsRead: (notificationId: string) => void
   markAllAsRead: () => void
   clearNotifications: () => void
 }
 
-export const useNotificationStore = create<NotificationState>()(
-  persist(
-    (set, get) => ({
-      notifications: [
-        {
-          id: 'notif-1',
-          type: 'stream_live',
-          title: 'Ana Carolina está ao vivo!',
-          message: 'Mega queima de vestidos com até 60% OFF',
-          timestamp: new Date(),
-          isRead: false,
-          actionUrl: '/live/stream-1',
-          image: 'https://i.pravatar.cc/150?img=1',
-        },
-        {
-          id: 'notif-2',
-          type: 'promotion',
-          title: '🔥 Oferta Relâmpago!',
-          message: 'PIX com 5% de desconto por tempo limitado',
-          timestamp: new Date(Date.now() - 3600000),
-          isRead: false,
-        },
-      ],
-      unreadCount: 2,
-      
-      addNotification: (notification) => {
-        const newNotification: Notification = {
-          ...notification,
-          id: `notif-${Date.now()}`,
-          timestamp: new Date(),
-          isRead: false,
-        }
-        set({
-          notifications: [newNotification, ...get().notifications],
-          unreadCount: get().unreadCount + 1,
-        })
-      },
-      
-      markAsRead: (notificationId) => {
-        const notifications = get().notifications
-        const notification = notifications.find(n => n.id === notificationId)
-        if (notification && !notification.isRead) {
-          set({
-            notifications: notifications.map(n =>
-              n.id === notificationId ? { ...n, isRead: true } : n
-            ),
-            unreadCount: Math.max(0, get().unreadCount - 1),
-          })
-        }
-      },
-      
-      markAllAsRead: () => {
-        set({
-          notifications: get().notifications.map(n => ({ ...n, isRead: true })),
-          unreadCount: 0,
-        })
-      },
-      
-      clearNotifications: () => set({ notifications: [], unreadCount: 0 }),
-    }),
-    {
-      name: 'vivobuy-notifications',
+const sendNotifications = (method: 'PATCH' | 'DELETE', body?: object) =>
+  fetch('/api/notifications', {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: body ? JSON.stringify(body) : undefined,
+  })
+
+export const useNotificationStore = create<NotificationState>()((set, get) => ({
+  notifications: [],
+  unreadCount: 0,
+
+  load: async () => {
+    const res = await fetch('/api/notifications', { cache: 'no-store' })
+    if (!res.ok) return
+    const notifications: Notification[] = await res.json()
+    set({ notifications, unreadCount: notifications.filter(n => !n.isRead).length })
+  },
+
+  reset: () => set({ notifications: [], unreadCount: 0 }),
+
+  markAsRead: (notificationId) => {
+    const notifications = get().notifications
+    const notification = notifications.find(n => n.id === notificationId)
+    if (notification && !notification.isRead) {
+      set({
+        notifications: notifications.map(n => (n.id === notificationId ? { ...n, isRead: true } : n)),
+        unreadCount: Math.max(0, get().unreadCount - 1),
+      })
+      sendNotifications('PATCH', { id: notificationId })
     }
-  )
-)
+  },
+
+  markAllAsRead: () => {
+    set({ notifications: get().notifications.map(n => ({ ...n, isRead: true })), unreadCount: 0 })
+    sendNotifications('PATCH', {})
+  },
+
+  clearNotifications: () => {
+    set({ notifications: [], unreadCount: 0 })
+    sendNotifications('DELETE')
+  },
+}))
 
 // UI Store
 interface UIState {

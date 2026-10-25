@@ -22,11 +22,21 @@ export function FlashSaleTimer({ flashSale }: FlashSaleTimerProps) {
     const end = new Date(flashSale.endTime)
     const diff = Math.max(0, end.getTime() - now.getTime())
     
-    const minutes = Math.floor(diff / 60000)
+    const days = Math.floor(diff / 86_400_000)
+    const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+    const minutes = Math.floor((diff % 3_600_000) / 60000)
     const seconds = Math.floor((diff % 60000) / 1000)
-    
-    return { minutes, seconds, total: diff }
+
+    return { days, hours, minutes, seconds, total: diff }
   }
+
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const formatted =
+    timeLeft.days > 0
+      ? `${timeLeft.days}d ${timeLeft.hours}h`
+      : timeLeft.hours > 0
+        ? `${timeLeft.hours}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
+        : `${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
 
   function calculateProgress() {
     return ((flashSale.quantityAvailable - flashSale.quantitySold) / flashSale.quantityAvailable) * 100
@@ -99,7 +109,7 @@ export function FlashSaleTimer({ flashSale }: FlashSaleTimerProps) {
           <div className="flex items-center gap-1 text-coral-pink mb-1">
             <Clock className="w-3 h-3" />
             <span className="font-mono font-bold text-sm">
-              {String(timeLeft.minutes).padStart(2, '0')}:{String(timeLeft.seconds).padStart(2, '0')}
+              {formatted}
             </span>
           </div>
           <span className="text-white/60 text-[10px]">Restam {remaining}</span>

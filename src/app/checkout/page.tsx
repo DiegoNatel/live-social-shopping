@@ -25,6 +25,7 @@ import {
   Smartphone,
 } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
+import { authClient } from '@/lib/auth-client'
 
 type Step = 'address' | 'payment' | 'confirmation'
 type PaymentMethod = 'pix' | 'credit' | 'boleto'
@@ -39,6 +40,9 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
   const [pixCopied, setPixCopied] = useState(false)
+  const [order, setOrder] = useState<{ id: string; total: number } | null>(null)
+  const [orderError, setOrderError] = useState('')
+  const { data: session, isPending: sessionPending } = authClient.useSession()
 
   // Address form state
   const [address, setAddress] = useState({
@@ -65,17 +69,60 @@ export default function CheckoutPage() {
   const pixDiscount = paymentMethod === 'pix' ? subtotal * 0.05 : 0
   const total = subtotal + shipping - pixDiscount
 
+  // Checkout needs an account; prefill the last address used
+  useEffect(() => {
+    if (sessionPending) return
+    if (!session) {
+      router.push('/login')
+      return
+    }
+    fetch('/api/me/address')
+      .then(res => (res.ok ? (res.json() as Promise<Record<string, string> | null>) : null))
+      .then(saved => {
+        if (!saved) return
+        setAddress(a => ({
+          zipCode: a.zipCode || saved.zipCode,
+          street: a.street || saved.street,
+          number: a.number || saved.number,
+          complement: a.complement || saved.complement || '',
+          neighborhood: a.neighborhood || saved.neighborhood,
+          city: a.city || saved.city,
+          state: a.state || saved.state,
+        }))
+      })
+  }, [session, sessionPending, router])
+
   const handleAddressSubmit = () => {
     setStep('payment')
   }
 
   const handlePaymentSubmit = async () => {
     setIsProcessing(true)
-    
-    // Simulate payment processing
-    await new Promise(resolve => setTimeout(resolve, 2000))
-    
+    setOrderError('')
+
+    // Card details never leave the browser: real payment comes with the payment provider
+    const res = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        paymentMethod: paymentMethod === 'credit' ? 'credit_card' : paymentMethod,
+        address,
+        items: items.map(item => ({
+          productId: item.product.id,
+          quantity: item.quantity,
+          variants: item.selectedVariants,
+        })),
+      }),
+    })
+    const data = (await res.json().catch(() => null)) as { id: string; total: number; message?: string } | null
     setIsProcessing(false)
+
+    if (!res.ok) {
+      setOrderError(data?.message ?? 'Não foi possível finalizar o pedido. Tente novamente.')
+      return
+    }
+
+    setOrder(data)
     setStep('confirmation')
     setOrderComplete(true)
     clearCart()
@@ -468,6 +515,7 @@ export default function CheckoutPage() {
                   {paymentMethod === 'pix' ? 'Confirmar Pagamento PIX' : 'Finalizar Compra'}
                 </Button>
               </div>
+              {orderError && <p className="text-coral-pink text-sm mt-3 text-center">{orderError}</p>}
             </motion.div>
           )}
 
@@ -492,13 +540,13 @@ export default function CheckoutPage() {
                 Pedido Confirmado! 🎉
               </h2>
               <p className="text-white/60 mb-6">
-                Seu pedido foi realizado com sucesso.
+                Seu pedido foi registrado e aguarda pagamento.
               </p>
 
               <div className="rounded-xl bg-white/5 p-4 mb-6 text-left">
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-white/60 text-sm">Número do pedido</span>
-                  <span className="text-white font-mono">#VB2025{Math.floor(Math.random() * 100000)}</span>
+                  <span className="text-white font-mono">{order?.id}</span>
                 </div>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-white/60 text-sm">Previsão de entrega</span>
@@ -506,7 +554,7 @@ export default function CheckoutPage() {
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-white/60 text-sm">Valor total</span>
-                  <span className="text-tropical-green font-bold">{formatCurrency(total)}</span>
+                  <span className="text-tropical-green font-bold">{formatCurrency(order?.total ?? 0)}</span>
                 </div>
               </div>
 

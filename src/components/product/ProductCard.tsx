@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { formatCurrency, calculateDiscount } from '@/lib/utils'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { useCartStore, useUIStore } from '@/store'
+import { useCartStore, useUIStore, useUserStore } from '@/store'
 import type { Product } from '@/types'
 import { Heart, ShoppingBag, Star } from 'lucide-react'
 import { useState } from 'react'
@@ -24,7 +24,9 @@ export function ProductCard({
   showAddToCart = true,
   index = 0 
 }: ProductCardProps) {
-  const [isLiked, setIsLiked] = useState(false)
+  const isLiked = useUserStore(s => s.favoriteIds.includes(product.id))
+  const toggleFavorite = useUserStore(s => s.toggleFavorite)
+  const isAuthenticated = useUserStore(s => s.isAuthenticated)
   const { addItem } = useCartStore()
   const { openProductModal } = useUIStore()
 
@@ -39,7 +41,11 @@ export function ProductCard({
 
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation()
-    setIsLiked(!isLiked)
+    if (!isAuthenticated) {
+      window.location.href = '/login'
+      return
+    }
+    toggleFavorite(product.id)
   }
 
   const handleClick = () => {

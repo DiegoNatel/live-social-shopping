@@ -98,6 +98,15 @@ export async function getProducts({ onSale = false, limit = 20 } = {}): Promise<
   return hydrateProducts(results)
 }
 
+export async function getProductsByIds(ids: string[]): Promise<Product[]> {
+  if (ids.length === 0) return []
+  const { results } = await getDb()
+    .prepare(`${PRODUCT_SELECT} AND p.id IN (${ids.map(() => '?').join(',')})`)
+    .bind(...ids)
+    .all<Row>()
+  return hydrateProducts(results)
+}
+
 // ---------- Streams ----------
 
 export async function getStreams({ live }: { live: boolean }): Promise<Stream[]> {
@@ -280,6 +289,12 @@ export async function getPurchaseStats(userId: string) {
   return { purchases: row?.purchases ?? 0, totalSpent: fromCents(row?.spent ?? 0)! }
 }
 
+// Auction status follows the clock, not the value stored at creation
+export const AUCTION_STATUS = `CASE
+  WHEN a.starts_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') THEN 'upcoming'
+  WHEN a.ends_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') THEN 'active'
+  ELSE 'ended' END`
+
 // ---------- Seller dashboard ----------
 
 export interface SellerOrder {
@@ -300,7 +315,7 @@ export async function getSellerDashboard(sellerId: string) {
       getStreams({ live: false }),
       db
         .prepare(
-          `SELECT a.*, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
+          `SELECT a.*, ${AUCTION_STATUS} AS live_status, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
            FROM auctions a JOIN products p ON p.id = a.product_id
            WHERE p.seller_id = ? ORDER BY a.starts_at`
         )
@@ -337,7 +352,7 @@ export async function getSellerDashboard(sellerId: string) {
     startTime: a.starts_at,
     endTime: a.ends_at,
     bids: Array.from({ length: a.bid_count }, (_, i) => ({ id: `${a.id}-${i}` }) as AuctionBid),
-    status: a.status,
+    status: a.live_status,
     winnerId: a.winner_id ?? undefined,
     streamId: a.stream_id ?? undefined,
   }))

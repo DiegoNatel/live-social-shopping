@@ -9,20 +9,24 @@ import { cn } from '@/lib/utils'
 
 interface PollWidgetProps {
   poll: Poll
+  myVote?: string
+  // Saves the vote; resolves false if it wasn't recorded
+  onVote?: (optionId: string) => Promise<boolean>
   onClose?: () => void
 }
 
-export function PollWidget({ poll, onClose }: PollWidgetProps) {
-  const [selectedOption, setSelectedOption] = useState<string | null>(null)
-  const [hasVoted, setHasVoted] = useState(false)
+export function PollWidget({ poll, myVote, onVote, onClose }: PollWidgetProps) {
+  const [selectedOption, setSelectedOption] = useState<string | null>(myVote ?? null)
+  const [hasVoted, setHasVoted] = useState(!!myVote)
   const [voteCounts, setVoteCounts] = useState(
     poll.options.reduce((acc, opt) => ({ ...acc, [opt.id]: opt.votes }), {} as Record<string, number>)
   )
 
   const totalVotes = Object.values(voteCounts).reduce((a, b) => a + b, 0)
 
-  const handleVote = () => {
+  const handleVote = async () => {
     if (!selectedOption) return
+    if (onVote && !(await onVote(selectedOption))) return
     
     setVoteCounts(prev => ({
       ...prev,

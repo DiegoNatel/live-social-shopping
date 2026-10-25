@@ -7,7 +7,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { DiscountBadge } from '@/components/ui/Badge'
-import { useUIStore, useCartStore } from '@/store'
+import { useUIStore, useCartStore, useUserStore } from '@/store'
 import { formatCurrency, calculateDiscount, calculateInstallments } from '@/lib/utils'
 import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
@@ -19,12 +19,15 @@ export function ProductModal() {
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({})
-  const [isLiked, setIsLiked] = useState(false)
+  const favoriteIds = useUserStore(s => s.favoriteIds)
+  const toggleFavorite = useUserStore(s => s.toggleFavorite)
+  const isAuthenticated = useUserStore(s => s.isAuthenticated)
   const [isAdded, setIsAdded] = useState(false)
 
   if (!selectedProduct) return null
 
   const product = selectedProduct
+  const isLiked = favoriteIds.includes(product.id)
   const discount = product.originalPrice 
     ? calculateDiscount(product.originalPrice, product.price) 
     : 0
@@ -50,7 +53,6 @@ export function ProductModal() {
     setSelectedImage(0)
     setQuantity(1)
     setSelectedVariants({})
-    setIsLiked(false)
     setIsAdded(false)
   }
 
@@ -158,7 +160,7 @@ export function ProductModal() {
                     
                     <div className="flex gap-2">
                       <button
-                        onClick={() => setIsLiked(!isLiked)}
+                        onClick={() => (isAuthenticated ? toggleFavorite(product.id) : (window.location.href = '/login'))}
                         className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
                       >
                         <Heart className={cn('w-5 h-5', isLiked ? 'fill-coral-pink text-coral-pink' : 'text-gray-400')} />

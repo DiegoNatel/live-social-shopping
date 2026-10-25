@@ -14,9 +14,8 @@ import { FloatingReactions } from '@/components/stream/FloatingReactions'
 import { PollWidget } from '@/components/stream/PollWidget'
 import { FlashSaleTimer } from '@/components/stream/FlashSaleTimer'
 import { ProductModal } from '@/components/product/ProductModal'
-// Poll and flash sale stay simulated until real-time features (phase 2)
-import { mockPoll, mockFlashSale } from '@/data/mock-data'
-import type { Stream } from '@/types'
+import { AuctionCard } from '@/components/auction/AuctionCard'
+import type { Stream, Poll, FlashSale, Auction } from '@/types'
 import { useUserStore, useUIStore } from '@/store'
 import { formatViewerCount } from '@/lib/utils'
 import { cn } from '@/lib/utils'
@@ -31,7 +30,14 @@ import {
   MessageCircle,
 } from 'lucide-react'
 
-export function LiveStreamView({ stream }: { stream: Stream | null }) {
+interface LiveStreamViewProps {
+  stream: Stream | null
+  poll: (Poll & { myVote?: string }) | null
+  flashSale: FlashSale | null
+  auctions: Auction[]
+}
+
+export function LiveStreamView({ stream, poll, flashSale, auctions }: LiveStreamViewProps) {
   const router = useRouter()
   const { isFollowing, followHost, unfollowHost, isAuthenticated } = useUserStore()
   const { openProductModal } = useUIStore()
@@ -41,6 +47,7 @@ export function LiveStreamView({ stream }: { stream: Stream | null }) {
   const [showControls, setShowControls] = useState(true)
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [showPoll, setShowPoll] = useState(true)
+  const [bidMessage, setBidMessage] = useState('')
   const [viewerCount, setViewerCount] = useState(stream?.viewerCount || 0)
   const [chatHeight, setChatHeight] = useState(50) // percentage of viewport height
   
@@ -130,6 +137,37 @@ export function LiveStreamView({ stream }: { stream: Stream | null }) {
   }
 
   const isUserFollowing = isFollowing(stream.host.id)
+
+  const placeBid = async (auctionId: string, amount: number) => {
+    if (!isAuthenticated) {
+      router.push('/login')
+      return
+    }
+    setBidMessage('')
+    const res = await fetch(`/api/auctions/${auctionId}/bids`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount }),
+    })
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { message?: string } | null
+      setBidMessage(data?.message ?? 'Não foi possível registrar o lance.')
+    }
+    router.refresh()
+  }
+
+  const votePoll = async (optionId: string) => {
+    if (!isAuthenticated || !poll) {
+      router.push('/login')
+      return false
+    }
+    const res = await fetch(`/api/polls/${poll.id}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ optionId }),
+    })
+    return res.ok
+  }
 
   const toggleFollow = () => {
     if (!isAuthenticated) {
@@ -256,14 +294,16 @@ export function LiveStreamView({ stream }: { stream: Stream | null }) {
               </div>
               
               {/* Flash Sale Indicator */}
-              <motion.button
-                className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
-                onClick={(e) => { e.stopPropagation(); openProductModal(mockFlashSale.product); }}
-                whileTap={{ scale: 0.95 }}
-              >
-                <span>⚡</span>
-                <span>Oferta</span>
-              </motion.button>
+              {flashSale && (
+                <motion.button
+                  className="flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
+                  onClick={(e) => { e.stopPropagation(); openProductModal(flashSale.product); }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  <span>⚡</span>
+                  <span>Oferta</span>
+                </motion.button>
+              )}
             </div>
           </div>
         </div>
@@ -354,7 +394,7 @@ export function LiveStreamView({ stream }: { stream: Stream | null }) {
               >
                 <div className="max-w-lg">
                   <h1 className="text-white font-semibold text-xl mb-3">{stream.title}</h1>
-                  <FlashSaleTimer flashSale={mockFlashSale} />
+                  {flashSale && <FlashSaleTimer flashSale={flashSale} />}
                 </div>
               </motion.div>
             )}
@@ -368,17 +408,29 @@ export function LiveStreamView({ stream }: { stream: Stream | null }) {
       <div className="hidden lg:flex lg:w-96 flex-col h-screen bg-deep-ocean border-l border-white/10">
         {/* Poll Widget */}
         <AnimatePresence>
-          {showPoll && (
+          {showPoll && poll && (
             <motion.div
               className="p-4 border-b border-white/10"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <PollWidget poll={mockPoll} onClose={() => setShowPoll(false)} />
+              <PollWidget poll={poll} myVote={poll.myVote} onVote={votePoll} onClose={() => setShowPoll(false)} />
             </motion.div>
           )}
         </AnimatePresence>
+
+        {/* Auctions */}
+        {auctions.some(a => a.status === 'active') && (
+          <div className="p-4 border-b border-white/10 space-y-3 max-h-[50vh] overflow-y-auto">
+            {bidMessage && <p className="text-coral-pink text-sm">{bidMessage}</p>}
+            {auctions
+              .filter(a => a.status === 'active')
+              .map(auction => (
+                <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+              ))}
+          </div>
+        )}
 
         {/* Products */}
         <div className="p-4 border-b border-white/10">
