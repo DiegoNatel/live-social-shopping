@@ -28,6 +28,9 @@ export interface Product {
   seller: User
   tags?: string[]
   itemType?: ItemType // 'product' by default
+  isActive?: boolean // false when the seller paused it (only in the seller's own lists)
+  // Set while a flash sale is running; price is already the sale price
+  flashSale?: { id: string; discountPercent: number; endsAt: string; remaining: number; regularPrice: number }
 }
 
 export interface ProductVariant {

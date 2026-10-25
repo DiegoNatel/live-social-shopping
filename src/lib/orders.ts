@@ -1,5 +1,5 @@
 import 'server-only'
-import { getDb } from './db'
+import { getDb, activeFlashSales, flashPriceCents } from './db'
 import { checkCoupon } from './coupons'
 import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
@@ -12,10 +12,15 @@ export interface NewOrderInput {
   paymentMethod: Extract<PaymentMethod, 'pix' | 'credit_card' | 'boleto'>
   address: NewAddress
   couponCode?: string
+  // Total the customer saw, in centavos; the order is refused if the real total differs
+  expectedTotalCents?: number
 }
 
 export class OrderError extends Error {
-  constructor(public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON', message: string) {
+  constructor(
+    public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON' | 'PRICE_CHANGED',
+    message: string
+  ) {
     super(message)
   }
 }
@@ -23,43 +28,59 @@ export class OrderError extends Error {
 const newId = () => crypto.randomUUID()
 const orderNumber = () => `VB-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`
 
-export async function createOrder(userId: string, input: NewOrderInput) {
+export type CartItemInput = NewOrderInput['items'][number]
+
+export interface PricedLine {
+  productId: string
+  sellerId: string
+  name: string
+  quantity: number
+  unitPriceCents: number
+  variants: Record<string, string> | null
+  flashSaleId: string | null
+}
+
+// Prices a cart from the database (never from the client) and checks stock.
+// Used by the order API and the coupon preview, so both see the same subtotal.
+export async function priceCart(items: CartItemInput[]) {
   const db = getDb()
-  if (input.items.length === 0) throw new OrderError('EMPTY', 'Carrinho vazio')
+  if (items.length === 0) throw new OrderError('EMPTY', 'Carrinho vazio')
 
   // Merge duplicate lines of the same product/variant
-  const lines = new Map<string, NewOrderInput['items'][number]>()
-  for (const item of input.items) {
+  const lines = new Map<string, CartItemInput>()
+  for (const item of items) {
     const key = `${item.productId}|${VARIANT_TYPES.map(t => item.variants?.[t] ?? '').join('|')}`
     const prev = lines.get(key)
     lines.set(key, prev ? { ...prev, quantity: prev.quantity + item.quantity } : { ...item })
   }
 
-  const ids = [...new Set(input.items.map(i => i.productId))]
-  const { results: products } = await db
-    .prepare(
-      `SELECT id, seller_id, name, price_cents, stock FROM products
-       WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
-    )
-    .bind(...ids)
-    .all<{ id: string; seller_id: string; name: string; price_cents: number; stock: number }>()
+  const ids = [...new Set(items.map(i => i.productId))]
+  const [{ results: products }, { results: variantRows }, flashSales] = await Promise.all([
+    db
+      .prepare(
+        `SELECT id, seller_id, name, price_cents, stock FROM products
+         WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
+      )
+      .bind(...ids)
+      .all<{ id: string; seller_id: string; name: string; price_cents: number; stock: number }>(),
+    db
+      .prepare(
+        `SELECT id, product_id, type, name, stock, price_modifier_cents FROM product_variants
+         WHERE product_id IN (${ids.map(() => '?').join(',')})`
+      )
+      .bind(...ids)
+      .all<{ id: string; product_id: string; type: string; name: string; stock: number; price_modifier_cents: number }>(),
+    activeFlashSales(ids),
+  ])
   const byId = new Map(products.map(p => [p.id, p]))
-  const { results: variantRows } = await db
-    .prepare(
-      `SELECT id, product_id, type, name, stock, price_modifier_cents FROM product_variants
-       WHERE product_id IN (${ids.map(() => '?').join(',')})`
-    )
-    .bind(...ids)
-    .all<{ id: string; product_id: string; type: string; name: string; stock: number; price_modifier_cents: number }>()
 
-  // Prices always come from the database, never from the client
   let subtotal = 0
   const qtyByProduct = new Map<string, number>()
   const qtyByVariant = new Map<string, number>()
-  const priced = new Map<string, { unitPriceCents: number; variants: Record<string, string> | null }>()
-  for (const [key, line] of lines) {
+  const priced: PricedLine[] = []
+  for (const line of lines.values()) {
     const product = byId.get(line.productId)
-    if (!product) throw new OrderError('NOT_FOUND', 'Produto indisponível')
+    if (!product) throw new OrderError('NOT_FOUND', 'Um produto do carrinho não está mais disponível')
 
     // Each variant type the product offers must be chosen, and only those
     const offered = variantRows.filter(v => v.product_id === product.id)
@@ -67,7 +88,9 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     if (chosen.some(([type]) => !offered.some(v => v.type === type))) {
       throw new OrderError('INVALID', `Opção inválida: ${product.name}`)
     }
-    let unitPriceCents = product.price_cents
+    // A running flash sale discounts the base price; variant modifiers are added on top
+    const sale = flashSales.get(product.id)
+    let unitPriceCents = sale ? flashPriceCents(product.price_cents, sale.discountPercent) : product.price_cents
     const variants: Record<string, string> = {}
     for (const type of VARIANT_TYPES) {
       if (!offered.some(v => v.type === type)) continue
@@ -77,14 +100,27 @@ export async function createOrder(userId: string, input: NewOrderInput) {
       variants[type] = v.name
       qtyByVariant.set(v.id, (qtyByVariant.get(v.id) ?? 0) + line.quantity)
     }
+    if (unitPriceCents <= 0) throw new OrderError('INVALID', `Preço inválido: ${product.name}`)
 
-    priced.set(key, { unitPriceCents, variants: Object.keys(variants).length ? variants : null })
+    priced.push({
+      productId: product.id,
+      sellerId: product.seller_id,
+      name: product.name,
+      quantity: line.quantity,
+      unitPriceCents,
+      variants: Object.keys(variants).length ? variants : null,
+      flashSaleId: sale?.id ?? null,
+    })
     subtotal += unitPriceCents * line.quantity
     qtyByProduct.set(product.id, (qtyByProduct.get(product.id) ?? 0) + line.quantity)
   }
   for (const [productId, qty] of qtyByProduct) {
     const product = byId.get(productId)!
     if (product.stock < qty) throw new OrderError('OUT_OF_STOCK', `Estoque insuficiente: ${product.name}`)
+    const sale = flashSales.get(productId)
+    if (sale && sale.remaining < qty) {
+      throw new OrderError('OUT_OF_STOCK', `Restam ${sale.remaining} unidades na oferta relâmpago de ${product.name}`)
+    }
   }
   for (const [variantId, qty] of qtyByVariant) {
     const v = variantRows.find(v => v.id === variantId)!
@@ -92,6 +128,17 @@ export async function createOrder(userId: string, input: NewOrderInput) {
       throw new OrderError('OUT_OF_STOCK', `Estoque insuficiente: ${byId.get(v.product_id)!.name} (${v.name})`)
     }
   }
+
+  const qtyByFlashSale = new Map<string, number>()
+  for (const line of priced) {
+    if (line.flashSaleId) qtyByFlashSale.set(line.flashSaleId, (qtyByFlashSale.get(line.flashSaleId) ?? 0) + line.quantity)
+  }
+  return { lines: priced, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale }
+}
+
+export async function createOrder(userId: string, input: NewOrderInput) {
+  const db = getDb()
+  const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items)
 
   let coupon: AppliedCoupon | null = null
   if (input.couponCode) {
@@ -101,6 +148,10 @@ export async function createOrder(userId: string, input: NewOrderInput) {
   }
 
   const totals = computeTotals(subtotal, { coupon, pix: input.paymentMethod === 'pix' })
+  // The cart shows prices saved in the browser; if any changed, show the new total before charging
+  if (input.expectedTotalCents !== undefined && input.expectedTotalCents !== totals.total) {
+    throw new OrderError('PRICE_CHANGED', 'Os preços mudaram. Confira o novo total antes de finalizar.')
+  }
 
   const orderId = orderNumber()
   const statements = [
@@ -126,17 +177,19 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     ...[...qtyByVariant].map(([variantId, qty]) =>
       db.prepare('UPDATE product_variants SET stock = stock - ? WHERE id = ?').bind(qty, variantId)
     ),
-    ...[...lines].map(([key, line]) => {
-      const p = byId.get(line.productId)!
-      const { unitPriceCents, variants } = priced.get(key)!
-      return db
+    // flash_sales has CHECK (quantity_sold <= quantity_available)
+    ...[...qtyByFlashSale].map(([saleId, qty]) =>
+      db.prepare('UPDATE flash_sales SET quantity_sold = quantity_sold + ? WHERE id = ?').bind(qty, saleId)
+    ),
+    ...lines.map(line =>
+      db
         .prepare(
-          `INSERT INTO order_items (id, order_id, product_id, seller_id, name, unit_price_cents, quantity, variants)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO order_items (id, order_id, product_id, seller_id, name, unit_price_cents, quantity, variants, flash_sale_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
-        .bind(newId(), orderId, p.id, p.seller_id, p.name, unitPriceCents, line.quantity,
-          variants ? JSON.stringify(variants) : null)
-    }),
+        .bind(newId(), orderId, line.productId, line.sellerId, line.name, line.unitPriceCents, line.quantity,
+          line.variants ? JSON.stringify(line.variants) : null, line.flashSaleId)
+    ),
     // Remember the address for next time (only if it isn't saved already)
     db
       .prepare(
@@ -153,7 +206,7 @@ export async function createOrder(userId: string, input: NewOrderInput) {
         userId, userId, input.address.zipCode, input.address.street, input.address.number
       ),
     notify(userId, 'order_update', 'Pedido recebido', `Seu pedido ${orderId} foi registrado e aguarda pagamento.`, '/orders'),
-    ...[...new Set(products.map(p => p.seller_id))].map(sellerId =>
+    ...[...new Set(lines.map(l => l.sellerId))].map(sellerId =>
       notify(sellerId, 'order_update', 'Novo pedido', `Você recebeu o pedido ${orderId}.`, '/seller/dashboard')
     ),
   ]
@@ -175,6 +228,57 @@ export async function createOrder(userId: string, input: NewOrderInput) {
   }
 
   return { id: orderId, total: totals.total / 100 }
+}
+
+// Buyers can cancel orders that haven't been paid. Everything the order took is given back:
+// product and variant stock, flash sale units and the coupon use.
+export async function cancelOrder(userId: string, orderId: string) {
+  const db = getDb()
+  // Claiming the cancellation is one conditional UPDATE, so stock is restored at most once
+  const claim = await db
+    .prepare(`UPDATE orders SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending'`)
+    .bind(orderId, userId)
+    .run()
+  if (claim.meta.changes === 0) return false
+
+  const { results: sellers } = await db
+    .prepare('SELECT DISTINCT seller_id FROM order_items WHERE order_id = ?')
+    .bind(orderId)
+    .all<{ seller_id: string }>()
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE products SET stock = stock + (
+           SELECT sum(quantity) FROM order_items WHERE order_id = ?1 AND product_id = products.id)
+         WHERE id IN (SELECT product_id FROM order_items WHERE order_id = ?1)`
+      )
+      .bind(orderId),
+    // order_items.variants holds the chosen names by type, e.g. {"size":"M","color":"Azul"}
+    db
+      .prepare(
+        `UPDATE product_variants SET stock = stock + coalesce((
+           SELECT sum(oi.quantity) FROM order_items oi
+           WHERE oi.order_id = ?1 AND oi.product_id = product_variants.product_id
+             AND json_extract(oi.variants, '$.' || product_variants.type) = product_variants.name), 0)
+         WHERE product_id IN (SELECT product_id FROM order_items WHERE order_id = ?1)`
+      )
+      .bind(orderId),
+    db
+      .prepare(
+        `UPDATE flash_sales SET quantity_sold = max(0, quantity_sold - (
+           SELECT sum(quantity) FROM order_items WHERE order_id = ?1 AND flash_sale_id = flash_sales.id))
+         WHERE id IN (SELECT flash_sale_id FROM order_items WHERE order_id = ?1)`
+      )
+      .bind(orderId),
+    db
+      .prepare('UPDATE coupons SET uses_count = max(0, uses_count - 1) WHERE code = (SELECT coupon_code FROM orders WHERE id = ?)')
+      .bind(orderId),
+    notify(userId, 'order_update', 'Pedido cancelado', `Seu pedido ${orderId} foi cancelado.`, '/orders'),
+    ...sellers.map(s =>
+      notify(s.seller_id, 'order_update', 'Pedido cancelado', `O pedido ${orderId} foi cancelado pelo comprador.`, '/seller/dashboard')
+    ),
+  ])
+  return true
 }
 
 export function notify(

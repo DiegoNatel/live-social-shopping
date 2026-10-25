@@ -12,23 +12,18 @@ interface FlashSaleTimerProps {
   flashSale: FlashSale
 }
 
+function calculateTimeLeft(endTime: Date | string) {
+  const diff = Math.max(0, new Date(endTime).getTime() - Date.now())
+  const days = Math.floor(diff / 86_400_000)
+  const hours = Math.floor((diff % 86_400_000) / 3_600_000)
+  const minutes = Math.floor((diff % 3_600_000) / 60000)
+  const seconds = Math.floor((diff % 60000) / 1000)
+  return { days, hours, minutes, seconds, total: diff }
+}
+
 export function FlashSaleTimer({ flashSale }: FlashSaleTimerProps) {
   const { openProductModal } = useUIStore()
-  const [timeLeft, setTimeLeft] = useState(calculateTimeLeft())
-  const [progress, setProgress] = useState(calculateProgress())
-
-  function calculateTimeLeft() {
-    const now = new Date()
-    const end = new Date(flashSale.endTime)
-    const diff = Math.max(0, end.getTime() - now.getTime())
-    
-    const days = Math.floor(diff / 86_400_000)
-    const hours = Math.floor((diff % 86_400_000) / 3_600_000)
-    const minutes = Math.floor((diff % 3_600_000) / 60000)
-    const seconds = Math.floor((diff % 60000) / 1000)
-
-    return { days, hours, minutes, seconds, total: diff }
-  }
+  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft(flashSale.endTime))
 
   const pad = (n: number) => String(n).padStart(2, '0')
   const formatted =
@@ -38,26 +33,16 @@ export function FlashSaleTimer({ flashSale }: FlashSaleTimerProps) {
         ? `${timeLeft.hours}:${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
         : `${pad(timeLeft.minutes)}:${pad(timeLeft.seconds)}`
 
-  function calculateProgress() {
-    return ((flashSale.quantityAvailable - flashSale.quantitySold) / flashSale.quantityAvailable) * 100
-  }
+  const progress = ((flashSale.quantityAvailable - flashSale.quantitySold) / flashSale.quantityAvailable) * 100
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const newTimeLeft = calculateTimeLeft()
+      const newTimeLeft = calculateTimeLeft(flashSale.endTime)
       setTimeLeft(newTimeLeft)
-      
-      if (newTimeLeft.total <= 0) {
-        clearInterval(timer)
-      }
+      if (newTimeLeft.total <= 0) clearInterval(timer)
     }, 1000)
-
     return () => clearInterval(timer)
   }, [flashSale.endTime])
-
-  useEffect(() => {
-    setProgress(calculateProgress())
-  }, [flashSale.quantitySold])
 
   const discount = calculateDiscount(flashSale.product.originalPrice || flashSale.product.price, flashSale.product.price)
   const remaining = flashSale.quantityAvailable - flashSale.quantitySold

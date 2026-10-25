@@ -10,7 +10,7 @@ import { DiscountBadge } from '@/components/ui/Badge'
 import { useUIStore, useCartStore, useUserStore } from '@/store'
 import { formatCurrency, calculateDiscount, calculateInstallments } from '@/lib/utils'
 import { availableStock, missingVariantTypes, unitPrice, VARIANT_LABELS } from '@/lib/pricing'
-import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield } from 'lucide-react'
+import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield, Zap } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
 
@@ -195,6 +195,13 @@ export function ProductModal() {
                       )}
                     </div>
                     
+                    {product.flashSale && (
+                      <p className="flex items-center gap-1 mt-1 text-coral-pink text-sm font-medium">
+                        <Zap className="w-4 h-4 fill-current" />
+                        Oferta relâmpago: -{product.flashSale.discountPercent}% · restam {product.flashSale.remaining}
+                      </p>
+                    )}
+
                     {/* PIX discount */}
                     <div className="flex items-center gap-2 mt-2 p-2 bg-tropical-green/10 rounded-lg">
                       <PixIcon className="w-5 h-5 text-tropical-green" />

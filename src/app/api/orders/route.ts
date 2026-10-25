@@ -53,12 +53,13 @@ export async function POST(request: Request) {
       items,
       paymentMethod,
       couponCode: str(body.couponCode, 32) ?? undefined,
+      expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
       address,
     })
     return Response.json(order, { status: 201 })
   } catch (e) {
     if (e instanceof OrderError) {
-      return Response.json({ error: e.code, message: e.message }, { status: e.code === 'OUT_OF_STOCK' ? 409 : 400 })
+      return Response.json({ error: e.code, message: e.message }, { status: e.code === 'OUT_OF_STOCK' || e.code === 'PRICE_CHANGED' ? 409 : 400 })
     }
     throw e
   }

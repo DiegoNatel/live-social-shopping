@@ -60,8 +60,8 @@ export function unitPrice(product: Pick<Product, 'price' | 'variants'>, selected
 }
 
 // Most units that can be bought with these choices
-export function availableStock(product: Pick<Product, 'stock' | 'variants'>, selected?: Record<string, string>) {
-  return Math.min(product.stock, ...chosenVariants(product, selected).map(v => v.stock))
+export function availableStock(product: Pick<Product, 'stock' | 'variants' | 'flashSale'>, selected?: Record<string, string>) {
+  return Math.min(product.stock, product.flashSale?.remaining ?? Infinity, ...chosenVariants(product, selected).map(v => v.stock))
 }
 
 export function variantLabel(selected?: Record<string, string>) {

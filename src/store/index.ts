@@ -11,6 +11,8 @@ interface CartState {
   removeItem: (lineId: string) => void
   updateQuantity: (lineId: string, quantity: number) => void
   clearCart: () => void
+  // Replaces the saved product copies with current data; returns true if anything changed
+  refreshProducts: () => Promise<boolean>
   getTotal: () => number
   getItemCount: () => number
   // Validated by /api/coupons/check; the order API re-checks it
@@ -77,6 +79,34 @@ export const useCartStore = create<CartState>()(
       },
       
       clearCart: () => set({ items: [], appliedCoupon: null }),
+
+      refreshProducts: async () => {
+        const items = get().items
+        if (items.length === 0) return false
+        const res = await fetch('/api/cart/products', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ids: [...new Set(items.map(i => i.product.id))] }),
+        }).catch(() => null)
+        if (!res?.ok) return false
+        const fresh = new Map((await res.json() as Product[]).map(p => [p.id, p]))
+
+        // Drop products that are gone or sold out, and clamp quantities to what's left
+        const next = items.flatMap(item => {
+          const product = fresh.get(item.product.id)
+          if (!product) return []
+          const quantity = Math.min(item.quantity, availableStock(product, item.selectedVariants))
+          return quantity > 0 ? [{ ...item, product, quantity }] : []
+        })
+        const changed =
+          next.length !== items.length ||
+          next.some((item, i) =>
+            item.quantity !== items[i].quantity ||
+            unitPrice(item.product, item.selectedVariants) !== unitPrice(items[i].product, items[i].selectedVariants)
+          )
+        set({ items: next })
+        return changed
+      },
       
       getTotal: () => {
         return get().items.reduce(

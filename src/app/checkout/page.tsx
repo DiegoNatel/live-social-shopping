@@ -8,6 +8,7 @@ import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Avatar } from '@/components/ui/Avatar'
+import { useFreshCart } from '@/hooks/useFreshCart'
 import { useCartStore, useUserStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
 import { computeTotals, toCents, fromCents, unitPrice, variantLabel } from '@/lib/pricing'
@@ -18,7 +19,6 @@ import {
   MapPin,
   CreditCard,
   Check,
-  Copy,
   Clock,
   Shield,
   Truck,
@@ -40,9 +40,9 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
-  const [pixCopied, setPixCopied] = useState(false)
   const [order, setOrder] = useState<{ id: string; total: number } | null>(null)
   const [orderError, setOrderError] = useState('')
+  const cartChanged = useFreshCart()
   const { data: session, isPending: sessionPending } = authClient.useSession()
 
   // Address form state
@@ -111,6 +111,8 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         paymentMethod: paymentMethod === 'credit' ? 'credit_card' : paymentMethod,
         couponCode: appliedCoupon?.code,
+        // Lets the server refuse the order if prices changed since the page loaded
+        expectedTotalCents: totals.total,
         address,
         items: items.map(item => ({
           productId: item.product.id,
@@ -125,7 +127,10 @@ export default function CheckoutPage() {
     setIsProcessing(false)
 
     if (!res.ok) {
-      if (data?.error === 'COUPON') {
+      if (data?.error === 'PRICE_CHANGED' || data?.error === 'OUT_OF_STOCK' || data?.error === 'NOT_FOUND') {
+        await useCartStore.getState().refreshProducts()
+        setOrderError(`${data.message} Sua sacola foi atualizada.`)
+      } else if (data?.error === 'COUPON') {
         // Drop the coupon so the totals update and the order can be placed without it
         setCoupon(null)
         setOrderError(`${data.message}. O cupom foi removido; confira o novo total.`)
@@ -139,12 +144,6 @@ export default function CheckoutPage() {
     setStep('confirmation')
     setOrderComplete(true)
     clearCart()
-  }
-
-  const copyPixCode = () => {
-    navigator.clipboard.writeText('00020126580014BR.GOV.BCB.PIX0136vivobuy@pix.com5204000053039865802BR')
-    setPixCopied(true)
-    setTimeout(() => setPixCopied(false), 3000)
   }
 
   const isEmpty = items.length === 0 && !orderComplete
@@ -387,23 +386,12 @@ export default function CheckoutPage() {
 
               {/* Payment Details */}
               {paymentMethod === 'pix' && (
-                <div className="p-4 rounded-xl bg-white shadow-card mb-6">
-                  <div className="flex items-center justify-center mb-4">
-                    <div className="w-40 h-40 bg-white rounded-xl flex items-center justify-center">
-                      <QrCode className="w-32 h-32 text-deep-ocean" />
-                    </div>
-                  </div>
-                  <p className="text-gray-500 text-sm text-center mb-3">
-                    Escaneie o QR Code ou copie o código PIX
+                <div className="p-4 rounded-xl bg-white shadow-card mb-6 flex items-center gap-3">
+                  <QrCode className="w-8 h-8 text-gray-400 flex-shrink-0" />
+                  {/* The real PIX charge (QR Code and copia e cola) comes from the payment provider */}
+                  <p className="text-gray-500 text-sm">
+                    O QR Code e o código PIX aparecem depois que você confirmar o pedido.
                   </p>
-                  <Button
-                    variant="secondary"
-                    fullWidth
-                    onClick={copyPixCode}
-                    leftIcon={pixCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                  >
-                    {pixCopied ? 'Código copiado!' : 'Copiar código PIX'}
-                  </Button>
                 </div>
               )}
 
@@ -541,6 +529,11 @@ export default function CheckoutPage() {
                 </Button>
               </div>
               {orderError && <p className="text-coral-pink text-sm mt-3 text-center">{orderError}</p>}
+              {cartChanged && !orderError && (
+                <p className="text-amber-700 text-sm mt-3 text-center">
+                  Os preços ou o estoque de algum item mudaram. Confira o total.
+                </p>
+              )}
             </motion.div>
           )}
 

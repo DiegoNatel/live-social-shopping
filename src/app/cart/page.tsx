@@ -7,6 +7,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Button } from '@/components/ui/Button'
+import { useFreshCart } from '@/hooks/useFreshCart'
 import { useCartStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
 import { availableStock, computeTotals, toCents, fromCents, unitPrice, variantLabel, type AppliedCoupon } from '@/lib/pricing'
@@ -18,6 +19,7 @@ export default function CartPage() {
   const router = useRouter()
   const { items, removeItem, updateQuantity, getTotal, clearCart, appliedCoupon, setCoupon } = useCartStore()
   const [couponCode, setCouponCode] = useState('')
+  const cartChanged = useFreshCart()
   const [couponError, setCouponError] = useState('')
   const [isCheckingCoupon, setIsCheckingCoupon] = useState(false)
 
@@ -40,7 +42,7 @@ export default function CartPage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         code: couponCode,
-        items: items.map(i => ({ productId: i.product.id, quantity: i.quantity })),
+        items: items.map(i => ({ productId: i.product.id, quantity: i.quantity, variants: i.selectedVariants })),
       }),
     })
     const data = (await res.json().catch(() => null)) as (AppliedCoupon & { message?: string }) | null
@@ -80,6 +82,11 @@ export default function CartPage() {
   return (
     <MainLayout headerProps={{ title: 'Minha Sacola', showCart: false }}>
       <div className="px-4 py-4 max-w-2xl mx-auto">
+        {cartChanged && (
+          <p className="mb-3 p-3 rounded-md bg-amber-50 text-amber-700 text-sm">
+            Atualizamos preços e estoque da sua sacola. Confira antes de finalizar.
+          </p>
+        )}
         {/* Cart Items */}
         <div className="space-y-3 mb-6">
           <AnimatePresence>

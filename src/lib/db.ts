@@ -49,6 +49,7 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
     seller: toUser(row, 'seller_'),
     tags: parseList(row.tags),
     itemType: 'product',
+    isActive: row.is_active === undefined ? undefined : !!row.is_active,
   }
 }
 
@@ -83,9 +84,67 @@ async function variantsFor(ids: string[]): Promise<Map<string, ProductVariant[]>
   return map
 }
 
+export interface ActiveFlashSale {
+  id: string
+  productId: string
+  discountPercent: number
+  endsAt: string
+  remaining: number
+}
+
+// Running flash sales with units left, the biggest discount per product.
+// The order API uses the same function, so the price shown is the price charged.
+export async function activeFlashSales(productIds: string[]): Promise<Map<string, ActiveFlashSale>> {
+  const map = new Map<string, ActiveFlashSale>()
+  if (productIds.length === 0) return map
+  const now = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+  const { results } = await getDb()
+    .prepare(
+      `SELECT id, product_id, discount_percent, ends_at, quantity_available - quantity_sold AS remaining
+       FROM flash_sales
+       WHERE product_id IN (${productIds.map(() => '?').join(',')})
+         AND starts_at <= ${now} AND ends_at > ${now} AND quantity_sold < quantity_available
+       ORDER BY discount_percent DESC`
+    )
+    .bind(...productIds)
+    .all<Row>()
+  for (const r of results) {
+    if (map.has(r.product_id)) continue
+    map.set(r.product_id, {
+      id: r.id,
+      productId: r.product_id,
+      discountPercent: r.discount_percent,
+      endsAt: r.ends_at,
+      remaining: r.remaining,
+    })
+  }
+  return map
+}
+
+export const flashPriceCents = (priceCents: number, discountPercent: number) =>
+  Math.round((priceCents * (100 - discountPercent)) / 100)
+
 async function hydrateProducts(rows: Row[]): Promise<Product[]> {
-  const variants = await variantsFor(rows.map(r => r.id))
-  return rows.map(r => toProduct(r, variants.get(r.id)))
+  const ids = rows.map(r => r.id)
+  const [variants, flash] = await Promise.all([variantsFor(ids), activeFlashSales(ids)])
+  return rows.map(r => {
+    const product = toProduct(r, variants.get(r.id))
+    const sale = flash.get(r.id)
+    if (!sale) return product
+    return {
+      ...product,
+      price: flashPriceCents(r.price_cents, sale.discountPercent) / 100,
+      // Strike through the regular price (or the list price, if higher)
+      originalPrice: Math.max(r.price_cents, r.original_price_cents ?? 0) / 100,
+      flashSale: {
+        id: sale.id,
+        discountPercent: sale.discountPercent,
+        endsAt: sale.endsAt,
+        remaining: sale.remaining,
+        regularPrice: r.price_cents / 100,
+      },
+    }
+  })
 }
 
 const PRODUCT_ORDER = {
@@ -173,15 +232,18 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 
 // ---------- Streams ----------
 
-export async function getStreams({ live }: { live: boolean }): Promise<Stream[]> {
+// Live streams (most viewers first) or scheduled ones (soonest first), optionally for one host or one id
+export async function getStreams({ live, hostId, id }: { live: boolean; hostId?: string; id?: string }): Promise<Stream[]> {
   const db = getDb()
+  const filters = [hostId ? 'AND s.host_id = ?' : '', id ? 'AND s.id = ?' : ''].join(' ')
   const { results: rows } = await db
     .prepare(
       `SELECT s.*, ${userCols('u', 'host_')}
        FROM streams s JOIN users u ON u.id = s.host_id
-       WHERE s.status ${live ? "= 'live'" : "= 'scheduled'"}
+       WHERE s.status ${live ? "= 'live'" : "= 'scheduled'"} ${filters}
        ORDER BY ${live ? 's.viewer_count DESC' : 's.scheduled_at'}`
     )
+    .bind(...[hostId, id].filter((v): v is string => !!v))
     .all<Row>()
   if (rows.length === 0) return []
 
@@ -287,8 +349,8 @@ export async function getCourses({ limit = 20 } = {}): Promise<Course[]> {
 // ---------- Single stream ----------
 
 export async function getStream(id: string): Promise<Stream | null> {
-  const [live, scheduled] = await Promise.all([getStreams({ live: true }), getStreams({ live: false })])
-  return [...live, ...scheduled].find(s => s.id === id) ?? null
+  const [live, scheduled] = await Promise.all([getStreams({ live: true, id }), getStreams({ live: false, id })])
+  return live[0] ?? scheduled[0] ?? null
 }
 
 // ---------- Categories ----------
@@ -374,9 +436,16 @@ export async function getSellerDashboard(sellerId: string) {
   const db = getDb()
   const [{ results: productRows }, liveStreams, scheduledStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
     await Promise.all([
-      db.prepare(`${PRODUCT_SELECT} AND p.seller_id = ? ORDER BY p.created_at DESC, p.id`).bind(sellerId).all<Row>(),
-      getStreams({ live: true }),
-      getStreams({ live: false }),
+      // Paused products too, so the seller can reactivate them
+      db
+        .prepare(
+          `SELECT p.*, ${userCols('u', 'seller_')} FROM products p JOIN users u ON u.id = p.seller_id
+           WHERE p.seller_id = ? ORDER BY p.is_active DESC, p.created_at DESC, p.id`
+        )
+        .bind(sellerId)
+        .all<Row>(),
+      getStreams({ live: true, hostId: sellerId }),
+      getStreams({ live: false, hostId: sellerId }),
       db
         .prepare(
           `SELECT a.*, ${AUCTION_STATUS} AS live_status, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
@@ -404,10 +473,10 @@ export async function getSellerDashboard(sellerId: string) {
     ])
 
   const products = await hydrateProducts(productRows)
-  const streams = [...liveStreams, ...scheduledStreams].filter(s => s.host.id === sellerId)
+  const streams = [...liveStreams, ...scheduledStreams]
   const productById = new Map(products.map(p => [p.id, p]))
 
-  const auctions: Auction[] = auctionRows.map(a => ({
+  const auctions: Auction[] = auctionRows.filter(a => productById.has(a.product_id)).map(a => ({
     id: a.id,
     product: productById.get(a.product_id)!,
     startingPrice: fromCents(a.starting_price_cents)!,
