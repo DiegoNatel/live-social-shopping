@@ -54,8 +54,8 @@ export default function ProfilePage() {
     return (
       <MainLayout headerProps={{ title: 'Perfil' }}>
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
-          <h2 className="text-white text-xl font-semibold mb-2">Faça login</h2>
-          <p className="text-white/60 mb-6">
+          <h2 className="text-gray-900 text-xl font-semibold mb-2">Faça login</h2>
+          <p className="text-gray-500 mb-6">
             Entre para aproveitar todas as funcionalidades
           </p>
           <Link href="/login">
@@ -68,7 +68,7 @@ export default function ProfilePage() {
 
   return (
     <MainLayout headerProps={{ title: 'Meu Perfil', showAvatar: false }}>
-      <div className="px-4 py-4">
+      <div className="max-w-3xl mx-auto px-4 py-4">
         {/* Profile Header */}
         <div className="text-center mb-6">
           <Avatar
@@ -78,32 +78,30 @@ export default function ProfilePage() {
             isVerified={user.isVerified}
             className="mx-auto mb-3"
           />
-          <h1 className="text-white font-semibold text-xl">{user.name}</h1>
-          <p className="text-white/60">@{user.username}</p>
+          <h1 className="text-gray-900 font-semibold text-xl">{user.name}</h1>
+          <p className="text-gray-500">@{user.username}</p>
           
           {/* Stats */}
           <div className="flex items-center justify-center gap-6 mt-4">
             <div className="text-center">
-              <p className="text-white font-semibold">{formatNumber(user.followers)}</p>
-              <p className="text-white/40 text-xs">Seguidores</p>
+              <p className="text-gray-900 font-semibold">{formatNumber(user.followers)}</p>
+              <p className="text-gray-400 text-xs">Seguidores</p>
             </div>
             <div className="text-center">
-              <p className="text-white font-semibold">{formatNumber(user.following)}</p>
-              <p className="text-white/40 text-xs">Seguindo</p>
+              <p className="text-gray-900 font-semibold">{formatNumber(user.following)}</p>
+              <p className="text-gray-400 text-xs">Seguindo</p>
             </div>
             <div className="text-center">
-              <p className="text-white font-semibold">{stats.purchases}</p>
-              <p className="text-white/40 text-xs">Compras</p>
+              <p className="text-gray-900 font-semibold">{stats.purchases}</p>
+              <p className="text-gray-400 text-xs">Compras</p>
             </div>
           </div>
         </div>
 
         {/* Loyalty Card */}
         <motion.div
-          className="relative overflow-hidden rounded-2xl p-4 mb-6"
-          style={{
-            background: 'linear-gradient(135deg, #6B46C1 0%, #9333EA 50%, #C026D3 100%)',
-          }}
+          className="relative overflow-hidden rounded-md bg-white shadow-card p-4 mb-6"
+          
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
         >
@@ -111,39 +109,39 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Crown className="w-6 h-6 text-sunset-gold" />
-                <span className="text-white font-semibold">VivoBuy Gold</span>
+                <span className="text-gray-900 font-semibold">VivoBuy Gold</span>
               </div>
-              <span className="text-white/80 text-sm">{stats.points} pts</span>
+              <span className="text-gray-700 text-sm">{stats.points} pts</span>
             </div>
             
             <div className="flex items-end justify-between">
               <div>
-                <p className="text-white/60 text-xs mb-1">Total gasto</p>
-                <p className="text-white font-bold text-xl">{formatCurrency(stats.totalSpent)}</p>
+                <p className="text-gray-500 text-xs mb-1">Total gasto</p>
+                <p className="text-gray-900 font-bold text-xl">{formatCurrency(stats.totalSpent)}</p>
               </div>
               <div className="text-right">
-                <p className="text-white/60 text-xs mb-1">Próximo nível</p>
-                <p className="text-sunset-gold font-semibold">Platinum</p>
+                <p className="text-gray-500 text-xs mb-1">Próximo nível</p>
+                <p className="text-gray-900 font-semibold">Platinum</p>
               </div>
             </div>
             
             {/* Progress bar */}
-            <div className="mt-4 h-2 bg-white/20 rounded-full overflow-hidden">
+            <div className="mt-4 h-2 bg-gray-200 rounded-full overflow-hidden">
               <motion.div
                 className="h-full bg-sunset-gold rounded-full"
                 initial={{ width: 0 }}
-                animate={{ width: '65%' }}
+                animate={{ width: `${Math.min(100, (stats.totalSpent / 5000) * 100)}%` }}
                 transition={{ delay: 0.3, duration: 0.8 }}
               />
             </div>
-            <p className="text-white/60 text-xs mt-1">
+            <p className="text-gray-500 text-xs mt-1">
               Faltam {formatCurrency(5000 - stats.totalSpent)} para Platinum
             </p>
           </div>
           
           {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full blur-xl" />
+          <div className="absolute top-0 right-0 w-32 h-32 bg-gray-100 rounded-full blur-2xl" />
+          <div className="absolute bottom-0 left-0 w-24 h-24 bg-gray-100 rounded-full blur-xl" />
         </motion.div>
 
         {/* Quick Stats */}
@@ -254,10 +252,10 @@ interface StatCardProps {
 
 function StatCard({ icon, value, label, color }: StatCardProps) {
   return (
-    <div className="rounded-xl bg-white/5 p-3 text-center">
-      <div className={`text-${color} mb-1 flex justify-center`}>{icon}</div>
-      <p className="text-white font-bold text-lg">{value}</p>
-      <p className="text-white/40 text-xs">{label}</p>
+    <div className="rounded-xl bg-white shadow-card p-3 text-center">
+      <div className="text-gray-400 mb-1 flex justify-center">{icon}</div>
+      <p className="text-gray-900 font-bold text-lg">{value}</p>
+      <p className="text-gray-400 text-xs">{label}</p>
     </div>
   )
 }
@@ -265,8 +263,8 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
 // Menu Section Component
 function MenuSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl bg-white/5 overflow-hidden">
-      <h3 className="text-white/40 text-xs font-medium uppercase tracking-wide px-4 py-2 bg-white/5">
+    <div className="rounded-xl bg-white shadow-card overflow-hidden">
+      <h3 className="text-gray-400 text-xs font-medium uppercase tracking-wide px-4 py-2 bg-gray-50 border-b border-gray-100">
         {title}
       </h3>
       {children}
@@ -285,17 +283,17 @@ interface MenuItemProps {
 function MenuItem({ icon, label, href, badge }: MenuItemProps) {
   return (
     <Link href={href}>
-      <div className="flex items-center justify-between px-4 py-3 hover:bg-white/5 transition-colors">
+      <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
         <div className="flex items-center gap-3">
-          <span className="text-white/60">{icon}</span>
-          <span className="text-white">{label}</span>
+          <span className="text-gray-500">{icon}</span>
+          <span className="text-gray-900">{label}</span>
           {badge && (
-            <span className="px-2 py-0.5 rounded-full bg-tropical-green/20 text-tropical-green text-xs font-medium">
+            <span className="px-2 py-0.5 rounded-full bg-sky-blue-50 text-sky-blue text-xs font-medium">
               {badge}
             </span>
           )}
         </div>
-        <ChevronRight className="w-5 h-5 text-white/40" />
+        <ChevronRight className="w-5 h-5 text-gray-400" />
       </div>
     </Link>
   )

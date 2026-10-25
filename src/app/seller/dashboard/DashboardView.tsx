@@ -104,14 +104,14 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         showCart: false,
       }}
     >
-      <div className="px-4 py-4 pb-24">
+      <div className="max-w-6xl mx-auto px-4 py-4 pb-24">
         {/* Seller Info */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
             <Avatar src={seller.avatar} alt={seller.name} size="lg" isVerified={seller.isVerified} />
             <div>
-              <h2 className="text-white font-semibold">{seller.name}</h2>
-              <p className="text-white/60 text-sm">{formatViewerCount(seller.followers)} seguidores</p>
+              <h2 className="text-gray-900 font-semibold">{seller.name}</h2>
+              <p className="text-gray-500 text-sm">{formatViewerCount(seller.followers)} seguidores</p>
             </div>
           </div>
           <Button
@@ -172,8 +172,8 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
               onClick={() => setActiveTab(tab.id as typeof activeTab)}
               className={`flex items-center gap-2 px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors ${
                 activeTab === tab.id
-                  ? 'bg-tropical-green text-white'
-                  : 'bg-white/10 text-white/60 hover:bg-white/20'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-400'
               }`}
             >
               {tab.icon}
@@ -187,11 +187,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
           <>
             {/* Live Status */}
             {nextStream && (
-            <div className="rounded-xl bg-gradient-to-r from-coral-pink/20 to-purple-glow/20 p-4 mb-6 border border-coral-pink/30">
+            <div className="rounded-md bg-white shadow-card border-l-4 border-coral-pink p-4 mb-6">
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
                   <LiveBadge />
-                  <span className="text-white font-medium">Sua próxima live</span>
+                  <span className="text-gray-900 font-medium">Sua próxima live</span>
                 </div>
                 <Button variant="ghost" size="sm">Editar</Button>
               </div>
@@ -205,8 +205,8 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                   />
                 </div>
                 <div className="flex-1">
-                  <h4 className="text-white font-medium line-clamp-1">{nextStream.title}</h4>
-                  <div className="flex items-center gap-2 text-white/60 text-sm mt-1">
+                  <h4 className="text-gray-900 font-medium line-clamp-1">{nextStream.title}</h4>
+                  <div className="flex items-center gap-2 text-gray-500 text-sm mt-1">
                     <Clock className="w-4 h-4" />
                     <span>
                       {nextStream.isLive
@@ -216,7 +216,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                           : 'Sem data'}
                     </span>
                   </div>
-                  <div className="flex items-center gap-2 text-white/60 text-sm">
+                  <div className="flex items-center gap-2 text-gray-500 text-sm">
                     <Package className="w-4 h-4" />
                     <span>{nextStream.products.length} produtos</span>
                   </div>
@@ -228,21 +228,18 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             {/* Recent Orders */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-semibold">Pedidos Recentes</h3>
-                <Link href="/seller/orders" className="text-tropical-green text-sm">
-                  Ver todos
-                </Link>
+                <h3 className="text-gray-900 font-semibold">Pedidos Recentes</h3>
               </div>
               <div className="space-y-2">
                 {recentOrders.length === 0 && (
-                  <p className="text-white/40 text-sm">Nenhum pedido ainda</p>
+                  <p className="text-gray-400 text-sm">Nenhum pedido ainda</p>
                 )}
                 {recentOrders.map((order) => (
                   <div
                     key={order.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-white/5"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white shadow-card"
                   >
-                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-white/10">
+                    <div className="relative w-12 h-12 rounded-lg overflow-hidden bg-gray-100">
                       {order.product?.images[0] && (
                         <Image
                           src={order.product.images[0]}
@@ -253,16 +250,15 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">
+                      <p className="text-gray-900 text-sm font-medium truncate">
                         {order.name}
                       </p>
                       <div className="flex items-center gap-2">
                         <OrderStatusBadge status={order.status} />
-                        <span className="text-white/40 text-xs">{formatRelativeTime(order.createdAt)}</span>
+                        <span className="text-gray-400 text-xs">{formatRelativeTime(order.createdAt)}</span>
                       </div>
                     </div>
-                    <span className="text-tropical-green font-medium">
-                      {formatCurrency(order.total)}
+                    <span className="text-gray-900 font-medium">{formatCurrency(order.total)}
                     </span>
                   </div>
                 ))}
@@ -272,18 +268,18 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             {/* Top Products */}
             <div>
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-white font-semibold">Produtos Mais Vendidos</h3>
-                <Link href="/seller/products" className="text-tropical-green text-sm">
+                <h3 className="text-gray-900 font-semibold">Seus Produtos</h3>
+                <button onClick={() => setActiveTab('products')} className="text-sky-blue text-sm hover:underline">
                   Ver todos
-                </Link>
+                </button>
               </div>
               <div className="space-y-2">
                 {products.slice(0, 3).map((product, index) => (
                   <div
                     key={product.id}
-                    className="flex items-center gap-3 p-3 rounded-xl bg-white/5"
+                    className="flex items-center gap-3 p-3 rounded-xl bg-white shadow-card"
                   >
-                    <span className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center text-white/60 text-sm font-medium">
+                    <span className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 text-sm font-medium">
                       {index + 1}
                     </span>
                     <div className="relative w-12 h-12 rounded-lg overflow-hidden">
@@ -295,20 +291,19 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm font-medium truncate">
+                      <p className="text-gray-900 text-sm font-medium truncate">
                         {product.name}
                       </p>
                       <div className="flex items-center gap-1 text-sunset-gold text-xs">
                         <Star className="w-3 h-3 fill-current" />
                         <span>{product.rating}</span>
-                        <span className="text-white/40">({product.reviews})</span>
+                        <span className="text-gray-400">({product.reviews})</span>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-tropical-green font-medium text-sm">
-                        {formatCurrency(product.price)}
+                      <p className="text-gray-900 font-medium text-sm">{formatCurrency(product.price)}
                       </p>
-                      <p className="text-white/40 text-xs">{product.stock} em estoque</p>
+                      <p className="text-gray-400 text-xs">{product.stock} em estoque</p>
                     </div>
                   </div>
                 ))}
@@ -320,7 +315,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         {activeTab === 'products' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-white/60">{products.length} produtos</p>
+              <p className="text-gray-500">{products.length} produtos</p>
               <Link href="/seller/products/new">
                 <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
                   Adicionar
@@ -331,7 +326,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
               {products.map((product) => (
                 <div
                   key={product.id}
-                  className="flex items-center gap-3 p-3 rounded-xl bg-white/5"
+                  className="flex items-center gap-3 p-3 rounded-xl bg-white shadow-card"
                 >
                   <div className="relative w-16 h-16 rounded-lg overflow-hidden">
                     <Image
@@ -342,11 +337,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                     />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-medium truncate">{product.name}</p>
-                    <p className="text-tropical-green font-bold">{formatCurrency(product.price)}</p>
-                    <p className="text-white/40 text-xs">{product.stock} em estoque</p>
+                    <p className="text-gray-900 font-medium truncate">{product.name}</p>
+                    <p className="text-gray-900 font-bold">{formatCurrency(product.price)}</p>
+                    <p className="text-gray-400 text-xs">{product.stock} em estoque</p>
                   </div>
-                  <button className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20">
+                  <button className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200">
                     <MoreVertical className="w-4 h-4" />
                   </button>
                 </div>
@@ -358,7 +353,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         {activeTab === 'streams' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-white/60">Suas lives</p>
+              <p className="text-gray-500">Suas lives</p>
               <Link href="/seller/streams/new">
                 <Button size="sm" leftIcon={<Plus className="w-4 h-4" />}>
                   Agendar
@@ -366,11 +361,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
               </Link>
             </div>
             <div className="space-y-3">
-              {streams.length === 0 && <p className="text-white/40 text-sm">Nenhuma live ainda</p>}
+              {streams.length === 0 && <p className="text-gray-400 text-sm">Nenhuma live ainda</p>}
               {streams.map((stream) => (
                 <div
                   key={stream.id}
-                  className="rounded-xl bg-white/5 overflow-hidden"
+                  className="rounded-xl bg-white shadow-card overflow-hidden"
                 >
                   <div className="relative aspect-video">
                     <Image
@@ -419,12 +414,12 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         {activeTab === 'auctions' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-white/60">{auctions.length} leilões</p>
+              <p className="text-gray-500">{auctions.length} leilões</p>
               <Button 
                 size="sm" 
                 leftIcon={<Plus className="w-4 h-4" />}
                 onClick={() => setShowAuctionModal(true)}
-                className="bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
+                
               >
                 Criar Leilão
               </Button>
@@ -440,7 +435,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                 return (
                   <div
                     key={auction.id}
-                    className={`rounded-xl bg-white/5 overflow-hidden ${isEnding ? 'ring-2 ring-red-400' : ''}`}
+                    className={`rounded-xl bg-white shadow-card overflow-hidden ${isEnding ? 'ring-2 ring-red-400' : ''}`}
                   >
                     <div className="flex gap-4 p-4">
                       <div className="relative w-20 h-20 rounded-lg overflow-hidden flex-shrink-0">
@@ -457,18 +452,18 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                         )}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-medium line-clamp-1">{auction.product.name}</h4>
+                        <h4 className="text-gray-900 font-medium line-clamp-1">{auction.product.name}</h4>
                         <div className="flex items-center gap-4 mt-1">
                           <div>
-                            <p className="text-white/40 text-xs">Lance Inicial</p>
-                            <p className="text-white/60 text-sm">{formatCurrency(auction.startingPrice)}</p>
+                            <p className="text-gray-400 text-xs">Lance Inicial</p>
+                            <p className="text-gray-500 text-sm">{formatCurrency(auction.startingPrice)}</p>
                           </div>
                           <div>
                             <p className="text-orange-400 text-xs">Lance Atual</p>
                             <p className="text-orange-400 font-bold">{formatCurrency(auction.currentBid)}</p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4 text-white/60 text-xs mt-2">
+                        <div className="flex items-center gap-4 text-gray-500 text-xs mt-2">
                           <span className="flex items-center gap-1">
                             <Users className="w-3 h-3" />
                             {auction.bids.length} lances
@@ -485,7 +480,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                           </span>
                         </div>
                       </div>
-                      <button className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center text-white/60 hover:bg-white/20 self-start">
+                      <button className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 self-start">
                         <MoreVertical className="w-4 h-4" />
                       </button>
                     </div>
@@ -497,15 +492,15 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             {/* Quick Create Auction Card */}
             <motion.button
               onClick={() => setShowAuctionModal(true)}
-              className="w-full mt-4 p-6 rounded-xl border-2 border-dashed border-orange-400/30 bg-orange-500/5 flex flex-col items-center justify-center gap-2 hover:bg-orange-500/10 transition-colors"
+              className="w-full mt-4 p-6 rounded-md border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
             >
-              <div className="w-12 h-12 rounded-full bg-gradient-to-br from-orange-400 to-amber-500 flex items-center justify-center">
+              <div className="w-12 h-12 rounded-full bg-primary flex items-center justify-center">
                 <Gavel className="w-6 h-6 text-white" />
               </div>
-              <span className="text-orange-400 font-medium">Criar Novo Leilão</span>
-              <span className="text-white/40 text-sm text-center">
+              <span className="text-gray-900 font-medium">Criar Novo Leilão</span>
+              <span className="text-gray-400 text-sm text-center">
                 Configure preço inicial, duração e comece a receber lances
               </span>
             </motion.button>
@@ -514,9 +509,9 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
 
         {activeTab === 'analytics' && (
           <div className="text-center py-12">
-            <BarChart2 className="w-16 h-16 text-white/20 mx-auto mb-4" />
-            <h3 className="text-white font-semibold mb-2">Análises detalhadas</h3>
-            <p className="text-white/60 text-sm mb-4">
+            <BarChart2 className="w-16 h-16 text-gray-300 mx-auto mb-4" />
+            <h3 className="text-gray-900 font-semibold mb-2">Análises detalhadas</h3>
+            <p className="text-gray-500 text-sm mb-4">
               Veja métricas detalhadas sobre suas vendas e engajamento
             </p>
             <Button variant="secondary">Em breve</Button>
@@ -560,19 +555,22 @@ function StatCard({ title, value, change, icon, color }: StatCardProps) {
 
   return (
     <motion.div
-      className="rounded-xl bg-white/5 p-4"
+      className="rounded-xl bg-white shadow-card p-4"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
     >
       <div className="flex items-center justify-between mb-2">
-        <span className={`text-${color}`}>{icon}</span>
-        <div className={`flex items-center gap-0.5 text-xs ${isPositive ? 'text-tropical-green' : 'text-coral-pink'}`}>
-          {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-          <span>{Math.abs(change)}%</span>
-        </div>
+        <span className="text-gray-400">{icon}</span>
+        {/* Hidden until period-over-period analytics exist */}
+        {change !== 0 && (
+          <div className={`flex items-center gap-0.5 text-xs ${isPositive ? 'text-tropical-green' : 'text-coral-pink'}`}>
+            {isPositive ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
+            <span>{Math.abs(change)}%</span>
+          </div>
+        )}
       </div>
-      <p className="text-white font-bold text-xl">{value}</p>
-      <p className="text-white/40 text-xs">{title}</p>
+      <p className="text-gray-900 font-bold text-xl">{value}</p>
+      <p className="text-gray-400 text-xs">{title}</p>
     </motion.div>
   )
 }
@@ -580,15 +578,21 @@ function StatCard({ title, value, change, icon, color }: StatCardProps) {
 // Order Status Badge
 function OrderStatusBadge({ status }: { status: string }) {
   const styles = {
-    processing: 'bg-sunset-gold/20 text-sunset-gold',
-    shipped: 'bg-sky-blue/20 text-sky-blue',
-    delivered: 'bg-tropical-green/20 text-tropical-green',
+    pending: 'bg-amber-50 text-amber-700',
+    confirmed: 'bg-sky-blue-50 text-sky-blue-700',
+    processing: 'bg-sky-blue-50 text-sky-blue-700',
+    shipped: 'bg-sky-blue-50 text-sky-blue-700',
+    delivered: 'bg-green-50 text-tropical-green-700',
+    cancelled: 'bg-gray-100 text-gray-500',
   }
 
   const labels = {
-    processing: 'Processando',
+    pending: 'Aguardando pagamento',
+    confirmed: 'Pago',
+    processing: 'Em preparação',
     shipped: 'Enviado',
     delivered: 'Entregue',
+    cancelled: 'Cancelado',
   }
 
   return (

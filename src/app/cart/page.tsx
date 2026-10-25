@@ -22,7 +22,7 @@ export default function CartPage() {
 
   const subtotal = getTotal()
   const shipping = subtotal >= 199 ? 0 : 19.90
-  const pixDiscount = (subtotal - couponDiscount) * 0.05
+  const pixDiscount = Math.round((subtotal - couponDiscount) * 5) / 100 // centavos, like the server
   const total = subtotal + shipping - couponDiscount
   const pixTotal = total - pixDiscount
 

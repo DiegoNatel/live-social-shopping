@@ -72,7 +72,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-deep-ocean via-deep-ocean-800 to-purple-glow/30">
+    <div className="min-h-screen bg-page">
       <motion.div
         className="min-h-screen flex flex-col"
         initial={{ opacity: 0 }}
@@ -80,7 +80,7 @@ export default function LoginPage() {
       >
         {/* Header */}
         <header className="p-4">
-          <Link href="/" className="inline-flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-500 hover:text-gray-900 transition-colors">
             <ChevronLeft className="w-5 h-5" />
             <span>Voltar</span>
           </Link>
@@ -89,7 +89,7 @@ export default function LoginPage() {
         {/* Form Container */}
         <div className="flex-1 flex items-center justify-center px-4 py-8">
           <motion.div
-            className="w-full max-w-md"
+            className="w-full max-w-md bg-white rounded-md shadow-card p-6 sm:p-8"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
@@ -97,17 +97,17 @@ export default function LoginPage() {
             {/* Logo */}
             <div className="text-center mb-8">
               <motion.div
-                className="w-16 h-16 rounded-2xl bg-gradient-to-br from-tropical-green to-sky-blue mx-auto mb-4 flex items-center justify-center shadow-lg"
+                className="w-12 h-12 rounded-md bg-primary mx-auto mb-4 flex items-center justify-center"
                 initial={{ scale: 0.5, rotate: -10 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
-                <span className="text-white font-bold text-2xl">V</span>
+                <span className="text-white font-semibold text-xl">V</span>
               </motion.div>
-              <h1 className="text-3xl font-bold text-white mb-2">
+              <h1 className="text-2xl font-semibold text-gray-900 mb-1">
                 Bem-vindo de volta!
               </h1>
-              <p className="text-white/60">
+              <p className="text-gray-500">
                 Entre na sua conta VivoBuy
               </p>
             </div>
@@ -116,15 +116,15 @@ export default function LoginPage() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="email"
                     placeholder="E-mail"
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className={cn(
-                      'w-full h-12 pl-10 pr-4 rounded-xl bg-white/10 border text-white placeholder:text-white/40 outline-none transition-colors',
-                      errors.email ? 'border-coral-pink' : 'border-white/20 focus:border-tropical-green'
+                      'w-full h-12 pl-10 pr-4 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
+                      errors.email ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
                     )}
                   />
                 </div>
@@ -133,21 +133,21 @@ export default function LoginPage() {
 
               <div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
                     placeholder="Senha"
                     value={formData.password}
                     onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                     className={cn(
-                      'w-full h-12 pl-10 pr-12 rounded-xl bg-white/10 border text-white placeholder:text-white/40 outline-none transition-colors',
-                      errors.password ? 'border-coral-pink' : 'border-white/20 focus:border-tropical-green'
+                      'w-full h-12 pl-10 pr-12 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
+                      errors.password ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
                     )}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                   </button>
@@ -169,9 +169,9 @@ export default function LoginPage() {
             </form>
 
             {/* Register Link */}
-            <p className="text-center text-white/60 mt-6">
+            <p className="text-center text-gray-500 mt-6">
               Não tem uma conta?{' '}
-              <Link href="/signup" className="text-tropical-green font-medium hover:underline">
+              <Link href="/signup" className="text-sky-blue font-medium hover:underline">
                 Criar conta
               </Link>
             </p>

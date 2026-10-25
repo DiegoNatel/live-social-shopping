@@ -74,7 +74,7 @@ export function ProductModal() {
         </Dialog.Overlay>
         <Dialog.Content asChild>
           <motion.div
-            className="fixed inset-x-0 bottom-0 md:inset-auto md:left-1/2 md:top-1/2 md:-translate-x-1/2 md:-translate-y-1/2 z-50 w-full md:max-w-2xl md:max-h-[90vh] bg-white md:rounded-2xl overflow-hidden"
+            className="fixed inset-x-0 bottom-0 md:inset-0 md:m-auto md:h-fit z-50 w-full md:max-w-2xl md:max-h-[90vh] bg-white md:rounded-2xl overflow-hidden"
             initial={{ y: '100%', opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: '100%', opacity: 0 }}
@@ -174,7 +174,7 @@ export function ProductModal() {
                   {/* Price */}
                   <div className="mb-6">
                     <div className="flex items-baseline gap-3">
-                      <span className="text-tropical-green font-bold text-2xl md:text-3xl">
+                      <span className="text-gray-900 font-normal text-2xl md:text-3xl">
                         {formatCurrency(product.price * quantity)}
                       </span>
                       {product.originalPrice && (

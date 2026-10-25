@@ -10,12 +10,12 @@ import { Check, Search, ChevronRight } from 'lucide-react'
 
 // Featured categories with icons (top horizontal scroll)
 const featuredCategories = [
-  { id: 'fashion', name: 'Moda', icon: '👗', color: '#9146FF' },
-  { id: 'beauty', name: 'Beleza', icon: '💄', color: '#9146FF' },
-  { id: 'electronics', name: 'Tech', icon: '📱', color: '#9146FF' },
-  { id: 'home', name: 'Casa', icon: '🏠', color: '#9146FF' },
-  { id: 'fitness', name: 'Fitness', icon: '💪', color: '#9146FF' },
-  { id: 'food', name: 'Food', icon: '🍕', color: '#9146FF' },
+  { id: 'fashion', name: 'Moda', icon: '👗', color: '#3483FA' },
+  { id: 'beauty', name: 'Beleza', icon: '💄', color: '#3483FA' },
+  { id: 'electronics', name: 'Tech', icon: '📱', color: '#3483FA' },
+  { id: 'home', name: 'Casa', icon: '🏠', color: '#3483FA' },
+  { id: 'fitness', name: 'Fitness', icon: '💪', color: '#3483FA' },
+  { id: 'food', name: 'Food', icon: '🍕', color: '#3483FA' },
 ]
 
 // Interest categories for live shopping
@@ -273,10 +273,10 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                       key={category.id}
                       onClick={() => toggleInterest(category.id)}
                       className={cn(
-                        'flex items-center gap-2 px-4 py-2.5 rounded-lg font-semibold text-sm whitespace-nowrap transition-all',
+                        'flex items-center gap-2 px-3 py-1.5 rounded-full font-medium text-sm whitespace-nowrap transition-all',
                         isSelected
-                          ? 'bg-[#9146FF] text-white'
-                          : 'bg-[#9146FF] text-white hover:bg-[#772ce8]'
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white border border-gray-200 text-gray-700 hover:border-gray-400'
                       )}
                     >
                       <span className="text-lg">{category.icon}</span>
@@ -285,7 +285,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                     </button>
                   )
                 })}
-                <button className="flex items-center gap-1 px-3 py-2.5 text-sm font-semibold text-[#9146FF] hover:bg-gray-100 rounded-lg whitespace-nowrap transition-colors">
+                <button className="flex items-center gap-1 px-3 py-2.5 text-sm font-semibold text-sky-blue hover:bg-gray-100 rounded-lg whitespace-nowrap transition-colors">
                   Ver tudo
                   <ChevronRight className="w-4 h-4" />
                 </button>
@@ -301,14 +301,14 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                   placeholder="Buscar categorias..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full h-10 pl-10 pr-4 rounded-lg bg-gray-100 border-none text-gray-900 placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-[#9146FF]"
+                  className="w-full h-10 pl-10 pr-4 rounded-lg bg-gray-100 border-none text-gray-900 placeholder:text-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-sky-blue"
                 />
               </div>
             </div>
 
             {/* Section Title */}
             <div className="px-6 pb-3">
-              <h3 className="text-sm font-bold text-[#9146FF]">
+              <h3 className="text-sm font-bold text-sky-blue">
                 Categorias{' '}
                 <span className="text-gray-900">que combinam com você</span>
               </h3>
@@ -333,7 +333,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                       {/* Image Card */}
                       <div className={cn(
                         'relative aspect-[4/5] rounded-lg overflow-hidden mb-2 transition-all',
-                        isSelected && 'ring-2 ring-[#9146FF] ring-offset-2'
+                        isSelected && 'ring-2 ring-sky-blue ring-offset-2'
                       )}>
                         <Image
                           src={category.image}
@@ -344,8 +344,8 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                         
                         {/* Selected Overlay */}
                         {isSelected && (
-                          <div className="absolute inset-0 bg-[#9146FF]/20 flex items-center justify-center">
-                            <div className="w-8 h-8 bg-[#9146FF] rounded-full flex items-center justify-center">
+                          <div className="absolute inset-0 bg-sky-blue/20 flex items-center justify-center">
+                            <div className="w-8 h-8 bg-sky-blue rounded-full flex items-center justify-center">
                               <Check className="w-5 h-5 text-white" strokeWidth={3} />
                             </div>
                           </div>
@@ -411,7 +411,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                         <div className={cn(
                           'relative p-0.5 rounded-full transition-all',
                           isSelected 
-                            ? 'bg-[#9146FF]' 
+                            ? 'bg-sky-blue' 
                             : channel.isLive 
                               ? 'bg-gradient-to-br from-red-500 to-orange-500'
                               : 'bg-gray-200'
@@ -424,7 +424,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                               className="ring-2 ring-white"
                             />
                             {isSelected && (
-                              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-[#9146FF] rounded-full flex items-center justify-center ring-2 ring-white">
+                              <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 bg-sky-blue rounded-full flex items-center justify-center ring-2 ring-white">
                                 <Check className="w-3 h-3 text-white" strokeWidth={3} />
                               </div>
                             )}
@@ -432,7 +432,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                         </div>
                         <p className={cn(
                           'text-sm font-semibold mt-2 transition-colors truncate w-full',
-                          isSelected ? 'text-[#9146FF]' : 'text-gray-900'
+                          isSelected ? 'text-sky-blue' : 'text-gray-900'
                         )}>
                           {channel.name}
                         </p>
@@ -452,7 +452,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
               <div>
                 {totalSelected > 0 && (
                   <motion.p
-                    className="text-sm font-medium text-[#9146FF]"
+                    className="text-sm font-medium text-sky-blue"
                     initial={{ opacity: 0, x: -10 }}
                     animate={{ opacity: 1, x: 0 }}
                   >
@@ -474,7 +474,7 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                   className={cn(
                     'px-6 py-2 rounded-lg font-semibold text-sm transition-all',
                     canContinue
-                      ? 'bg-[#9146FF] text-white hover:bg-[#772ce8]'
+                      ? 'bg-primary text-white hover:bg-primary-600'
                       : 'bg-gray-200 text-gray-400 cursor-not-allowed'
                   )}
                 >

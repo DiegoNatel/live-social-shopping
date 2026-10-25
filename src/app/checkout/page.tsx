@@ -66,7 +66,8 @@ export default function CheckoutPage() {
 
   const subtotal = getTotal()
   const shipping = subtotal >= 199 ? 0 : 19.90
-  const pixDiscount = paymentMethod === 'pix' ? subtotal * 0.05 : 0
+  // Rounded to centavos the same way the server does
+  const pixDiscount = paymentMethod === 'pix' ? Math.round(subtotal * 5) / 100 : 0
   const total = subtotal + shipping - pixDiscount
 
   // Checkout needs an account; prefill the last address used
@@ -137,7 +138,9 @@ export default function CheckoutPage() {
   const isEmpty = items.length === 0 && !orderComplete
 
   useEffect(() => {
-    if (isEmpty) router.push('/cart')
+    // The first client render uses the server snapshot (empty cart) before the saved
+    // cart is applied, so check the store itself rather than this render's value
+    if (isEmpty && useCartStore.getState().items.length === 0) router.push('/cart')
   }, [isEmpty, router])
 
   if (isEmpty) return null
@@ -154,7 +157,7 @@ export default function CheckoutPage() {
         showAvatar: false,
       }}
     >
-      <div className="px-4 py-4 pb-32">
+      <div className="max-w-2xl mx-auto px-4 py-6 pb-32">
         {/* Progress Steps */}
         <div className="flex items-center justify-center gap-2 mb-6">
           {(['address', 'payment', 'confirmation'] as Step[]).map((s, index) => (
@@ -164,7 +167,7 @@ export default function CheckoutPage() {
                   'w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-colors',
                   step === s || (index < ['address', 'payment', 'confirmation'].indexOf(step))
                     ? 'bg-tropical-green text-white'
-                    : 'bg-white/10 text-white/40'
+                    : 'bg-gray-100 text-gray-400'
                 )}
               >
                 {index < ['address', 'payment', 'confirmation'].indexOf(step) ? (
@@ -179,7 +182,7 @@ export default function CheckoutPage() {
                     'w-12 h-0.5 mx-2',
                     index < ['address', 'payment', 'confirmation'].indexOf(step)
                       ? 'bg-tropical-green'
-                      : 'bg-white/10'
+                      : 'bg-gray-100'
                   )}
                 />
               )}
@@ -192,12 +195,13 @@ export default function CheckoutPage() {
           {step === 'address' && (
             <motion.div
               key="address"
+              className="bg-white rounded-md shadow-card p-6"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
-                <MapPin className="w-5 h-5 text-tropical-green" />
+              <h2 className="text-gray-900 font-semibold text-lg mb-4 flex items-center gap-2">
+                <MapPin className="w-5 h-5 text-gray-400" />
                 Endereço de Entrega
               </h2>
 
@@ -274,8 +278,8 @@ export default function CheckoutPage() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <h2 className="text-white font-semibold text-lg mb-4 flex items-center gap-2">
-                <CreditCard className="w-5 h-5 text-tropical-green" />
+              <h2 className="text-gray-900 font-semibold text-lg mb-4 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-gray-400" />
                 Forma de Pagamento
               </h2>
 
@@ -288,7 +292,7 @@ export default function CheckoutPage() {
                     'w-full p-4 rounded-xl border-2 text-left transition-all',
                     paymentMethod === 'pix'
                       ? 'border-tropical-green bg-tropical-green/10'
-                      : 'border-white/20 hover:border-white/40'
+                      : 'border-gray-300 hover:border-gray-300'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -297,13 +301,13 @@ export default function CheckoutPage() {
                         <PixIcon className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <span className="text-white font-medium block">PIX</span>
+                        <span className="text-gray-900 font-medium block">PIX</span>
                         <span className="text-tropical-green text-sm">5% de desconto</span>
                       </div>
                     </div>
                     <div className={cn(
                       'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                      paymentMethod === 'pix' ? 'border-tropical-green bg-tropical-green' : 'border-white/40'
+                      paymentMethod === 'pix' ? 'border-tropical-green bg-tropical-green' : 'border-gray-300'
                     )}>
                       {paymentMethod === 'pix' && <Check className="w-3 h-3 text-white" />}
                     </div>
@@ -317,7 +321,7 @@ export default function CheckoutPage() {
                     'w-full p-4 rounded-xl border-2 text-left transition-all',
                     paymentMethod === 'credit'
                       ? 'border-tropical-green bg-tropical-green/10'
-                      : 'border-white/20 hover:border-white/40'
+                      : 'border-gray-300 hover:border-gray-300'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -326,13 +330,13 @@ export default function CheckoutPage() {
                         <CreditCard className="w-6 h-6 text-white" />
                       </div>
                       <div>
-                        <span className="text-white font-medium block">Cartão de Crédito</span>
-                        <span className="text-white/60 text-sm">Em até 12x sem juros</span>
+                        <span className="text-gray-900 font-medium block">Cartão de Crédito</span>
+                        <span className="text-gray-500 text-sm">Em até 12x sem juros</span>
                       </div>
                     </div>
                     <div className={cn(
                       'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                      paymentMethod === 'credit' ? 'border-tropical-green bg-tropical-green' : 'border-white/40'
+                      paymentMethod === 'credit' ? 'border-tropical-green bg-tropical-green' : 'border-gray-300'
                     )}>
                       {paymentMethod === 'credit' && <Check className="w-3 h-3 text-white" />}
                     </div>
@@ -346,7 +350,7 @@ export default function CheckoutPage() {
                     'w-full p-4 rounded-xl border-2 text-left transition-all',
                     paymentMethod === 'boleto'
                       ? 'border-tropical-green bg-tropical-green/10'
-                      : 'border-white/20 hover:border-white/40'
+                      : 'border-gray-300 hover:border-gray-300'
                   )}
                 >
                   <div className="flex items-center justify-between">
@@ -355,13 +359,13 @@ export default function CheckoutPage() {
                         <QrCode className="w-6 h-6 text-deep-ocean" />
                       </div>
                       <div>
-                        <span className="text-white font-medium block">Boleto Bancário</span>
-                        <span className="text-white/60 text-sm">Vencimento em 3 dias</span>
+                        <span className="text-gray-900 font-medium block">Boleto Bancário</span>
+                        <span className="text-gray-500 text-sm">Vencimento em 3 dias</span>
                       </div>
                     </div>
                     <div className={cn(
                       'w-5 h-5 rounded-full border-2 flex items-center justify-center',
-                      paymentMethod === 'boleto' ? 'border-tropical-green bg-tropical-green' : 'border-white/40'
+                      paymentMethod === 'boleto' ? 'border-tropical-green bg-tropical-green' : 'border-gray-300'
                     )}>
                       {paymentMethod === 'boleto' && <Check className="w-3 h-3 text-white" />}
                     </div>
@@ -371,13 +375,13 @@ export default function CheckoutPage() {
 
               {/* Payment Details */}
               {paymentMethod === 'pix' && (
-                <div className="p-4 rounded-xl bg-white/5 mb-6">
+                <div className="p-4 rounded-xl bg-white shadow-card mb-6">
                   <div className="flex items-center justify-center mb-4">
                     <div className="w-40 h-40 bg-white rounded-xl flex items-center justify-center">
                       <QrCode className="w-32 h-32 text-deep-ocean" />
                     </div>
                   </div>
-                  <p className="text-white/60 text-sm text-center mb-3">
+                  <p className="text-gray-500 text-sm text-center mb-3">
                     Escaneie o QR Code ou copie o código PIX
                   </p>
                   <Button
@@ -421,16 +425,16 @@ export default function CheckoutPage() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-white/80 mb-1.5">
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       Parcelas
                     </label>
                     <select
                       value={cardData.installments}
                       onChange={(e) => setCardData({ ...cardData, installments: e.target.value })}
-                      className="w-full h-12 px-4 rounded-lg bg-white/5 border border-white/20 text-white outline-none focus:border-tropical-green transition-colors"
+                      className="w-full h-12 px-4 rounded-lg bg-white border border-gray-300 text-gray-900 outline-none focus:border-sky-blue transition-colors"
                     >
                       {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                        <option key={n} value={n} className="bg-deep-ocean">
+                        <option key={n} value={n}>
                           {n}x de {formatCurrency(total / n)} {n <= 3 ? 'sem juros' : ''}
                         </option>
                       ))}
@@ -440,8 +444,8 @@ export default function CheckoutPage() {
               )}
 
               {/* Order Summary */}
-              <div className="rounded-xl bg-white/5 p-4 space-y-3 mb-6">
-                <h3 className="text-white font-medium mb-2">Resumo do Pedido</h3>
+              <div className="rounded-xl bg-white shadow-card p-4 space-y-3 mb-6">
+                <h3 className="text-gray-900 font-medium mb-2">Resumo do Pedido</h3>
                 
                 {items.map((item) => (
                   <div key={item.id} className="flex items-center gap-3">
@@ -454,22 +458,22 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-white text-sm line-clamp-1">{item.product.name}</p>
-                      <p className="text-white/60 text-xs">Qtd: {item.quantity}</p>
+                      <p className="text-gray-900 text-sm line-clamp-1">{item.product.name}</p>
+                      <p className="text-gray-500 text-xs">Qtd: {item.quantity}</p>
                     </div>
-                    <span className="text-white text-sm font-medium">
+                    <span className="text-gray-900 text-sm font-medium">
                       {formatCurrency(item.product.price * item.quantity)}
                     </span>
                   </div>
                 ))}
                 
-                <div className="h-px bg-white/10 my-3" />
+                <div className="h-px bg-gray-100 my-3" />
                 
-                <div className="flex justify-between text-white/60 text-sm">
+                <div className="flex justify-between text-gray-500 text-sm">
                   <span>Subtotal</span>
                   <span>{formatCurrency(subtotal)}</span>
                 </div>
-                <div className="flex justify-between text-white/60 text-sm">
+                <div className="flex justify-between text-gray-500 text-sm">
                   <span>Frete</span>
                   <span>{shipping === 0 ? 'Grátis' : formatCurrency(shipping)}</span>
                 </div>
@@ -479,8 +483,8 @@ export default function CheckoutPage() {
                     <span>-{formatCurrency(pixDiscount)}</span>
                   </div>
                 )}
-                <div className="h-px bg-white/10" />
-                <div className="flex justify-between text-white font-semibold">
+                <div className="h-px bg-gray-100" />
+                <div className="flex justify-between text-gray-900 font-semibold">
                   <span>Total</span>
                   <span className="text-tropical-green text-lg">{formatCurrency(total)}</span>
                 </div>
@@ -488,11 +492,11 @@ export default function CheckoutPage() {
 
               {/* Security badges */}
               <div className="flex items-center justify-center gap-4 mb-6">
-                <div className="flex items-center gap-1 text-white/40 text-xs">
+                <div className="flex items-center gap-1 text-gray-400 text-xs">
                   <Shield className="w-4 h-4" />
                   <span>Compra segura</span>
                 </div>
-                <div className="flex items-center gap-1 text-white/40 text-xs">
+                <div className="flex items-center gap-1 text-gray-400 text-xs">
                   <Truck className="w-4 h-4" />
                   <span>Entrega garantida</span>
                 </div>
@@ -525,7 +529,7 @@ export default function CheckoutPage() {
               key="confirmation"
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="text-center py-8"
+              className="bg-white rounded-md shadow-card text-center px-6 py-8"
             >
               <motion.div
                 className="w-20 h-20 rounded-full bg-tropical-green mx-auto mb-6 flex items-center justify-center"
@@ -536,25 +540,25 @@ export default function CheckoutPage() {
                 <Check className="w-10 h-10 text-white" />
               </motion.div>
 
-              <h2 className="text-white text-2xl font-bold mb-2">
-                Pedido Confirmado! 🎉
+              <h2 className="text-gray-900 text-2xl font-bold mb-2">
+                Pedido registrado!
               </h2>
-              <p className="text-white/60 mb-6">
+              <p className="text-gray-500 mb-6">
                 Seu pedido foi registrado e aguarda pagamento.
               </p>
 
-              <div className="rounded-xl bg-white/5 p-4 mb-6 text-left">
+              <div className="rounded-xl bg-white shadow-card p-4 mb-6 text-left">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-white/60 text-sm">Número do pedido</span>
-                  <span className="text-white font-mono">{order?.id}</span>
+                  <span className="text-gray-500 text-sm">Número do pedido</span>
+                  <span className="text-gray-900 font-mono">{order?.id}</span>
                 </div>
                 <div className="flex items-center justify-between mb-3">
-                  <span className="text-white/60 text-sm">Previsão de entrega</span>
-                  <span className="text-white">3-5 dias úteis</span>
+                  <span className="text-gray-500 text-sm">Previsão de entrega</span>
+                  <span className="text-gray-900">3-5 dias úteis</span>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span className="text-white/60 text-sm">Valor total</span>
-                  <span className="text-tropical-green font-bold">{formatCurrency(order?.total ?? 0)}</span>
+                  <span className="text-gray-500 text-sm">Valor total</span>
+                  <span className="text-gray-900 font-bold">{formatCurrency(order?.total ?? 0)}</span>
                 </div>
               </div>
 

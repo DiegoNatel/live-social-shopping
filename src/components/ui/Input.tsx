@@ -34,9 +34,9 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
 
     const variants = {
       default: `
-        bg-gray-50 border border-gray-200 text-gray-900
+        bg-white border border-gray-300 text-gray-900
         placeholder:text-gray-400
-        focus:border-primary focus:ring-2 focus:ring-primary/20
+        focus:border-sky-blue focus:ring-2 focus:ring-sky-blue/20
       `,
       filled: `
         bg-gray-100 border border-transparent text-gray-900
@@ -66,7 +66,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
           <input
             type={inputType}
             className={cn(
-              'w-full h-12 rounded-lg outline-none transition-all duration-200',
+              'w-full h-11 rounded-md outline-none transition-all duration-200',
               variants[variant],
               leftIcon ? 'pl-10' : 'px-4',
               rightIcon || isPassword ? 'pr-10' : 'px-4',

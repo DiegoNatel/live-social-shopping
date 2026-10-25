@@ -18,5 +18,8 @@ const nextConfig = {
 
 export default nextConfig
 
-// Makes Cloudflare bindings (D1 etc.) available to `next dev` via getCloudflareContext()
-initOpenNextCloudflareForDev()
+// Makes Cloudflare bindings (D1 etc.) available to `next dev` via getCloudflareContext().
+// WRANGLER_PERSIST_TO matches `wrangler d1 ... --local --persist-to <dir>` (handy when the
+// project path is too long for Windows' 260-char limit).
+const persistTo = process.env.WRANGLER_PERSIST_TO
+initOpenNextCloudflareForDev(persistTo ? { persist: { path: `${persistTo}/v3` } } : undefined)
