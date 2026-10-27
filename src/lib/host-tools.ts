@@ -80,11 +80,24 @@ export async function endFlashSale(sellerId: string, streamId: string) {
   return true
 }
 
-// productId null unpins
+// A guest seller's product the host can show because it's featured in the live
+async function featuredInStream(streamId: string, productId: string) {
+  return getDb()
+    .prepare(
+      `SELECT 1 FROM stream_products sp JOIN products p ON p.id = sp.product_id
+       WHERE sp.stream_id = ? AND sp.product_id = ? AND p.is_active = 1`
+    )
+    .bind(streamId, productId)
+    .first()
+}
+
+// productId null unpins. The host can pin their own products and any featured in the live.
 export async function pinProduct(sellerId: string, streamId: string, productId: string | null) {
   const [isHost, product] = await Promise.all([
     hostsStream(sellerId, streamId),
-    productId ? ownsActiveProduct(sellerId, productId) : Promise.resolve(true),
+    productId
+      ? ownsActiveProduct(sellerId, productId).then(own => own ?? featuredInStream(streamId, productId))
+      : Promise.resolve(true),
   ])
   if (!isHost || !product) return false
   await getDb().prepare('UPDATE streams SET pinned_product_id = ? WHERE id = ?').bind(productId, streamId).run()

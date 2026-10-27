@@ -2,6 +2,7 @@ import 'server-only'
 import { getDb } from './db'
 import { getSession } from './auth'
 import { notify } from './orders'
+import { canSellInStream } from './guests'
 
 const newId = () => crypto.randomUUID()
 const cents = (reais: number) => Math.round(reais * 100)
@@ -176,16 +177,16 @@ export interface AuctionInput {
   streamId?: string
 }
 
-export async function createAuction(sellerId: string, a: AuctionInput) {
+// Returns the new auction's id, NOT_FOUND for a product that isn't the seller's, or
+// STREAM_FORBIDDEN for a live the seller neither hosts nor was accepted into as a guest
+export async function createAuction(sellerId: string, a: AuctionInput): Promise<string | 'NOT_FOUND' | 'STREAM_FORBIDDEN'> {
   const db = getDb()
   const owns = await db
     .prepare('SELECT 1 FROM products WHERE id = ? AND seller_id = ? AND is_active = 1')
     .bind(a.productId, sellerId)
     .first()
-  if (!owns) return null
-  const streamOk = a.streamId
-    ? await db.prepare('SELECT 1 FROM streams WHERE id = ? AND host_id = ?').bind(a.streamId, sellerId).first()
-    : true
+  if (!owns) return 'NOT_FOUND'
+  if (a.streamId && !(await canSellInStream(sellerId, a.streamId))) return 'STREAM_FORBIDDEN'
 
   const id = newId()
   const start = new Date(a.startsAt)
@@ -197,7 +198,7 @@ export async function createAuction(sellerId: string, a: AuctionInput) {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .bind(
-      id, a.productId, streamOk ? a.streamId ?? null : null, cents(a.startingPrice), cents(a.startingPrice),
+      id, a.productId, a.streamId ?? null, cents(a.startingPrice), cents(a.startingPrice),
       cents(a.minimumIncrement), start.toISOString(), end.toISOString(), start <= new Date() ? 'active' : 'upcoming'
     )
     .run()

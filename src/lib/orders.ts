@@ -3,6 +3,7 @@ import { getDb, activeFlashSales, flashPriceCents } from './db'
 import { checkCoupon } from './coupons'
 import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
+import { liveSplits, HOST_SHARE } from './guests'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
 export type NewAddress = Omit<Address, 'id' | 'isDefault'>
@@ -161,6 +162,8 @@ export async function createOrder(userId: string, input: NewOrderInput) {
   const db = getDb()
   const fixedUnitPriceCents = input.auctionId ? await wonAuctionPrice(userId, input) : undefined
   const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items, { fixedUnitPriceCents })
+  // Guest sellers' products sold through a host's live: the host gets HOST_SHARE of the line
+  const splits = await liveSplits([...qtyByProduct.keys()], input.auctionId)
 
   let coupon: AppliedCoupon | null = null
   if (input.couponCode) {
@@ -203,15 +206,19 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     ...[...qtyByFlashSale].map(([saleId, qty]) =>
       db.prepare('UPDATE flash_sales SET quantity_sold = quantity_sold + ? WHERE id = ?').bind(qty, saleId)
     ),
-    ...lines.map(line =>
-      db
+    ...lines.map(line => {
+      const split = splits.get(line.productId)
+      return db
         .prepare(
-          `INSERT INTO order_items (id, order_id, product_id, seller_id, name, unit_price_cents, quantity, variants, flash_sale_id)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          `INSERT INTO order_items (id, order_id, product_id, seller_id, name, unit_price_cents, quantity, variants, flash_sale_id,
+                                    stream_id, host_id, host_share_cents)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .bind(newId(), orderId, line.productId, line.sellerId, line.name, line.unitPriceCents, line.quantity,
-          line.variants ? JSON.stringify(line.variants) : null, line.flashSaleId)
-    ),
+          line.variants ? JSON.stringify(line.variants) : null, line.flashSaleId,
+          split?.streamId ?? null, split?.hostId ?? null,
+          split ? Math.floor(line.unitPriceCents * line.quantity * HOST_SHARE) : null)
+    }),
     // Remember the address for next time (only if it isn't saved already)
     db
       .prepare(
@@ -230,6 +237,9 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     notify(userId, 'order_update', 'Pedido recebido', `Seu pedido ${orderId} foi registrado e aguarda pagamento.`, '/orders'),
     ...[...new Set(lines.map(l => l.sellerId))].map(sellerId =>
       notify(sellerId, 'order_update', 'Novo pedido', `Você recebeu o pedido ${orderId}.`, '/seller/dashboard')
+    ),
+    ...[...new Set([...splits.values()].map(s => s.hostId))].map(hostId =>
+      notify(hostId, 'order_update', 'Venda de convidado', `Um convidado vendeu na sua live (pedido ${orderId}).`, '/seller/dashboard')
     ),
   ]
 

@@ -27,7 +27,10 @@ export async function POST(request: Request) {
     startsAt,
     streamId: str(b.streamId, 64) ?? undefined,
   })
-  if (!id) return new Response('Product not found', { status: 404 })
+  if (id === 'NOT_FOUND') return new Response('Product not found', { status: 404 })
+  if (id === 'STREAM_FORBIDDEN') {
+    return Response.json({ message: 'Você só pode criar leilões nas suas lives ou nas que aceitou convite' }, { status: 403 })
+  }
 
   // The room closes the auction at its end and shows it to viewers right away
   const auction = await getDb()

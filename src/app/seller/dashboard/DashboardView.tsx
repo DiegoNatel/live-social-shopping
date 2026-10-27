@@ -14,6 +14,8 @@ import { formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } f
 import type { User, Product, Stream, Auction } from '@/types'
 import type { SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
+import { GuestInvites, StreamGuestsButton } from './GuestPanels'
+import type { GuestInvite } from '@/lib/guests'
 import {
   Radio,
   TrendingUp,
@@ -41,12 +43,16 @@ export interface DashboardData {
   streams: Stream[]
   auctions: Auction[]
   recentOrders: SellerOrder[]
-  stats: { revenue: number; orders: number; viewers: number }
+  stats: { revenue: number; hostRevenue: number; orders: number; viewers: number }
+  invites: GuestInvite[]
 }
 
-export function DashboardView({ seller, products, streams, auctions, recentOrders, stats: totals }: DashboardData) {
+export function DashboardView({ seller, products, streams, auctions, recentOrders, stats: totals, invites }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
+  // Live the next auction goes into: the seller's own live by default, or one they're a guest in
+  const [auctionStreamId, setAuctionStreamId] = useState<string | undefined>()
+  const pendingInvites = invites.filter(i => i.status === 'invited').length
   const [busyStreamId, setBusyStreamId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
   const router = useRouter()
@@ -75,12 +81,21 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         minimumIncrement: data.minimumIncrement,
         durationMinutes: data.duration,
         startsAt: data.startTime === 'now' ? 'now' : new Date(data.startTime).toISOString(),
-        streamId: streams.find(st => st.isLive)?.id,
+        streamId: auctionStreamId ?? streams.find(st => st.isLive)?.id,
       }),
     })
     setShowAuctionModal(false)
-    if (!res.ok) setActionError('Não foi possível criar o leilão.')
+    setAuctionStreamId(undefined)
+    if (!res.ok) {
+      const data = (await res.json().catch(() => null)) as { message?: string } | null
+      setActionError(data?.message ?? 'Não foi possível criar o leilão.')
+    }
     router.refresh()
+  }
+
+  const openGuestAuction = (streamId: string) => {
+    setAuctionStreamId(streamId)
+    setShowAuctionModal(true)
   }
 
   // Period-over-period changes and conversion need analytics we don't collect yet
@@ -126,6 +141,16 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
 
         {actionError && <p className="text-coral-pink text-sm mb-4">{actionError}</p>}
 
+        {pendingInvites > 0 && activeTab !== 'streams' && (
+          <button
+            onClick={() => setActiveTab('streams')}
+            className="w-full text-left rounded-md bg-white shadow-card border-l-4 border-sky-blue p-3 mb-4 text-sm text-gray-700"
+          >
+            Você tem {pendingInvites === 1 ? '1 convite' : `${pendingInvites} convites`} para vender em lives de outros vendedores.{' '}
+            <span className="font-medium text-gray-900">Ver convites</span>
+          </button>
+        )}
+
         {/* Stats Grid */}
         <div className="grid grid-cols-2 gap-3 mb-6">
           <StatCard
@@ -157,6 +182,11 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
             color="sunset-gold"
           />
         </div>
+        {stats.hostRevenue > 0 && (
+          <p className="text-gray-500 text-xs -mt-4 mb-6">
+            A receita inclui {formatCurrency(stats.hostRevenue)} da sua parte nas vendas de convidados.
+          </p>
+        )}
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 -mx-4 px-4">
@@ -332,6 +362,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
 
         {activeTab === 'streams' && (
           <div>
+            <GuestInvites invites={invites} products={products} onCreateAuction={openGuestAuction} />
             <div className="flex items-center justify-between mb-4">
               <p className="text-gray-500">Suas lives</p>
               <Link href="/seller/streams/new">
@@ -372,19 +403,18 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                       </div>
                     </div>
                   </div>
-                  {stream.isLive ? (
-                    <div className="p-3 flex justify-end">
+                  <div className="p-3 flex justify-end gap-2">
+                    <StreamGuestsButton streamId={stream.id} />
+                    {stream.isLive ? (
                       <Button size="sm" variant="secondary" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'ended')}>
                         Encerrar live
                       </Button>
-                    </div>
-                  ) : (
-                    <div className="p-3 flex justify-end">
+                    ) : (
                       <Button size="sm" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'live')}>
                         Iniciar agora
                       </Button>
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -510,7 +540,10 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
       {/* Create Auction Modal */}
       <CreateAuctionModal
         isOpen={showAuctionModal}
-        onClose={() => setShowAuctionModal(false)}
+        onClose={() => {
+          setShowAuctionModal(false)
+          setAuctionStreamId(undefined)
+        }}
         products={products.filter(p => p.isActive !== false)}
         onCreateAuction={createAuction}
       />
