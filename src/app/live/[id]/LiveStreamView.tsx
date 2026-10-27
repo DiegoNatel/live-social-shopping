@@ -133,6 +133,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
         case 'pin':
           setPinnedId(msg.productId)
           break
+        case 'products':
+          router.refresh()
+          break
         case 'status':
           if (msg.status === 'ended') setHasEnded(true)
           else router.refresh()

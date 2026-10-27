@@ -455,17 +455,23 @@ export async function getSellerDashboard(sellerId: string) {
         )
         .bind(sellerId)
         .all<Row>(),
+      // A guest's sale through someone's live is split: the seller keeps the line minus the
+      // host's share, and the host earns host_share_cents
       db
         .prepare(
-          `SELECT count(DISTINCT oi.order_id) AS orders, coalesce(sum(oi.unit_price_cents * oi.quantity), 0) AS revenue
+          `SELECT count(DISTINCT CASE WHEN oi.seller_id = ?1 THEN oi.order_id END) AS orders,
+                  coalesce(sum(CASE WHEN oi.seller_id = ?1
+                    THEN oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) ELSE 0 END), 0) AS revenue,
+                  coalesce(sum(CASE WHEN oi.host_id = ?1 THEN oi.host_share_cents ELSE 0 END), 0) AS host_revenue
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
-           WHERE oi.seller_id = ? AND o.status != 'cancelled'`
+           WHERE (oi.seller_id = ?1 OR oi.host_id = ?1) AND o.status != 'cancelled'`
         )
         .bind(sellerId)
         .first<Row>(),
       db
         .prepare(
-          `SELECT o.id, o.status, o.created_at, oi.product_id, oi.name, oi.unit_price_cents * oi.quantity AS total_cents
+          `SELECT o.id, o.status, o.created_at, oi.product_id, oi.name,
+                  oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) AS total_cents
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
            WHERE oi.seller_id = ? ORDER BY o.created_at DESC LIMIT 5`
         )
@@ -506,7 +512,9 @@ export async function getSellerDashboard(sellerId: string) {
     auctions,
     recentOrders,
     stats: {
-      revenue: fromCents(salesRow?.revenue ?? 0)!,
+      // Own sales plus shares earned hosting guest sellers
+      revenue: fromCents((salesRow?.revenue ?? 0) + (salesRow?.host_revenue ?? 0))!,
+      hostRevenue: fromCents(salesRow?.host_revenue ?? 0)!,
       orders: salesRow?.orders ?? 0,
       viewers: streams.reduce((sum, s) => sum + (s.isLive ? s.viewerCount : 0), 0),
     },

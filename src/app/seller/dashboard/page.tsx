@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 import { getUser, getSellerDashboard } from '@/lib/db'
+import { getGuestInvites } from '@/lib/guests'
 import { DashboardView } from './DashboardView'
 import { BecomeSeller } from './BecomeSeller'
 
@@ -14,6 +15,6 @@ export default async function SellerDashboardPage() {
   if (!profile) redirect('/login')
   if (!profile.isSeller) return <BecomeSeller />
 
-  const data = await getSellerDashboard(session.user.id)
-  return <DashboardView seller={profile.user} {...data} />
+  const [data, invites] = await Promise.all([getSellerDashboard(session.user.id), getGuestInvites(session.user.id)])
+  return <DashboardView seller={profile.user} {...data} invites={invites} />
 }

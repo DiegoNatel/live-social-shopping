@@ -27,6 +27,8 @@ export type ServerMessage =
   | { t: 'poll'; poll: Poll | null }
   | { t: 'flash'; flashSale: FlashSale | null }
   | { t: 'pin'; productId: string | null }
+  // The live's product list changed (a guest seller added or removed products)
+  | { t: 'products' }
   | { t: 'status'; status: 'live' | 'ended' }
   | { t: 'error'; message: string }
 
