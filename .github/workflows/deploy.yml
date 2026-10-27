@@ -55,8 +55,11 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         run: npm ci
 
+      # Needs R2 permission on the token; if it fails, create the bucket "vivobuy-images" in the
+      # dashboard (R2 Object Storage → Create bucket) and the deploy goes on
       - name: Create the image bucket (first deploy only)
         if: steps.secrets.outputs.ready == 'true'
+        continue-on-error: true
         run: npx wrangler r2 bucket list | grep -q 'vivobuy-images' || npx wrangler r2 bucket create vivobuy-images
 
       - name: Apply database migrations
