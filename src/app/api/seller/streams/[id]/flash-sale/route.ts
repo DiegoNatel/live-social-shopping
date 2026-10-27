@@ -21,6 +21,7 @@ export async function POST(request: Request, { params }: Params) {
   }
   const result = await startFlashSale(sellerId, id, { productId, discountPercent, durationMinutes, quantity })
   if (result === 'not_enough_stock') return badRequest('Quantidade maior que o estoque do produto')
+  if (result === 'on_sale_elsewhere') return badRequest('Este produto já está em oferta relâmpago em outra live')
   if (result !== 'ok') return new Response('Not found', { status: 404 })
   broadcast(id, { t: 'flash', flashSale: await getActiveFlashSale(id) })
   return new Response(null, { status: 201 })

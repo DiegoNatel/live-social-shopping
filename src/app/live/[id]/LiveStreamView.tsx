@@ -53,7 +53,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const [isChatOpen, setIsChatOpen] = useState(true)
   const [showPoll, setShowPoll] = useState(true)
   const [bidMessage, setBidMessage] = useState('')
-  const [notice, setNotice] = useState('')
+  const [notice, setNotice] = useState<{ text: string; href?: string } | null>(null)
   const [mobilePanel, setMobilePanel] = useState<'poll' | 'auctions' | 'host' | null>(null)
 
   // Server data, then kept up to date by the live room
@@ -64,6 +64,23 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const [pinnedExtra, setPinnedExtra] = useState<Product | null>(null)
   const [hasEnded, setHasEnded] = useState(false)
   const [likes, setLikes] = useState(stream?.likes ?? 0)
+  // Fresh copies of products whose price changed during the live (flash sales)
+  const [productOverrides, setProductOverrides] = useState<Record<string, Product>>({})
+  // Ticks so auctions open, and polls and flash sales expire, on time. null until mounted,
+  // so the first client render matches the server's.
+  const [now, setNow] = useState<number | null>(null)
+  useEffect(() => {
+    setNow(Date.now())
+    const timer = setInterval(() => setNow(Date.now()), 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const refreshProduct = useCallback((id: string) => {
+    fetch('/api/cart/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) })
+      .then(r => (r.ok ? (r.json() as Promise<Product[]>) : []))
+      .then(([fresh]) => fresh && setProductOverrides(o => ({ ...o, [id]: fresh })))
+      .catch(() => {})
+  }, [])
   const floating = useFloatingReactions()
 
   const handleRoomEvent = useCallback(
@@ -88,10 +105,13 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
         case 'auction_end': {
           setAuctions(list => list.map(a => (a.id === msg.auctionId ? { ...a, status: 'ended', winnerId: msg.winner?.id } : a)))
           const product = auctions.find(a => a.id === msg.auctionId)?.product.name ?? 'o produto'
+          const me = useUserStore.getState().user?.id
           setNotice(
-            msg.winner
-              ? `🔨 ${msg.winner.name} arrematou ${product} por ${formatCurrency(msg.amount)}!`
-              : `O leilão de ${product} terminou sem lances.`
+            msg.winner?.id && msg.winner.id === me
+              ? { text: `🎉 Você arrematou ${product} por ${formatCurrency(msg.amount)}!`, href: `/auctions/${msg.auctionId}` }
+              : msg.winner
+                ? { text: `🔨 ${msg.winner.name} arrematou ${product} por ${formatCurrency(msg.amount)}!` }
+                : { text: `O leilão de ${product} terminou sem lances.` }
           )
           break
         }
@@ -99,9 +119,17 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           setPoll(msg.poll ? { ...msg.poll, myVote: poll?.id === msg.poll.id ? poll.myVote : undefined } : null)
           if (msg.poll) setShowPoll(true)
           break
-        case 'flash':
+        case 'flash': {
+          // New sale price for its product; the previous sale's product goes back to its price
+          const previous = flashSale?.product.id
+          if (msg.flashSale) {
+            const product = msg.flashSale.product
+            setProductOverrides(o => ({ ...o, [product.id]: product }))
+          }
+          if (previous && previous !== msg.flashSale?.product.id) refreshProduct(previous)
           setFlashSale(msg.flashSale)
           break
+        }
         case 'pin':
           setPinnedId(msg.productId)
           break
@@ -111,13 +139,29 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           break
       }
     },
-    [floating, auctions, poll, router]
+    [floating, auctions, poll, flashSale, refreshProduct, router]
   )
   const room = useLiveRoom(stream?.id ?? '', handleRoomEvent)
   const viewerCount = room.viewers ?? stream?.viewerCount ?? 0
 
   // A pinned product that isn't in the stream's list is loaded on demand
-  const pinnedProduct = pinnedId ? (stream?.products.find(p => p.id === pinnedId) ?? (pinnedExtra?.id === pinnedId ? pinnedExtra : null)) : null
+  const products = (stream?.products ?? []).map(p => productOverrides[p.id] ?? p)
+  const pinnedProduct = pinnedId ? (products.find(p => p.id === pinnedId) ?? (pinnedExtra?.id === pinnedId ? pinnedExtra : null)) : null
+
+  // What's open right now, by the clock
+  const activePoll = poll && (!poll.endsAt || now === null || Date.parse(String(poll.endsAt)) > now) ? poll : null
+  const activeFlash = flashSale && (now === null || Date.parse(String(flashSale.endTime)) > now) ? flashSale : null
+  const activeAuctions = auctions.filter(a =>
+    now === null
+      ? a.status === 'active'
+      : a.status !== 'ended' && Date.parse(String(a.startTime)) <= now && Date.parse(String(a.endTime)) > now
+  )
+
+  // A flash sale that ran out of time: its product goes back to the regular price
+  const expiredFlashProduct = flashSale && !activeFlash ? flashSale.product.id : null
+  useEffect(() => {
+    if (expiredFlashProduct) refreshProduct(expiredFlashProduct)
+  }, [expiredFlashProduct, refreshProduct])
   useEffect(() => {
     if (!pinnedId || stream?.products.some(p => p.id === pinnedId)) return
     fetch('/api/cart/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [pinnedId] }) })
@@ -128,7 +172,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
   useEffect(() => {
     if (!notice) return
-    const timer = setTimeout(() => setNotice(''), 6000)
+    // The winner's notice stays until they act on it
+    if (notice.href) return
+    const timer = setTimeout(() => setNotice(null), 6000)
     return () => clearTimeout(timer)
   }, [notice])
   const [chatHeight, setChatHeight] = useState(50) // percentage of viewport height
@@ -251,10 +297,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const share = () => {
     const url = window.location.href
     if (navigator.share) navigator.share({ title: stream.title, url }).catch(() => {})
-    else navigator.clipboard.writeText(url).then(() => setNotice('Link copiado!'))
+    else navigator.clipboard.writeText(url).then(() => setNotice({ text: 'Link copiado!' }))
   }
 
-  const activeAuctions = auctions.filter(a => a.status === 'active' && new Date(a.endTime).getTime() > Date.now() - 1000)
   const chat = (
     <LiveChat
       messages={room.messages}
@@ -385,8 +430,8 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   exit={{ opacity: 0, y: 20 }}
                   onClick={e => e.stopPropagation()}
                 >
-                  {mobilePanel === 'poll' && poll && (
-                    <PollWidget key={poll.id} poll={poll} myVote={poll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setMobilePanel(null)} />
+                  {mobilePanel === 'poll' && activePoll && (
+                    <PollWidget key={activePoll.id} poll={activePoll} myVote={activePoll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setMobilePanel(null)} />
                   )}
                   {mobilePanel === 'auctions' && (
                     <div className="space-y-2">
@@ -397,7 +442,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     </div>
                   )}
                   {mobilePanel === 'host' && room.isHost && (
-                    <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!poll} hasFlashSale={!!flashSale} onClose={() => setMobilePanel(null)} />
+                    <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!activePoll} hasFlashSale={!!activeFlash} onClose={() => setMobilePanel(null)} />
                   )}
                 </motion.div>
               )}
@@ -422,7 +467,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             {/* Products Carousel */}
             <div className={cn('pb-2', isChatOpen && chatHeight === 75 && 'hidden')}>
               <ProductCarousel 
-                products={stream.products} 
+                products={products}
                 onProductClick={(product) => openProductModal(product)}
               />
             </div>
@@ -454,7 +499,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     onClick={() => toggleMobilePanel('auctions')}
                   />
                 )}
-                {poll && (
+                {activePoll && (
                   <ActionButton
                     icon={<BarChart2 className="w-5 h-5" />}
                     label="Enquete"
@@ -473,10 +518,10 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               </div>
               
               {/* Flash Sale Indicator */}
-              {flashSale && (
+              {activeFlash && (
                 <motion.button
                   className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
-                  onClick={(e) => { e.stopPropagation(); openProductModal(flashSale.product); }}
+                  onClick={(e) => { e.stopPropagation(); openProductModal(activeFlash.product); }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <span>⚡</span>
@@ -577,7 +622,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               >
                 <div className="max-w-lg">
                   <h1 className="text-white font-semibold text-xl mb-3">{stream.title}</h1>
-                  {flashSale && <FlashSaleTimer flashSale={flashSale} />}
+                  {activeFlash && <FlashSaleTimer flashSale={activeFlash} />}
                 </div>
               </motion.div>
             )}
@@ -591,20 +636,20 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       <div className="hidden lg:flex lg:w-96 flex-col h-screen bg-deep-ocean border-l border-white/10">
         {room.isHost && (
           <div className="p-4 border-b border-white/10">
-            <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!poll} hasFlashSale={!!flashSale} />
+            <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!activePoll} hasFlashSale={!!activeFlash} />
           </div>
         )}
 
         {/* Poll Widget */}
         <AnimatePresence>
-          {showPoll && poll && (
+          {showPoll && activePoll && (
             <motion.div
               className="p-4 border-b border-white/10"
               initial={{ opacity: 0, height: 0 }}
               animate={{ opacity: 1, height: 'auto' }}
               exit={{ opacity: 0, height: 0 }}
             >
-              <PollWidget key={poll.id} poll={poll} myVote={poll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setShowPoll(false)} />
+              <PollWidget key={activePoll.id} poll={activePoll} myVote={activePoll.myVote} onVote={votePoll} live={room.status === 'open'} onClose={() => setShowPoll(false)} />
             </motion.div>
           )}
         </AnimatePresence>
@@ -629,10 +674,10 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
         <div className="p-4 border-b border-white/10">
           <h3 className="text-white font-semibold mb-3 flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-tropical-green animate-pulse" />
-            Produtos da Live ({stream.products.length})
+            Produtos da Live ({products.length})
           </h3>
           <ProductCarousel 
-            products={stream.products} 
+            products={products}
             onProductClick={(product) => openProductModal(product)}
             variant="vertical"
           />
@@ -702,7 +747,18 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
           >
-            {notice}
+            {notice.text}
+            {notice.href && (
+              <>
+                {' '}
+                <Link href={notice.href} className="underline font-semibold">
+                  Finalizar compra
+                </Link>
+                <button onClick={() => setNotice(null)} aria-label="Fechar" className="ml-2 text-white/60">
+                  ✕
+                </button>
+              </>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

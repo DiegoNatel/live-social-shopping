@@ -30,7 +30,15 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
   const [options, setOptions] = useState(['', ''])
   const [pollMinutes, setPollMinutes] = useState('5')
 
-  const [flash, setFlash] = useState({ productId: stream.products[0]?.id ?? '', discountPercent: '20', durationMinutes: '10', quantity: '10' })
+  // Suggests 10 units, or the whole stock if there's less
+  const suggestedQuantity = (productId: string) => String(Math.min(10, stream.products.find(p => p.id === productId)?.stock ?? 10))
+  const firstProductId = stream.products[0]?.id ?? ''
+  const [flash, setFlash] = useState({
+    productId: firstProductId,
+    discountPercent: '20',
+    durationMinutes: '10',
+    quantity: suggestedQuantity(firstProductId),
+  })
 
   const call = async (path: string, method: string, body?: object, okText = 'Pronto!') => {
     setBusy(true)
@@ -155,7 +163,7 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
 
       {tab === 'flash' && (
         <div className="space-y-2">
-          <select className={field} value={flash.productId} onChange={e => setFlash(f => ({ ...f, productId: e.target.value }))}>
+          <select className={field} value={flash.productId} onChange={e => setFlash(f => ({ ...f, productId: e.target.value, quantity: suggestedQuantity(e.target.value) }))}>
             {stream.products.map(p => (
               <option key={p.id} value={p.id} className="text-gray-900">
                 {p.name}

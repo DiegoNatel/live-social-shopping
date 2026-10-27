@@ -43,7 +43,7 @@ export async function endPoll(sellerId: string, streamId: string) {
   return true
 }
 
-export type FlashSaleResult = 'ok' | 'forbidden' | 'not_enough_stock'
+export type FlashSaleResult = 'ok' | 'forbidden' | 'not_enough_stock' | 'on_sale_elsewhere'
 
 // A new flash sale replaces the one running in this stream
 export async function startFlashSale(
@@ -55,6 +55,12 @@ export async function startFlashSale(
   if (!isHost || !product) return 'forbidden'
   if (s.quantity > product.stock) return 'not_enough_stock'
   const db = getDb()
+  // Prices use one running sale per product, so a product can't be on sale in two lives at once
+  const elsewhere = await db
+    .prepare(`SELECT 1 FROM flash_sales WHERE product_id = ? AND stream_id IS NOT ? AND starts_at <= ${NOW} AND ends_at > ${NOW}`)
+    .bind(s.productId, streamId)
+    .first()
+  if (elsewhere) return 'on_sale_elsewhere'
   const endsAt = new Date(Date.now() + s.durationMinutes * 60_000).toISOString()
   await db.batch([
     db.prepare(`UPDATE flash_sales SET ends_at = ${NOW} WHERE stream_id = ? AND ends_at > ${NOW}`).bind(streamId),
