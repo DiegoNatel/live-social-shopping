@@ -17,15 +17,17 @@ interface AuctionCardProps {
 }
 
 export function AuctionCard({ auction, onBid, className }: AuctionCardProps) {
-  const [bidAmount, setBidAmount] = useState(auction.currentBid + auction.minimumIncrement)
+  // The first bid may be the starting price; later ones must beat the current bid
+  const minBid = auction.bids.length > 0 ? auction.currentBid + auction.minimumIncrement : auction.currentBid
+  const [bidAmount, setBidAmount] = useState(minBid)
   const [timeLeft, setTimeLeft] = useState('')
   const [showBidHistory, setShowBidHistory] = useState(false)
   const [isEnding, setIsEnding] = useState(false)
 
   // Someone else bid: the next bid has to beat the new price
   useEffect(() => {
-    setBidAmount(prev => Math.max(prev, auction.currentBid + auction.minimumIncrement))
-  }, [auction.currentBid, auction.minimumIncrement])
+    setBidAmount(prev => Math.max(prev, minBid))
+  }, [minBid])
   
   // Calculate time remaining
   useEffect(() => {
@@ -65,7 +67,6 @@ export function AuctionCard({ auction, onBid, className }: AuctionCardProps) {
   }
   
   const decrementBid = () => {
-    const minBid = auction.currentBid + auction.minimumIncrement
     setBidAmount(prev => Math.max(minBid, prev - auction.minimumIncrement))
   }
   
@@ -192,7 +193,7 @@ export function AuctionCard({ auction, onBid, className }: AuctionCardProps) {
             <div className="flex items-center justify-center gap-4 mb-4">
               <button
                 onClick={decrementBid}
-                disabled={bidAmount <= auction.currentBid + auction.minimumIncrement}
+                disabled={bidAmount <= minBid}
                 className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <Minus className="w-5 h-5" />

@@ -4,6 +4,10 @@ import type { Auction, AuctionBid, FlashSale, Notification, Poll, Product } from
 
 type Row = Record<string, any>
 const NOW = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
+// How much the next bid must add to current_bid_cents, for the auctions row named `t`:
+// nothing for the first bid, which may equal the starting price
+const nextBidStep = (t: string) =>
+  `CASE WHEN EXISTS (SELECT 1 FROM bids WHERE bids.auction_id = ${t}.id) THEN ${t}.minimum_increment_cents ELSE 0 END`
 
 // ---------- Auctions & bids ----------
 
@@ -78,7 +82,8 @@ export async function placeBid(userId: string, auctionId: string, amount: number
   const bidId = crypto.randomUUID()
 
   // One conditional UPDATE decides the bid: D1 runs a batch as a single transaction,
-  // so two equal bids can't both win.
+  // so two equal bids can't both win. The first bid may equal the starting price;
+  // later ones must beat the current bid by the minimum increment.
   await db.batch([
     db
       .prepare(
@@ -87,7 +92,7 @@ export async function placeBid(userId: string, auctionId: string, amount: number
            ends_at = max(ends_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '+30 seconds'))
          WHERE id = ?2
            AND starts_at <= ${NOW} AND ends_at > ${NOW}
-           AND ?1 >= current_bid_cents + minimum_increment_cents
+           AND ?1 >= current_bid_cents + ${nextBidStep('auctions')}
            AND (SELECT seller_id FROM products WHERE id = auctions.product_id) != ?3`
       )
       .bind(amountCents, auctionId, userId),
@@ -119,7 +124,7 @@ export async function placeBid(userId: string, auctionId: string, amount: number
       .first<Row>(),
     db
       .prepare(
-        `SELECT a.current_bid_cents, a.minimum_increment_cents, a.ends_at, a.stream_id, ${AUCTION_STATUS} AS live_status, p.seller_id
+        `SELECT a.current_bid_cents, ${nextBidStep('a')} AS next_step_cents, a.ends_at, a.stream_id, ${AUCTION_STATUS} AS live_status, p.seller_id
          FROM auctions a JOIN products p ON p.id = a.product_id WHERE a.id = ?`
       )
       .bind(auctionId)
@@ -153,7 +158,7 @@ export async function placeBid(userId: string, auctionId: string, amount: number
   const currentBid = a.current_bid_cents / 100
   if (a.seller_id === userId) return { ok: false, reason: 'OWN_AUCTION' }
   if (a.live_status !== 'active') return { ok: false, reason: 'CLOSED', currentBid }
-  return { ok: false, reason: 'TOO_LOW', currentBid, minimumBid: (a.current_bid_cents + a.minimum_increment_cents) / 100 }
+  return { ok: false, reason: 'TOO_LOW', currentBid, minimumBid: (a.current_bid_cents + a.next_step_cents) / 100 }
 }
 
 // ---------- Flash sales ----------
