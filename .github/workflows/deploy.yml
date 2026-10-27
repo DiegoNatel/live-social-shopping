@@ -1,0 +1,88 @@
+# Deploys VivoBuy to Cloudflare Workers on every push to master.
+#
+# One-time setup (GitHub → Settings → Secrets and variables → Actions → New repository secret):
+#   CLOUDFLARE_API_TOKEN   API token with: Workers Scripts Edit, D1 Edit, Workers R2 Storage Edit
+#                          (the "Edit Cloudflare Workers" template plus D1 Edit covers it)
+#   CLOUDFLARE_ACCOUNT_ID  shown on the right of the Workers & Pages overview page
+#   BETTER_AUTH_SECRET     any long random string (e.g. `openssl rand -hex 32`)
+# Optional: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET turn on "Continuar com Google".
+#
+# To load the sample data (sellers, products, lives) into the production database once, run this
+# workflow by hand (Actions → Deploy to Cloudflare → Run workflow) with "seed" ticked.
+name: Deploy to Cloudflare
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      seed:
+        description: Load db/seed.sql into the production database (safe to repeat)
+        type: boolean
+        default: false
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check Cloudflare secrets
+        id: secrets
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID are not set; skipping the deploy. See the top of .github/workflows/deploy.yml."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.secrets.outputs.ready == 'true'
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.ready == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        if: steps.secrets.outputs.ready == 'true'
+        run: npm ci
+
+      - name: Create the image bucket (first deploy only)
+        if: steps.secrets.outputs.ready == 'true'
+        run: npx wrangler r2 bucket list | grep -q 'vivobuy-images' || npx wrangler r2 bucket create vivobuy-images
+
+      - name: Apply database migrations
+        if: steps.secrets.outputs.ready == 'true'
+        run: npx wrangler d1 migrations apply vivobuy --remote
+
+      - name: Load sample data
+        if: steps.secrets.outputs.ready == 'true' && inputs.seed
+        run: npx wrangler d1 execute vivobuy --remote --file db/seed.sql
+
+      - name: Build and deploy
+        if: steps.secrets.outputs.ready == 'true'
+        run: npx opennextjs-cloudflare build && npx opennextjs-cloudflare deploy
+
+      - name: Set secrets
+        if: steps.secrets.outputs.ready == 'true'
+        env:
+          BETTER_AUTH_SECRET: ${{ secrets.BETTER_AUTH_SECRET }}
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+        run: |
+          # Only the ones set in GitHub; Cloudflare keeps the values between deploys
+          for name in BETTER_AUTH_SECRET GOOGLE_CLIENT_ID GOOGLE_CLIENT_SECRET; do
+            value="${!name}"
+            if [ -n "$value" ]; then printf '%s' "$value" | npx wrangler secret put "$name"; fi
+          done
+          if [ -z "$BETTER_AUTH_SECRET" ]; then
+            echo "::warning::BETTER_AUTH_SECRET is not set in GitHub; login fails unless it was set on Cloudflare before."
+          fi

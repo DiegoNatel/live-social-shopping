@@ -78,6 +78,10 @@ preview prints.
 
 ### Deploying
 
+Pushes to `master` deploy automatically through GitHub Actions (`.github/workflows/deploy.yml`) once the
+repository has the `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` and `BETTER_AUTH_SECRET` secrets; the
+workflow creates the image bucket, applies migrations, builds and deploys. To deploy from your own machine instead:
+
 ```bash
 # One-time setup
 npx wrangler r2 bucket create vivobuy-images
