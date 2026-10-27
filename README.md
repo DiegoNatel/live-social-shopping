@@ -63,6 +63,8 @@ Each live stream has a `LiveRoom` Durable Object (`src/realtime/live-room.ts`) t
 WebSockets, saves chat to D1, counts viewers and closes auctions when they end. `worker.ts` wraps the
 OpenNext worker to export it and route `/api/live/<id>/ws` to it. Signed-in viewers connect with a
 short-lived ticket from `/api/live/<id>/ticket`; signed-out viewers can watch and are counted but can't chat.
+A Cron Trigger (every 5 minutes, `scheduled()` in `worker.ts`) closes auctions that ended while nobody was
+watching. Auction winners pay at `/auctions/<id>`.
 
 `npm run dev` (Next.js dev server) can't run Durable Objects, so the chat shows as unavailable there.
 To try the live features locally, build and run the real Worker:

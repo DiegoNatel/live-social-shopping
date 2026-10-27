@@ -14,6 +14,8 @@ export interface NewOrderInput {
   couponCode?: string
   // Total the customer saw, in centavos; the order is refused if the real total differs
   expectedTotalCents?: number
+  // Paying for a won auction: one unit of the auctioned product at the winning bid
+  auctionId?: string
 }
 
 export class OrderError extends Error {
@@ -42,7 +44,8 @@ export interface PricedLine {
 
 // Prices a cart from the database (never from the client) and checks stock.
 // Used by the order API and the coupon preview, so both see the same subtotal.
-export async function priceCart(items: CartItemInput[]) {
+// fixedUnitPriceCents sets a product's price outright (a won auction): no flash sale or variant modifiers
+export async function priceCart(items: CartItemInput[], opts: { fixedUnitPriceCents?: Map<string, number> } = {}) {
   const db = getDb()
   if (items.length === 0) throw new OrderError('EMPTY', 'Carrinho vazio')
 
@@ -89,14 +92,15 @@ export async function priceCart(items: CartItemInput[]) {
       throw new OrderError('INVALID', `Opção inválida: ${product.name}`)
     }
     // A running flash sale discounts the base price; variant modifiers are added on top
-    const sale = flashSales.get(product.id)
-    let unitPriceCents = sale ? flashPriceCents(product.price_cents, sale.discountPercent) : product.price_cents
+    const fixed = opts.fixedUnitPriceCents?.get(product.id)
+    const sale = fixed === undefined ? flashSales.get(product.id) : undefined
+    let unitPriceCents = fixed ?? (sale ? flashPriceCents(product.price_cents, sale.discountPercent) : product.price_cents)
     const variants: Record<string, string> = {}
     for (const type of VARIANT_TYPES) {
       if (!offered.some(v => v.type === type)) continue
       const v = offered.find(v => v.type === type && v.name === line.variants?.[type])
       if (!v) throw new OrderError('INVALID', `Escolha as opções de ${product.name}`)
-      unitPriceCents += v.price_modifier_cents
+      if (fixed === undefined) unitPriceCents += v.price_modifier_cents
       variants[type] = v.name
       qtyByVariant.set(v.id, (qtyByVariant.get(v.id) ?? 0) + line.quantity)
     }
@@ -117,10 +121,6 @@ export async function priceCart(items: CartItemInput[]) {
   for (const [productId, qty] of qtyByProduct) {
     const product = byId.get(productId)!
     if (product.stock < qty) throw new OrderError('OUT_OF_STOCK', `Estoque insuficiente: ${product.name}`)
-    const sale = flashSales.get(productId)
-    if (sale && sale.remaining < qty) {
-      throw new OrderError('OUT_OF_STOCK', `Restam ${sale.remaining} unidades na oferta relâmpago de ${product.name}`)
-    }
   }
   for (const [variantId, qty] of qtyByVariant) {
     const v = variantRows.find(v => v.id === variantId)!
@@ -133,12 +133,34 @@ export async function priceCart(items: CartItemInput[]) {
   for (const line of priced) {
     if (line.flashSaleId) qtyByFlashSale.set(line.flashSaleId, (qtyByFlashSale.get(line.flashSaleId) ?? 0) + line.quantity)
   }
+  for (const [productId, sale] of flashSales) {
+    const qty = qtyByFlashSale.get(sale.id) ?? 0
+    if (qty > sale.remaining) {
+      throw new OrderError('OUT_OF_STOCK', `Restam ${sale.remaining} unidades na oferta relâmpago de ${byId.get(productId)!.name}`)
+    }
+  }
   return { lines: priced, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale }
+}
+
+// The winning bid, if this user won the auction and the order is for exactly what was auctioned
+async function wonAuctionPrice(userId: string, input: NewOrderInput) {
+  const won = await getDb()
+    .prepare(`SELECT product_id, current_bid_cents FROM auctions WHERE id = ? AND winner_id = ? AND status = 'ended'`)
+    .bind(input.auctionId, userId)
+    .first<{ product_id: string; current_bid_cents: number }>()
+  if (!won) throw new OrderError('INVALID', 'Este arremate não está disponível')
+  const [item] = input.items
+  if (input.items.length !== 1 || item.productId !== won.product_id || item.quantity !== 1) {
+    throw new OrderError('INVALID', 'O pedido do arremate é de uma unidade do produto leiloado')
+  }
+  if (input.couponCode) throw new OrderError('COUPON', 'Cupons não valem para arremates')
+  return new Map([[won.product_id, won.current_bid_cents]])
 }
 
 export async function createOrder(userId: string, input: NewOrderInput) {
   const db = getDb()
-  const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items)
+  const fixedUnitPriceCents = input.auctionId ? await wonAuctionPrice(userId, input) : undefined
+  const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items, { fixedUnitPriceCents })
 
   let coupon: AppliedCoupon | null = null
   if (input.couponCode) {
@@ -158,12 +180,12 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     db
       .prepare(
         `INSERT INTO orders (id, user_id, status, payment_method, subtotal_cents, shipping_cents,
-                             discount_cents, total_cents, shipping_address, coupon_code, coupon_discount_cents)
-         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?)`
+                             discount_cents, total_cents, shipping_address, coupon_code, coupon_discount_cents, auction_id)
+         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         orderId, userId, input.paymentMethod, subtotal, totals.shipping, totals.coupon + totals.pix, totals.total,
-        JSON.stringify(input.address), coupon?.code ?? null, totals.coupon
+        JSON.stringify(input.address), coupon?.code ?? null, totals.coupon, input.auctionId ?? null
       ),
     // coupons has CHECK (uses_count <= max_uses) and orders has a unique (user, coupon) index,
     // so an exhausted or already-used coupon rolls the whole order back
@@ -215,6 +237,9 @@ export async function createOrder(userId: string, input: NewOrderInput) {
     await db.batch(statements)
   } catch (e) {
     const message = String(e)
+    if (message.includes('idx_orders_auction') || message.includes('orders.auction_id')) {
+      throw new OrderError('INVALID', 'Este arremate já tem um pedido')
+    }
     if (message.includes('idx_orders_user_coupon') || message.includes('orders.user_id, orders.coupon_code')) {
       throw new OrderError('COUPON', 'Você já usou este cupom')
     }

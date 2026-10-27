@@ -18,6 +18,9 @@ const NOW = `strftime('%Y-%m-%dT%H:%M:%fZ', 'now')`
 const VIEWER_FLUSH_MS = 2000
 const CHAT_LIMIT = { count: 5, perMs: 10_000 } // 5 messages per 10 s
 const REACT_LIMIT = { count: 10, perMs: 2_000 }
+// Connections from one IP to one live; keeps the viewer count honest while leaving room
+// for a family or office sharing a connection
+const MAX_SOCKETS_PER_IP = 10
 
 const within = (times: number[], perMs: number, now: number) => times.filter(t => now - t < perMs)
 
@@ -54,8 +57,15 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
     await this.ctx.storage.put('streamId', streamId)
     await this.trackOpenAuctions(streamId)
 
+    // Set by Cloudflare's edge (absent in some local setups)
+    const ip = request.headers.get('CF-Connecting-IP')
+    const tags = ip ? [`ip:${ip}`] : []
+    if (ip && this.ctx.getWebSockets(`ip:${ip}`).filter(ws => ws.readyState === WebSocket.OPEN).length >= MAX_SOCKETS_PER_IP) {
+      return new Response('Too many connections', { status: 429 })
+    }
+
     const { 0: client, 1: server } = new WebSocketPair()
-    this.ctx.acceptWebSocket(server)
+    this.ctx.acceptWebSocket(server, tags)
     server.serializeAttachment(viewer)
     this.send(server, {
       t: 'hello',
@@ -216,17 +226,27 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
     await this.ctx.storage.delete(storageKey)
     if (closed.meta.changes === 0) return
 
-    const notify = (userId: string, title: string, message: string) =>
+    const notify = (userId: string, title: string, message: string, actionUrl: string) =>
       db
-        .prepare(`INSERT INTO notifications (id, user_id, type, title, message, action_url) VALUES (?, ?, 'message', ?, ?, '/notifications')`)
-        .bind(crypto.randomUUID(), userId, title, message)
+        .prepare(`INSERT INTO notifications (id, user_id, type, title, message, action_url) VALUES (?, ?, 'message', ?, ?, ?)`)
+        .bind(crypto.randomUUID(), userId, title, message, actionUrl)
     await db.batch([
       notify(
         auction.seller_id,
         'Leilão encerrado',
-        top ? `${auction.product_name} foi arrematado por ${price}.` : `${auction.product_name} terminou sem lances.`
+        top ? `${auction.product_name} foi arrematado por ${price}.` : `${auction.product_name} terminou sem lances.`,
+        '/seller/dashboard'
       ),
-      ...(top ? [notify(top.user_id, 'Você venceu o leilão! 🎉', `Você arrematou ${auction.product_name} por ${price}.`)] : []),
+      ...(top
+        ? [
+            notify(
+              top.user_id,
+              'Você venceu o leilão! 🎉',
+              `Você arrematou ${auction.product_name} por ${price}. Finalize a compra.`,
+              `/auctions/${auctionId}`
+            ),
+          ]
+        : []),
     ])
 
     this.broadcast({

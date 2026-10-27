@@ -56,6 +56,7 @@ export async function POST(request: Request) {
       paymentMethod,
       couponCode: str(body.couponCode, 32) ?? undefined,
       expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
+      auctionId: str(body.auctionId, 64) ?? undefined,
       address,
     })
     for (const streamId of order.flashStreamIds) {

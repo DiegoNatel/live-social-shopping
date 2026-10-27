@@ -29,6 +29,8 @@
     "bindings": [{ "name": "LIVE_ROOM", "class_name": "LiveRoom" }]
   },
   "migrations": [{ "tag": "v1", "new_sqlite_classes": ["LiveRoom"] }],
+  // Closes auctions nobody was watching when they ended (see scheduled() in worker.ts)
+  "triggers": { "crons": ["*/5 * * * *"] },
   // Product photos and stream thumbnails uploaded by sellers (served by /images/[...key])
   // Create once with: npx wrangler r2 bucket create vivobuy-images
   "r2_buckets": [
