@@ -31,7 +31,6 @@ import {
   BarChart2,
   ArrowUp,
   ArrowDown,
-  Play,
   Clock,
   Star,
   Gavel,
@@ -58,6 +57,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
   const router = useRouter()
 
   const setStreamStatus = async (streamId: string, status: 'live' | 'ended') => {
+    if (status === 'ended' && !confirm('Encerrar a live para todos?')) return
     setBusyStreamId(streamId)
     setActionError('')
     const res = await fetch(`/api/seller/streams/${streamId}`, {
@@ -66,8 +66,10 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
       body: JSON.stringify({ status }),
     })
     setBusyStreamId(null)
-    if (!res.ok) setActionError('Não foi possível atualizar a live.')
-    router.refresh()
+    if (!res.ok) return setActionError('Não foi possível atualizar a live.')
+    // The camera turns on from the live page, so going live takes the host there
+    if (status === 'live') router.push(`/live/${streamId}`)
+    else router.refresh()
   }
 
   const createAuction = async (data: AuctionFormData) => {
@@ -378,7 +380,7 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                   key={stream.id}
                   className="rounded-xl bg-white shadow-card overflow-hidden"
                 >
-                  <div className="relative aspect-video">
+                  <Link href={`/live/${stream.id}`} className="relative aspect-video block">
                     <Image
                       src={stream.thumbnail}
                       alt={stream.title}
@@ -402,13 +404,20 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                         </span>
                       </div>
                     </div>
-                  </div>
-                  <div className="p-3 flex justify-end gap-2">
+                  </Link>
+                  <div className="p-3 flex flex-wrap justify-end gap-2">
                     <StreamGuestsButton streamId={stream.id} />
                     {stream.isLive ? (
-                      <Button size="sm" variant="secondary" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'ended')}>
-                        Encerrar live
-                      </Button>
+                      <>
+                        <Button size="sm" variant="ghost" disabled={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'ended')}>
+                          Encerrar
+                        </Button>
+                        <Link href={`/live/${stream.id}`}>
+                          <Button size="sm" leftIcon={<Radio className="w-4 h-4" />}>
+                            Abrir live
+                          </Button>
+                        </Link>
+                      </>
                     ) : (
                       <Button size="sm" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'live')}>
                         Iniciar agora
@@ -526,16 +535,18 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
         )}
       </div>
 
-      {/* Floating Action Button */}
-      <Link href="/seller/streams/new">
-        <motion.button
-          className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-coral-pink text-white shadow-lg flex items-center justify-center"
-          whileHover={{ scale: 1.1 }}
-          whileTap={{ scale: 0.9 }}
-        >
-          <Play className="w-6 h-6" fill="currentColor" />
-        </motion.button>
-      </Link>
+      {/* Floating Action Button: schedule a live (the Lives tab has its own button, and this one would cover the cards' buttons) */}
+      {activeTab !== 'streams' && (
+        <Link href="/seller/streams/new" aria-label="Agendar live">
+          <motion.span
+            className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-coral-pink text-white shadow-lg flex items-center justify-center"
+            whileHover={{ scale: 1.1 }}
+            whileTap={{ scale: 0.9 }}
+          >
+            <Plus className="w-6 h-6" />
+          </motion.span>
+        </Link>
+      )}
 
       {/* Create Auction Modal */}
       <CreateAuctionModal
