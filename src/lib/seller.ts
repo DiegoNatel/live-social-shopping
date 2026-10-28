@@ -3,6 +3,7 @@ import { getDb } from './db'
 import { getSession } from './auth'
 import { notify } from './orders'
 import { canSellInStream } from './guests'
+import { openVideoRoom, closeVideoRoom } from './video'
 
 const newId = () => crypto.randomUUID()
 const cents = (reais: number) => Math.round(reais * 100)
@@ -143,22 +144,33 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
   if (stream.status === status || stream.status === 'ended') return true
 
   if (status === 'live') {
+    // A video service outage shouldn't stop the live: chat, bids and sales still work
+    const recordingKey = await openVideoRoom(streamId).catch(e => {
+      console.error('Could not open the video room', streamId, e)
+      return null
+    })
     const { results: followers } = await db
       .prepare('SELECT follower_id FROM follows WHERE followee_id = ?')
       .bind(sellerId)
       .all<{ follower_id: string }>()
     await db.batch([
       db
-        .prepare(`UPDATE streams SET status = 'live', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`)
-        .bind(streamId),
+        .prepare(
+          `UPDATE streams SET status = 'live', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), recording_key = ? WHERE id = ?`
+        )
+        .bind(recordingKey, streamId),
       ...followers.map(f =>
         notify(f.follower_id, 'stream_live', `${stream.host_name} está ao vivo!`, stream.title, `/live/${streamId}`, stream.host_avatar ?? undefined)
       ),
     ])
   } else {
+    await closeVideoRoom(streamId)
+    // The recording (if any) becomes the stream's video once LiveKit finishes uploading it
     await db
       .prepare(
-        `UPDATE streams SET status = 'ended', viewer_count = 0, ended_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now') WHERE id = ?`
+        `UPDATE streams SET status = 'ended', viewer_count = 0, ended_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+           video_url = CASE WHEN recording_key IS NOT NULL THEN '/' || recording_key ELSE video_url END
+         WHERE id = ?`
       )
       .bind(streamId)
       .run()
