@@ -164,7 +164,6 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
       ),
     ])
   } else {
-    await closeVideoRoom(streamId)
     // The recording (if any) becomes the stream's video once LiveKit finishes uploading it
     await db
       .prepare(
@@ -174,6 +173,7 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
       )
       .bind(streamId)
       .run()
+    closeVideoRoom(streamId)
   }
   return true
 }

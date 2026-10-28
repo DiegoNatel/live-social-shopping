@@ -78,12 +78,22 @@ function ViewerVideo({ access, cover, muted }: { access: Access; cover: React.Re
       }
       if (track.kind === Track.Kind.Audio && audioEl.current) track.attach(audioEl.current)
     }
+    // The live ended (room closed), the host left or the connection dropped: don't keep
+    // showing the last frame
+    const clear = () => {
+      if (videoEl.current) videoEl.current.srcObject = null
+      setHasVideo(false)
+    }
     room
       .on(RoomEvent.TrackSubscribed, attach)
       .on(RoomEvent.TrackUnsubscribed, track => {
         track.detach()
         if (track.kind === Track.Kind.Video) setHasVideo(false)
       })
+      .on(RoomEvent.TrackMuted, pub => pub.kind === Track.Kind.Video && setHasVideo(false))
+      .on(RoomEvent.TrackUnmuted, pub => pub.kind === Track.Kind.Video && pub.track && setHasVideo(true))
+      .on(RoomEvent.ParticipantDisconnected, clear)
+      .on(RoomEvent.Disconnected, clear)
     room
       .connect(access.url, access.token)
       .then(() => room.remoteParticipants.forEach(p => p.trackPublications.forEach(pub => pub.track && attach(pub.track))))
