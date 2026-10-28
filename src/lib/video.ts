@@ -102,13 +102,16 @@ export async function videoRoomOpen(streamId: string) {
   return found.length > 0
 }
 
-// Ends the room for everyone; LiveKit then finishes and uploads the recording
-export async function closeVideoRoom(streamId: string) {
+// Ends the room for everyone; LiveKit then finishes and uploads the recording.
+// Runs after the response is sent, so a slow LiveKit API doesn't hold up the
+// "live ended" message to viewers.
+export function closeVideoRoom(streamId: string) {
   const lk = liveKit()
   if (!lk) return
-  try {
-    await rooms(lk).deleteRoom(streamId)
-  } catch {
-    // Already closed (everyone left and the room timed out)
-  }
+  const done = rooms(lk)
+    .deleteRoom(streamId)
+    .catch(() => {
+      // Already closed (everyone left and the room timed out)
+    })
+  getCloudflareContext().ctx.waitUntil(done)
 }
