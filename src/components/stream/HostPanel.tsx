@@ -205,7 +205,9 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
       {tab === 'live' && (
         <div className="space-y-2">
           <p className="text-white/60 text-sm">
-            {stream.isLive ? 'Você está ao vivo.' : 'A live ainda não começou. Ao iniciar, seus seguidores são avisados.'}
+            {stream.isLive
+              ? 'Você está ao vivo. Use os botões ao lado do vídeo para microfone e câmera.'
+              : 'A live ainda não começou. Ao iniciar, sua câmera e microfone são ligados e seus seguidores são avisados.'}
           </p>
           {stream.isLive ? (
             <Button size="sm" variant="secondary" fullWidth isLoading={busy} onClick={() => setStatus('ended')}>

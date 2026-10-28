@@ -232,15 +232,26 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 
 // ---------- Streams ----------
 
-// Live streams (most viewers first) or scheduled ones (soonest first), optionally for one host or one id
-export async function getStreams({ live, hostId, id }: { live: boolean; hostId?: string; id?: string }): Promise<Stream[]> {
+// Live streams (most viewers first) or scheduled ones (soonest first), optionally for one host or one id.
+// ended: finished lives instead (whose recording, if any, is in videoUrl)
+export async function getStreams({
+  live,
+  ended,
+  hostId,
+  id,
+}: {
+  live: boolean
+  ended?: boolean
+  hostId?: string
+  id?: string
+}): Promise<Stream[]> {
   const db = getDb()
   const filters = [hostId ? 'AND s.host_id = ?' : '', id ? 'AND s.id = ?' : ''].join(' ')
   const { results: rows } = await db
     .prepare(
       `SELECT s.*, ${userCols('u', 'host_')}
        FROM streams s JOIN users u ON u.id = s.host_id
-       WHERE s.status ${live ? "= 'live'" : "= 'scheduled'"} ${filters}
+       WHERE s.status ${ended ? "= 'ended'" : live ? "= 'live'" : "= 'scheduled'"} ${filters}
        ORDER BY ${live ? 's.viewer_count DESC' : 's.scheduled_at'}`
     )
     .bind(...[hostId, id].filter((v): v is string => !!v))
@@ -271,6 +282,7 @@ export async function getStreams({ live, hostId, id }: { live: boolean; hostId?:
     thumbnail: r.thumbnail ?? '',
     videoUrl: r.video_url ?? undefined,
     isLive: r.status === 'live',
+    hasEnded: r.status === 'ended',
     viewerCount: r.viewer_count,
     startTime: r.started_at ?? r.scheduled_at ?? '',
     scheduledTime: r.scheduled_at ?? undefined,
@@ -350,8 +362,12 @@ export async function getCourses({ limit = 20 } = {}): Promise<Course[]> {
 // ---------- Single stream ----------
 
 export async function getStream(id: string): Promise<Stream | null> {
-  const [live, scheduled] = await Promise.all([getStreams({ live: true, id }), getStreams({ live: false, id })])
-  return live[0] ?? scheduled[0] ?? null
+  const [live, scheduled, ended] = await Promise.all([
+    getStreams({ live: true, id }),
+    getStreams({ live: false, id }),
+    getStreams({ live: false, ended: true, id }),
+  ])
+  return live[0] ?? scheduled[0] ?? ended[0] ?? null
 }
 
 // ---------- Categories ----------

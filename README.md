@@ -99,6 +99,21 @@ npm run deploy              # creates the LiveRoom Durable Object on first deplo
 
 The "Continuar com Google" button only appears once both are set.
 
+### Live video (optional)
+
+Video runs on [LiveKit Cloud](https://cloud.livekit.io): the host broadcasts camera and microphone from the
+live page (phone or computer browser) and viewers watch with under a second of delay.
+
+1. Create a LiveKit Cloud project; under **Settings → Keys** create an API key.
+2. Set `LIVEKIT_URL` (`wss://<project>.livekit.cloud`), `LIVEKIT_API_KEY` and `LIVEKIT_API_SECRET` as GitHub
+   secrets (the deploy copies them to Cloudflare) or with `npx wrangler secret put`, and in `.dev.vars` locally.
+
+To record each live and play it back after it ends, also set `RECORDINGS_S3_ENDPOINT`
+(`https://<account id>.r2.cloudflarestorage.com`), `RECORDINGS_S3_ACCESS_KEY` and `RECORDINGS_S3_SECRET` from an
+R2 API token with Object Read & Write on the `vivobuy-images` bucket (R2 → Manage API tokens).
+
+Without these the live page shows the stream's cover image, as before.
+
 ### Before launch
 
 `/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.

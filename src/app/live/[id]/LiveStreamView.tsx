@@ -16,6 +16,7 @@ import { FlashSaleTimer } from '@/components/stream/FlashSaleTimer'
 import { ProductModal } from '@/components/product/ProductModal'
 import { AuctionCard } from '@/components/auction/AuctionCard'
 import { HostPanel } from '@/components/stream/HostPanel'
+import { LiveVideo } from '@/components/stream/LiveVideo'
 import { useLiveRoom } from '@/hooks/useLiveRoom'
 import type { ServerMessage } from '@/realtime/protocol'
 import type { Stream, Poll, FlashSale, Auction, Product } from '@/types'
@@ -349,13 +350,15 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       >
         {/* Video Background */}
         <div className="absolute inset-0">
-          <Image
-            src={stream.thumbnail}
-            alt={stream.title}
-            fill
-            className="object-cover"
+          <LiveVideo
+            streamId={stream.id}
+            isLive={stream.isLive && !hasEnded}
+            thumbnail={stream.thumbnail}
+            title={stream.title}
+            recordingUrl={stream.videoUrl}
+            muted={isMuted}
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60" />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 pointer-events-none" />
         </div>
 
         {/* === MOBILE LAYOUT === */}
@@ -372,7 +375,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   <ChevronLeft className="w-5 h-5" />
                 </button>
               </Link>
-              <StatusBadge isLive={stream.isLive} hasEnded={hasEnded} />
+              <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
               <ViewersBadge count={viewerCount} />
             </div>
 
@@ -552,7 +555,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                       <ChevronLeft className="w-6 h-6" />
                     </button>
                   </Link>
-                  <StatusBadge isLive={stream.isLive} hasEnded={hasEnded} />
+                  <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
                   <ViewersBadge count={viewerCount} />
                 </div>
 

@@ -98,8 +98,9 @@ export interface Stream {
   description: string
   host: User
   thumbnail: string
-  videoUrl?: string
+  videoUrl?: string // a finished live's recording
   isLive: boolean
+  hasEnded?: boolean
   viewerCount: number
   startTime: Date | string
   scheduledTime?: Date | string
