@@ -5,9 +5,10 @@ import { HomeView } from './HomeView'
 export const dynamic = 'force-dynamic'
 
 export default async function HomePage() {
-  const [liveStreams, upcomingStreams, trendingProducts, flashDeals, featuredCourses, categories] = await Promise.all([
+  const [liveStreams, upcomingStreams, recordedStreams, trendingProducts, flashDeals, featuredCourses, categories] = await Promise.all([
     getStreams({ live: true }),
     getStreams({ live: false }),
+    getStreams({ live: false, ended: true, recorded: true }),
     getProducts({ limit: 4 }),
     getProducts({ onSale: true, limit: 4 }),
     getCourses({ limit: 4 }),
@@ -18,6 +19,7 @@ export default async function HomePage() {
     <HomeView
       liveStreams={liveStreams}
       upcomingStreams={upcomingStreams}
+      recordedStreams={recordedStreams.slice(0, 6)}
       trendingProducts={trendingProducts}
       flashDeals={flashDeals}
       featuredCourses={featuredCourses}

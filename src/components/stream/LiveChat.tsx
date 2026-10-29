@@ -15,6 +15,8 @@ interface LiveChatProps {
   messages: ChatMessage[]
   status: RoomStatus
   canChat: boolean
+  // The live is over: the chat stays readable but closed
+  ended?: boolean
   isHost: boolean
   hostId: string
   error: string
@@ -25,7 +27,7 @@ interface LiveChatProps {
 
 const quickEmojis = ['❤️', '🔥', '😍', '👏', '😂', '🎉', '💯', '✨']
 
-export function LiveChat({ messages, status, canChat, isHost, hostId, error, onSend, onDelete, onClearError }: LiveChatProps) {
+export function LiveChat({ messages, status, canChat, ended, isHost, hostId, error, onSend, onDelete, onClearError }: LiveChatProps) {
   const [inputValue, setInputValue] = useState('')
   const [showEmojis, setShowEmojis] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
@@ -93,7 +95,7 @@ export function LiveChat({ messages, status, canChat, isHost, hostId, error, onS
 
       {/* Quick Emojis */}
       <AnimatePresence>
-        {showEmojis && canChat && (
+        {showEmojis && canChat && !ended && (
           <motion.div
             className="px-4 py-2 flex gap-2 border-t border-white/10"
             initial={{ opacity: 0, height: 0 }}
@@ -118,7 +120,9 @@ export function LiveChat({ messages, status, canChat, isHost, hostId, error, onS
 
       {/* Input */}
       <div className="p-3 border-t border-white/10">
-        {canChat ? (
+        {ended ? (
+          <p className="h-10 leading-10 text-center text-white/50 text-sm">O chat foi encerrado com a live</p>
+        ) : canChat ? (
           <div className="flex items-center gap-2">
             <button
               onClick={() => setShowEmojis(!showEmojis)}

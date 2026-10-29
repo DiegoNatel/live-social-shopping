@@ -12,7 +12,7 @@ import {
   type LocalVideoTrack,
   type RemoteTrack,
 } from 'livekit-client'
-import { Mic, MicOff, Video, VideoOff, SwitchCamera } from 'lucide-react'
+import { Mic, MicOff, Video, VideoOff, SwitchCamera, Volume2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 interface LiveVideoProps {
@@ -53,11 +53,45 @@ export function LiveVideo({ streamId, isLive, thumbnail, title, recordingUrl, mu
     </>
   )
 
-  if (!isLive && recordingUrl) {
-    return <video src={recordingUrl} poster={thumbnail || undefined} autoPlay loop playsInline muted={muted} className="absolute inset-0 w-full h-full object-cover" />
-  }
+  if (!isLive && recordingUrl) return <Recording url={recordingUrl} thumbnail={thumbnail} cover={cover} muted={muted} />
   if (!access) return cover
   return access.canPublish ? <HostCamera access={access} cover={cover} /> : <ViewerVideo access={access} cover={cover} muted={muted} />
+}
+
+// ---------- Recordings ----------
+
+// LiveKit uploads the recording a few minutes after the live ends; until then (or if the
+// recording failed) the file isn't there and the video can't load
+function Recording({ url, thumbnail, cover, muted }: { url: string; thumbnail: string; cover: React.ReactNode; muted: boolean }) {
+  const [failed, setFailed] = useState(false)
+  const videoEl = useRef<HTMLVideoElement>(null)
+  // The video starts loading with the server-rendered page and may fail before onError is attached
+  useEffect(() => {
+    if (videoEl.current?.error) setFailed(true)
+  }, [])
+  if (failed) {
+    return (
+      <>
+        {cover}
+        <p className="absolute top-1/3 inset-x-6 text-center text-white text-sm bg-black/60 rounded-lg p-3">
+          A gravação desta live ainda não está disponível. Volte em alguns minutos.
+        </p>
+      </>
+    )
+  }
+  return (
+    <video
+      ref={videoEl}
+      src={url}
+      poster={thumbnail || undefined}
+      autoPlay
+      loop
+      playsInline
+      muted={muted}
+      onError={() => setFailed(true)}
+      className="absolute inset-0 w-full h-full object-cover"
+    />
+  )
 }
 
 // ---------- Viewers ----------
@@ -67,6 +101,8 @@ function ViewerVideo({ access, cover, muted }: { access: Access; cover: React.Re
   const audioEl = useRef<HTMLAudioElement>(null)
   const roomRef = useRef<Room | null>(null)
   const [hasVideo, setHasVideo] = useState(false)
+  // The browser refused to start the sound without a tap (iPhone Safari, mostly)
+  const [audioBlocked, setAudioBlocked] = useState(false)
 
   useEffect(() => {
     const room = new Room({ adaptiveStream: true, dynacast: true })
@@ -94,6 +130,7 @@ function ViewerVideo({ access, cover, muted }: { access: Access; cover: React.Re
       .on(RoomEvent.TrackUnmuted, pub => pub.kind === Track.Kind.Video && pub.track && setHasVideo(true))
       .on(RoomEvent.ParticipantDisconnected, clear)
       .on(RoomEvent.Disconnected, clear)
+      .on(RoomEvent.AudioPlaybackStatusChanged, () => setAudioBlocked(!room.canPlaybackAudio))
     room
       .connect(access.url, access.token)
       .then(() => room.remoteParticipants.forEach(p => p.trackPublications.forEach(pub => pub.track && attach(pub.track))))
@@ -104,11 +141,18 @@ function ViewerVideo({ access, cover, muted }: { access: Access; cover: React.Re
     }
   }, [access])
 
-  // Browsers only play sound after a tap; unmuting is that tap
+  // Browsers only play sound after a tap; unmuting is that tap. When the browser still
+  // refuses (it wants the sound started inside the tap itself), "Toque para ouvir" does that.
   useEffect(() => {
     if (audioEl.current) audioEl.current.muted = muted
     if (!muted) roomRef.current?.startAudio().catch(() => {})
   }, [muted])
+
+  const startAudio = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (audioEl.current) audioEl.current.muted = false
+    roomRef.current?.startAudio().catch(() => {})
+  }
 
   return (
     <>
@@ -118,6 +162,15 @@ function ViewerVideo({ access, cover, muted }: { access: Access; cover: React.Re
       )}
       <video ref={videoEl} autoPlay playsInline muted className={cn('absolute inset-0 w-full h-full object-cover', !hasVideo && 'hidden')} />
       <audio ref={audioEl} autoPlay muted />
+      {!muted && audioBlocked && (
+        <button
+          onClick={startAudio}
+          className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-30 flex items-center gap-2 rounded-full bg-black/60 backdrop-blur-sm px-4 py-2 text-white text-sm"
+        >
+          <Volume2 className="w-5 h-5" />
+          Toque para ouvir
+        </button>
+      )}
     </>
   )
 }
@@ -193,10 +246,18 @@ function HostCamera({ access, cover }: { access: Access; cover: React.ReactNode 
     setCamOn(!camOn)
   }
 
+  // Devices with one camera (most computers) keep it, and its mirroring
   const flip = async () => {
+    const video = tracksRef.current.video
+    if (!video) return
     const next = facing === 'user' ? 'environment' : 'user'
-    await tracksRef.current.video?.restartTrack({ facingMode: next, resolution: VideoPresets.h720.resolution }).catch(() => {})
-    setFacing(next)
+    const before = video.mediaStreamTrack.getSettings().deviceId
+    try {
+      await video.restartTrack({ facingMode: next, resolution: VideoPresets.h720.resolution })
+      if (video.mediaStreamTrack.getSettings().deviceId !== before) setFacing(next)
+    } catch {
+      // No other camera
+    }
   }
 
   return (

@@ -233,26 +233,29 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 // ---------- Streams ----------
 
 // Live streams (most viewers first) or scheduled ones (soonest first), optionally for one host or one id.
-// ended: finished lives instead (whose recording, if any, is in videoUrl)
+// ended: the latest finished lives instead (whose recording, if any, is in videoUrl);
+// recorded: only those with a recording
 export async function getStreams({
   live,
   ended,
+  recorded,
   hostId,
   id,
 }: {
   live: boolean
   ended?: boolean
+  recorded?: boolean
   hostId?: string
   id?: string
 }): Promise<Stream[]> {
   const db = getDb()
-  const filters = [hostId ? 'AND s.host_id = ?' : '', id ? 'AND s.id = ?' : ''].join(' ')
+  const filters = [hostId ? 'AND s.host_id = ?' : '', id ? 'AND s.id = ?' : '', recorded ? 'AND s.video_url IS NOT NULL' : ''].join(' ')
   const { results: rows } = await db
     .prepare(
       `SELECT s.*, ${userCols('u', 'host_')}
        FROM streams s JOIN users u ON u.id = s.host_id
        WHERE s.status ${ended ? "= 'ended'" : live ? "= 'live'" : "= 'scheduled'"} ${filters}
-       ORDER BY ${live ? 's.viewer_count DESC' : 's.scheduled_at'}`
+       ORDER BY ${ended ? 's.ended_at DESC LIMIT 20' : live ? 's.viewer_count DESC' : 's.scheduled_at'}`
     )
     .bind(...[hostId, id].filter((v): v is string => !!v))
     .all<Row>()
@@ -283,6 +286,7 @@ export async function getStreams({
     videoUrl: r.video_url ?? undefined,
     isLive: r.status === 'live',
     hasEnded: r.status === 'ended',
+    endedAt: r.ended_at ?? undefined,
     viewerCount: r.viewer_count,
     startTime: r.started_at ?? r.scheduled_at ?? '',
     scheduledTime: r.scheduled_at ?? undefined,
@@ -451,7 +455,7 @@ export interface SellerOrder {
 
 export async function getSellerDashboard(sellerId: string) {
   const db = getDb()
-  const [{ results: productRows }, liveStreams, scheduledStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
+  const [{ results: productRows }, liveStreams, scheduledStreams, pastStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
     await Promise.all([
       // Paused products too, so the seller can reactivate them
       db
@@ -463,6 +467,7 @@ export async function getSellerDashboard(sellerId: string) {
         .all<Row>(),
       getStreams({ live: true, hostId: sellerId }),
       getStreams({ live: false, hostId: sellerId }),
+      getStreams({ live: false, ended: true, hostId: sellerId }),
       db
         .prepare(
           `SELECT a.*, ${AUCTION_STATUS} AS live_status, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
@@ -525,6 +530,7 @@ export async function getSellerDashboard(sellerId: string) {
   return {
     products,
     streams,
+    pastStreams,
     auctions,
     recentOrders,
     stats: {

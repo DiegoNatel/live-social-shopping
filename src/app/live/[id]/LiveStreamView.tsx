@@ -309,6 +309,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       messages={room.messages}
       status={room.status}
       canChat={room.canChat}
+      ended={hasEnded || !!stream.hasEnded}
       isHost={room.isHost}
       hostId={stream.host.id}
       error={room.error}

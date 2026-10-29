@@ -15,6 +15,7 @@ import Link from 'next/link'
 interface HomeViewProps {
   liveStreams: Stream[]
   upcomingStreams: Stream[]
+  recordedStreams: Stream[]
   trendingProducts: Product[]
   flashDeals: Product[]
   featuredCourses: Course[]
@@ -24,6 +25,7 @@ interface HomeViewProps {
 export function HomeView({
   liveStreams,
   upcomingStreams,
+  recordedStreams,
   trendingProducts,
   flashDeals,
   featuredCourses,
@@ -97,6 +99,18 @@ export function HomeView({
             ))}
           </div>
         </section>
+
+        {/* Recordings of finished lives */}
+        {recordedStreams.length > 0 && (
+          <section className="mt-8">
+            <SectionHeader title="Gravações" />
+            <div className="mt-4 px-4 space-y-2">
+              {recordedStreams.map((stream, index) => (
+                <StreamCard key={stream.id} stream={stream} variant="horizontal" index={index} />
+              ))}
+            </div>
+          </section>
+        )}
 
         {/* Trending Products */}
         <section className="mt-8">

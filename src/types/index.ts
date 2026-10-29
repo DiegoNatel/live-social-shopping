@@ -101,6 +101,7 @@ export interface Stream {
   videoUrl?: string // a finished live's recording
   isLive: boolean
   hasEnded?: boolean
+  endedAt?: string
   viewerCount: number
   startTime: Date | string
   scheduledTime?: Date | string

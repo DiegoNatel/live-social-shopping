@@ -62,11 +62,11 @@ const liveLiftVariants = {
 }
 
 export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCardProps) {
-  const { id, title, host, thumbnail, isLive, viewerCount, scheduledTime, category } = stream
+  const { id, title, host, thumbnail, isLive, hasEnded, viewerCount, scheduledTime, category } = stream
 
   if (variant === 'horizontal') {
     return (
-      <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
+      <Link href={`/live/${id}`}>
         <motion.div
           className="flex gap-3 p-3 rounded-md bg-white shadow-card hover:shadow-card-hover transition-shadow"
           initial={{ opacity: 0, x: -20 }}
@@ -86,7 +86,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
               <LiveBadge className="absolute top-2 left-2" />
             ) : (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <Clock className="w-6 h-6 text-white/80" />
+                {hasEnded ? <Play className="w-6 h-6 text-white/80" /> : <Clock className="w-6 h-6 text-white/80" />}
               </div>
             )}
           </div>
@@ -105,6 +105,8 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
                 <Users className="w-3 h-3" />
                 <span>{formatViewerCount(viewerCount)} assistindo</span>
               </div>
+            ) : hasEnded ? (
+              <div className="text-gray-400 text-xs mt-1">Gravação</div>
             ) : scheduledTime && (
               <div className="text-gray-400 text-xs mt-1">
                 {formatRelativeTime(scheduledTime)}
@@ -118,7 +120,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
 
   if (variant === 'large') {
     return (
-      <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
+      <Link href={`/live/${id}`}>
         <motion.div
           className="relative aspect-[16/9] rounded-2xl overflow-hidden group"
           initial={{ opacity: 0, scale: 0.95 }}
@@ -173,7 +175,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
   // Creator-first variant - emphasizes the creator at the top
   if (variant === 'creator-first') {
     return (
-      <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
+      <Link href={`/live/${id}`}>
         <motion.div
           className={cn(
             "relative rounded-2xl overflow-hidden bg-white border border-gray-100 group transition-all shadow-sm",
@@ -264,7 +266,7 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
 
   // Default card variant
   return (
-    <Link href={isLive ? `/live/${id}` : `/stream/${id}`}>
+    <Link href={`/live/${id}`}>
       <motion.div
         className={cn(
           "relative aspect-[9/16] rounded-md overflow-hidden group"

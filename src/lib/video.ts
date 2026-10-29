@@ -6,9 +6,9 @@ import {
   EncodedFileType,
   RoomCompositeEgressRequest,
   RoomEgress,
-  RoomServiceClient,
   S3Upload,
 } from 'livekit-server-sdk'
+import { deleteRoom, liveKitConfig, roomService } from './livekit'
 
 // Live video runs on LiveKit Cloud: one LiveKit room per stream (named by stream id).
 // The host publishes camera and mic from the browser; viewers only subscribe.
@@ -19,13 +19,12 @@ import {
 // served at the same path by app/recordings/[...key].
 
 const RECORDING_BUCKET = 'vivobuy-images'
-const TOKEN_TTL = '6h' // longest a host or viewer stays in one session without refreshing
+// Only needed to join; once connected, LiveKit keeps refreshing the token itself
+const TOKEN_TTL = '6h'
+// Going live doesn't wait longer than this for LiveKit
+const OPEN_TIMEOUT_MS = 5000
 
-function liveKit() {
-  const env = getCloudflareContext().env
-  if (!env.LIVEKIT_URL || !env.LIVEKIT_API_KEY || !env.LIVEKIT_API_SECRET) return null
-  return { url: env.LIVEKIT_URL, apiKey: env.LIVEKIT_API_KEY, apiSecret: env.LIVEKIT_API_SECRET }
-}
+const liveKit = () => liveKitConfig(getCloudflareContext().env)
 
 export const videoEnabled = () => liveKit() !== null
 
@@ -46,20 +45,17 @@ export async function videoToken(streamId: string, p: { identity: string; name: 
   return { url: lk.url, token: await at.toJwt() }
 }
 
-function rooms(lk: NonNullable<ReturnType<typeof liveKit>>) {
-  return new RoomServiceClient(lk.url.replace(/^ws/, 'http'), lk.apiKey, lk.apiSecret)
-}
-
 // Opens the stream's room when the host goes live, recording it when recording is set up.
-// Returns the R2 key the recording will be uploaded to, or null when not recording.
-export async function openVideoRoom(streamId: string): Promise<string | null> {
+// Returns the R2 key the recording will be uploaded to (null when not recording), or null
+// when video isn't set up. Throws when LiveKit fails or takes too long.
+export async function openVideoRoom(streamId: string): Promise<{ recordingKey: string | null } | null> {
   const lk = liveKit()
   if (!lk) return null
   const env = getCloudflareContext().env
   const recording = env.RECORDINGS_S3_ENDPOINT && env.RECORDINGS_S3_ACCESS_KEY && env.RECORDINGS_S3_SECRET
   const key = recording ? `recordings/${streamId}/${new Date().toISOString().replace(/[:.]/g, '-')}.mp4` : null
 
-  await rooms(lk).createRoom({
+  const opening = roomService(lk).createRoom({
     name: streamId,
     // Keeps the room through a host's dropped connection or page reload
     emptyTimeout: 10 * 60,
@@ -90,28 +86,18 @@ export async function openVideoRoom(streamId: string): Promise<string | null> {
         })
       : undefined,
   })
-  return key
-}
-
-// Whether the host's room is open. Viewers only join an open room, so lives without a
-// broadcaster (e.g. sample data) keep their cover image and don't use LiveKit minutes.
-export async function videoRoomOpen(streamId: string) {
-  const lk = liveKit()
-  if (!lk) return false
-  const found = await rooms(lk).listRooms([streamId]).catch(() => [])
-  return found.length > 0
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('LiveKit took too long to open the room')), OPEN_TIMEOUT_MS)
+  })
+  await Promise.race([opening, timeout]).finally(() => clearTimeout(timer))
+  return { recordingKey: key }
 }
 
 // Ends the room for everyone; LiveKit then finishes and uploads the recording.
 // Runs after the response is sent, so a slow LiveKit API doesn't hold up the
 // "live ended" message to viewers.
 export function closeVideoRoom(streamId: string) {
-  const lk = liveKit()
-  if (!lk) return
-  const done = rooms(lk)
-    .deleteRoom(streamId)
-    .catch(() => {
-      // Already closed (everyone left and the room timed out)
-    })
-  getCloudflareContext().ctx.waitUntil(done)
+  const { env, ctx } = getCloudflareContext()
+  ctx.waitUntil(deleteRoom(env, streamId))
 }

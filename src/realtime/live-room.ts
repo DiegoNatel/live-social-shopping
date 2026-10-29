@@ -108,11 +108,14 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
         type: 'text',
       }
       const streamId = await this.streamId()
-      await this.env.DB.prepare(
-        'INSERT INTO chat_messages (id, stream_id, user_id, message, type, created_at) VALUES (?, ?, ?, ?, ?, ?)'
+      // Not once the live has ended
+      const saved = await this.env.DB.prepare(
+        `INSERT INTO chat_messages (id, stream_id, user_id, message, type, created_at)
+         SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM streams WHERE id = ?2 AND status != 'ended')`
       )
         .bind(message.id, streamId, viewer.user.id, text, 'text', message.timestamp)
         .run()
+      if (saved.meta.changes === 0) return this.send(ws, { t: 'error', message: 'A live terminou' })
       this.broadcast({ t: 'chat', message })
       return
     }

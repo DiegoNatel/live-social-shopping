@@ -4,10 +4,53 @@
 import { default as nextWorker } from './.open-next/worker.js'
 
 import { roomName, type RoomCommand } from './src/realtime/protocol'
+import { END_STREAM_SQL, deleteRoom, hostsBroadcasting } from './src/lib/livekit'
 
 export { LiveRoom } from './src/realtime/live-room'
 
 const LIVE_WS = /^\/api\/live\/([^/]+)\/ws$/
+// A live whose host stopped broadcasting (closed the app, lost signal) ends after this long
+const ABANDONED_AFTER_MS = 5 * 60_000
+const NOW = "strftime('%Y-%m-%dT%H:%M:%fZ', 'now')"
+
+const sendToRoom = (env: CloudflareEnv, room: string, cmd: RoomCommand) =>
+  env.LIVE_ROOM.get(env.LIVE_ROOM.idFromName(room)).fetch('https://live-room/event', { method: 'POST', body: JSON.stringify(cmd) })
+
+// Lives with video whose host has been gone for a while are ended as if the host had
+// tapped "Encerrar". Lives started more than a few minutes ago only, so the host has time
+// to join; when LiveKit can't be reached nothing is ended.
+async function endAbandonedLives(env: CloudflareEnv) {
+  const { results: lives } = await env.DB.prepare(
+    `SELECT id, video_idle_since FROM streams
+     WHERE status = 'live' AND video_room = 1 AND started_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-3 minutes')
+     LIMIT 50`
+  ).all<{ id: string; video_idle_since: string | null }>()
+  if (lives.length === 0) return
+  const broadcasting = await hostsBroadcasting(env, lives.map(l => l.id))
+  if (!broadcasting) return
+
+  await Promise.all(
+    lives.map(async live => {
+      if (broadcasting.get(live.id)) {
+        if (live.video_idle_since) await env.DB.prepare('UPDATE streams SET video_idle_since = NULL WHERE id = ?').bind(live.id).run()
+        return
+      }
+      if (!live.video_idle_since) {
+        await env.DB.prepare(`UPDATE streams SET video_idle_since = ${NOW} WHERE id = ?`).bind(live.id).run()
+        return
+      }
+      if (Date.now() - Date.parse(live.video_idle_since) < ABANDONED_AFTER_MS) return
+      const ended = await env.DB.prepare(END_STREAM_SQL).bind(live.id).run()
+      if (ended.meta.changes === 0) return
+      console.log('Ended abandoned live', live.id)
+      await Promise.all([
+        sendToRoom(env, live.id, { broadcast: { t: 'status', status: 'ended' } }),
+        // Viewers may still be in the room; closing it also finishes the recording
+        deleteRoom(env, live.id),
+      ])
+    })
+  )
+}
 
 export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext): Promise<Response> {
@@ -25,20 +68,17 @@ export default {
     return nextWorker.fetch(request, env, ctx)
   },
 
-  // Cron (every 5 minutes): auctions past their end without a winner, e.g. in streams nobody
-  // has opened since, are handed to their room, which closes them as usual
+  // Cron (every 5 minutes): ends abandoned lives, and hands auctions past their end without a
+  // winner (e.g. in streams nobody has opened since) to their room, which closes them as usual
   async scheduled(_controller: ScheduledController, env: CloudflareEnv) {
+    await endAbandonedLives(env).catch(e => console.error('Ending abandoned lives failed', e))
     const { results } = await env.DB.prepare(
       `SELECT id, stream_id, ends_at FROM auctions
        WHERE status != 'ended' AND winner_id IS NULL AND ends_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
        LIMIT 100`
     ).all<{ id: string; stream_id: string | null; ends_at: string }>()
     await Promise.all(
-      results.map(a => {
-        const cmd: RoomCommand = { scheduleAuction: { id: a.id, endsAt: a.ends_at } }
-        const room = env.LIVE_ROOM.get(env.LIVE_ROOM.idFromName(roomName(a.stream_id, a.id)))
-        return room.fetch('https://live-room/event', { method: 'POST', body: JSON.stringify(cmd) })
-      })
+      results.map(a => sendToRoom(env, roomName(a.stream_id, a.id), { scheduleAuction: { id: a.id, endsAt: a.ends_at } }))
     )
   },
 } satisfies ExportedHandler<CloudflareEnv>
