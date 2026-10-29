@@ -7,6 +7,8 @@ import { getOrders } from '@/lib/orders'
 import { formatCurrency } from '@/lib/utils'
 import { variantLabel } from '@/lib/pricing'
 import { CancelOrderButton } from './CancelOrderButton'
+import { PayOrderButton } from './PayOrderButton'
+import { paymentsEnabled } from '@/lib/payments'
 import type { OrderStatus, PaymentMethod } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -32,6 +34,7 @@ export default async function OrdersPage() {
   const session = await getSession()
   if (!session) redirect('/login')
   const orders = await getOrders(session.user.id)
+  const canPay = paymentsEnabled()
 
   return (
     <MainLayout headerProps={{ title: 'Meus pedidos' }}>
@@ -80,6 +83,12 @@ export default async function OrdersPage() {
                   {PAYMENT_LABELS[order.paymentMethod]}
                   {order.status === 'pending' && (
                     <>
+                      {canPay && (
+                        <>
+                          {' · '}
+                          <PayOrderButton orderId={order.id} />
+                        </>
+                      )}
                       {' · '}
                       <CancelOrderButton orderId={order.id} />
                     </>

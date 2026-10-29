@@ -10,4 +10,10 @@ interface CloudflareEnv {
   RECORDINGS_S3_ENDPOINT?: string
   RECORDINGS_S3_ACCESS_KEY?: string
   RECORDINGS_S3_SECRET?: string
+  // Payments (Asaas): API key, the token Asaas sends with webhooks, and 'production' to
+  // charge for real (otherwise the sandbox). ASAAS_API_URL overrides the API address (tests).
+  ASAAS_API_KEY?: string
+  ASAAS_WEBHOOK_TOKEN?: string
+  ASAAS_ENV?: string
+  ASAAS_API_URL?: string
 }

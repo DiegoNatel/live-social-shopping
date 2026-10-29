@@ -27,6 +27,8 @@ import {
 } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { authClient } from '@/lib/auth-client'
+import { PaymentPanel } from '@/components/checkout/PaymentPanel'
+import type { PaymentInfo } from '@/lib/payments'
 
 type Step = 'address' | 'payment' | 'confirmation'
 type PaymentMethod = 'pix' | 'credit' | 'boleto'
@@ -40,7 +42,11 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('pix')
   const [isProcessing, setIsProcessing] = useState(false)
   const [orderComplete, setOrderComplete] = useState(false)
-  const [order, setOrder] = useState<{ id: string; total: number } | null>(null)
+  const [order, setOrder] = useState<{ id: string; total: number; payment?: PaymentInfo | null; paymentError?: string } | null>(null)
+  const [paid, setPaid] = useState(false)
+  // Online payment (Asaas): needs the buyer's CPF once
+  const [paymentSetup, setPaymentSetup] = useState<{ enabled: boolean; savedTaxId: string | null } | null>(null)
+  const [taxId, setTaxId] = useState('')
   const [orderError, setOrderError] = useState('')
   const cartChanged = useFreshCart()
   const { data: session, isPending: sessionPending } = authClient.useSession()
@@ -54,15 +60,6 @@ export default function CheckoutPage() {
     neighborhood: '',
     city: '',
     state: '',
-  })
-
-  // Card form state
-  const [cardData, setCardData] = useState({
-    number: '',
-    name: '',
-    expiry: '',
-    cvv: '',
-    installments: '1',
   })
 
   // Same rules the order API uses (src/lib/pricing.ts)
@@ -80,6 +77,10 @@ export default function CheckoutPage() {
       router.push('/login')
       return
     }
+    fetch('/api/me/payment')
+      .then(res => (res.ok ? (res.json() as Promise<{ enabled: boolean; savedTaxId: string | null }>) : null))
+      .then(setPaymentSetup)
+      .catch(() => {})
     fetch('/api/me/address')
       .then(res => (res.ok ? (res.json() as Promise<Record<string, string> | null>) : null))
       .then(saved => {
@@ -104,13 +105,14 @@ export default function CheckoutPage() {
     setIsProcessing(true)
     setOrderError('')
 
-    // Card details never leave the browser: real payment comes with the payment provider
+    // Card details are typed on Asaas's page, never here
     const res = await fetch('/api/orders', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         paymentMethod: paymentMethod === 'credit' ? 'credit_card' : paymentMethod,
         couponCode: appliedCoupon?.code,
+        taxId: taxId || undefined,
         // Lets the server refuse the order if prices changed since the page loaded
         expectedTotalCents: totals.total,
         address,
@@ -122,7 +124,7 @@ export default function CheckoutPage() {
       }),
     })
     const data = (await res.json().catch(() => null)) as
-      | { id: string; total: number; error?: string; message?: string }
+      | { id: string; total: number; payment?: PaymentInfo | null; paymentError?: string; error?: string; message?: string }
       | null
     setIsProcessing(false)
 
@@ -130,6 +132,9 @@ export default function CheckoutPage() {
       if (data?.error === 'PRICE_CHANGED' || data?.error === 'OUT_OF_STOCK' || data?.error === 'NOT_FOUND') {
         await useCartStore.getState().refreshProducts()
         setOrderError(`${data.message} Sua sacola foi atualizada.`)
+      } else if (data?.error === 'TAX_ID') {
+        setPaymentSetup(p => (p ? { ...p, savedTaxId: null } : p))
+        setOrderError(data.message ?? 'Informe seu CPF')
       } else if (data?.error === 'COUPON') {
         // Drop the coupon so the totals update and the order can be placed without it
         setCoupon(null)
@@ -388,58 +393,33 @@ export default function CheckoutPage() {
               {paymentMethod === 'pix' && (
                 <div className="p-4 rounded-xl bg-white shadow-card mb-6 flex items-center gap-3">
                   <QrCode className="w-8 h-8 text-gray-400 flex-shrink-0" />
-                  {/* The real PIX charge (QR Code and copia e cola) comes from the payment provider */}
                   <p className="text-gray-500 text-sm">
                     O QR Code e o código PIX aparecem depois que você confirmar o pedido.
                   </p>
                 </div>
               )}
 
-              {paymentMethod === 'credit' && (
-                <div className="space-y-4 mb-6">
+              {paymentMethod !== 'pix' && (
+                <div className="p-4 rounded-xl bg-white shadow-card mb-6 flex items-center gap-3">
+                  <Shield className="w-8 h-8 text-gray-400 flex-shrink-0" />
+                  <p className="text-gray-500 text-sm">
+                    {paymentMethod === 'credit'
+                      ? 'Depois de confirmar o pedido, você digita os dados do cartão na página segura do Asaas, nosso parceiro de pagamentos.'
+                      : 'O boleto aparece depois que você confirmar o pedido.'}
+                  </p>
+                </div>
+              )}
+
+              {paymentSetup?.enabled && !paymentSetup.savedTaxId && (
+                <div className="mb-6">
                   <Input
-                    label="Número do cartão"
-                    placeholder="0000 0000 0000 0000"
-                    value={cardData.number}
-                    onChange={(e) => setCardData({ ...cardData, number: e.target.value })}
+                    label="CPF de quem paga"
+                    placeholder="000.000.000-00"
+                    inputMode="numeric"
+                    value={taxId}
+                    onChange={(e) => setTaxId(e.target.value)}
                   />
-                  <Input
-                    label="Nome no cartão"
-                    placeholder="NOME COMPLETO"
-                    value={cardData.name}
-                    onChange={(e) => setCardData({ ...cardData, name: e.target.value })}
-                  />
-                  <div className="grid grid-cols-2 gap-4">
-                    <Input
-                      label="Validade"
-                      placeholder="MM/AA"
-                      value={cardData.expiry}
-                      onChange={(e) => setCardData({ ...cardData, expiry: e.target.value })}
-                    />
-                    <Input
-                      label="CVV"
-                      placeholder="123"
-                      type="password"
-                      value={cardData.cvv}
-                      onChange={(e) => setCardData({ ...cardData, cvv: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      Parcelas
-                    </label>
-                    <select
-                      value={cardData.installments}
-                      onChange={(e) => setCardData({ ...cardData, installments: e.target.value })}
-                      className="w-full h-12 px-4 rounded-lg bg-white border border-gray-300 text-gray-900 outline-none focus:border-sky-blue transition-colors"
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((n) => (
-                        <option key={n} value={n}>
-                          {n}x de {formatCurrency(total / n)} {n <= 3 ? 'sem juros' : ''}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
+                  <p className="text-gray-400 text-xs mt-1">Exigido para emitir o pagamento. Pedimos só uma vez.</p>
                 </div>
               )}
 
@@ -555,11 +535,20 @@ export default function CheckoutPage() {
               </motion.div>
 
               <h2 className="text-gray-900 text-2xl font-bold mb-2">
-                Pedido registrado!
+                {paid ? 'Pagamento confirmado!' : 'Pedido registrado!'}
               </h2>
               <p className="text-gray-500 mb-6">
-                Seu pedido foi registrado e aguarda pagamento.
+                {paid ? 'Os vendedores já foram avisados para preparar o envio.' : 'Seu pedido foi registrado e aguarda pagamento.'}
               </p>
+
+              {order && paymentSetup?.enabled && !paid && (
+                <div className="rounded-xl bg-white shadow-card p-4 mb-6">
+                  {order.paymentError && !order.payment && (
+                    <p className="text-gray-500 text-sm mb-3">{order.paymentError}</p>
+                  )}
+                  <PaymentPanel orderId={order.id} initial={order.payment} onPaid={() => setPaid(true)} />
+                </div>
+              )}
 
               <div className="rounded-xl bg-white shadow-card p-4 mb-6 text-left">
                 <div className="flex items-center justify-between mb-3">

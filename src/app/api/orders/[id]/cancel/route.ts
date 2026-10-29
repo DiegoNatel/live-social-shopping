@@ -1,11 +1,11 @@
 import { getSession } from '@/lib/auth'
-import { cancelOrder } from '@/lib/orders'
+import { cancelUnpaidOrder } from '@/lib/payments'
 
 export async function POST(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
-  const ok = await cancelOrder(session.user.id, (await params).id)
-  return ok
-    ? new Response(null, { status: 204 })
-    : Response.json({ message: 'Só pedidos aguardando pagamento podem ser cancelados' }, { status: 409 })
+  const result = await cancelUnpaidOrder(session.user.id, (await params).id)
+  if (result === 'cancelled') return new Response(null, { status: 204 })
+  const message = result === 'paid' ? 'Este pedido já foi pago' : 'Só pedidos aguardando pagamento podem ser cancelados'
+  return Response.json({ message }, { status: 409 })
 }

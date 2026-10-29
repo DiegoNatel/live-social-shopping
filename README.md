@@ -114,6 +114,21 @@ R2 API token with Object Read & Write on the `vivobuy-images` bucket (R2 → Man
 
 Without these the live page shows the stream's cover image, as before.
 
+### Payments (Asaas)
+
+Buyers pay by Pix (QR code on the site), card or boleto (Asaas's payment page). Each payment is
+split: sellers and live hosts get their part in their own Asaas wallet (sellers paste their wallet
+id in the dashboard), minus VivoBuy's fee (`src/lib/fees.ts`); the rest stays in VivoBuy's account.
+
+1. Create an account at [sandbox.asaas.com](https://sandbox.asaas.com) (test money) and copy the API key
+   (Integrações → Chave de API).
+2. Set the secrets `ASAAS_API_KEY` and `ASAAS_WEBHOOK_TOKEN` (any long random string).
+3. In Asaas → Integrações → Webhooks, add `https://<site>/api/payments/webhook` with that token, API
+   version v3, and the charge events (Cobranças) on.
+4. For real money, use a production key and set `ASAAS_ENV=production`.
+
+Without `ASAAS_API_KEY`, orders are registered and wait for payment, as before.
+
 ### Before launch
 
 `/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.
