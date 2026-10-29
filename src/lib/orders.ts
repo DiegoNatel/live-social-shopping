@@ -276,16 +276,22 @@ export async function createOrder(userId: string, input: NewOrderInput) {
   return { id: orderId, total: totals.total / 100, flashStreamIds: flashStreams.map(r => r.stream_id) }
 }
 
-// Buyers can cancel orders that haven't been paid. Everything the order took is given back:
-// product and variant stock, flash sale units and the coupon use.
-export async function cancelOrder(userId: string, orderId: string) {
+// Cancels an order that hasn't been paid: by its buyer (userId), or because its payment
+// expired. Everything the order took is given back: product and variant stock, flash sale
+// units and the coupon use. (Buyers go through cancelUnpaidOrder in lib/payments.ts.)
+export async function cancelOrder(orderId: string, by: { userId?: string; reason?: 'expired' } = {}) {
   const db = getDb()
   // Claiming the cancellation is one conditional UPDATE, so stock is restored at most once
-  const claim = await db
-    .prepare(`UPDATE orders SET status = 'cancelled' WHERE id = ? AND user_id = ? AND status = 'pending'`)
-    .bind(orderId, userId)
-    .run()
-  if (claim.meta.changes === 0) return false
+  const claimed = await db
+    .prepare(
+      `UPDATE orders SET status = 'cancelled' WHERE id = ? AND (?2 IS NULL OR user_id = ?2) AND status = 'pending'
+       RETURNING user_id`
+    )
+    .bind(orderId, by.userId ?? null)
+    .first<{ user_id: string }>()
+  if (!claimed) return false
+  const userId = claimed.user_id
+  const expired = by.reason === 'expired'
 
   const { results: sellers } = await db
     .prepare('SELECT DISTINCT seller_id FROM order_items WHERE order_id = ?')
@@ -319,9 +325,17 @@ export async function cancelOrder(userId: string, orderId: string) {
     db
       .prepare('UPDATE coupons SET uses_count = max(0, uses_count - 1) WHERE code = (SELECT coupon_code FROM orders WHERE id = ?)')
       .bind(orderId),
-    notify(userId, 'order_update', 'Pedido cancelado', `Seu pedido ${orderId} foi cancelado.`, '/orders'),
+    notify(
+      userId, 'order_update', 'Pedido cancelado',
+      expired ? `O prazo para pagar o pedido ${orderId} acabou e ele foi cancelado.` : `Seu pedido ${orderId} foi cancelado.`,
+      '/orders'
+    ),
     ...sellers.map(s =>
-      notify(s.seller_id, 'order_update', 'Pedido cancelado', `O pedido ${orderId} foi cancelado pelo comprador.`, '/seller/dashboard')
+      notify(
+        s.seller_id, 'order_update', 'Pedido cancelado',
+        expired ? `O pedido ${orderId} não foi pago a tempo e foi cancelado.` : `O pedido ${orderId} foi cancelado pelo comprador.`,
+        '/seller/dashboard'
+      )
     ),
   ])
   return true

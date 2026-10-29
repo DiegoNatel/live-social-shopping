@@ -12,3 +12,7 @@ LIVEKIT_API_SECRET=
 RECORDINGS_S3_ENDPOINT=
 RECORDINGS_S3_ACCESS_KEY=
 RECORDINGS_S3_SECRET=
+# Optional: payments (sandbox.asaas.com → Integrações → Chave de API; webhook token is any long random string)
+ASAAS_API_KEY=
+ASAAS_WEBHOOK_TOKEN=
+# ASAAS_ENV=production

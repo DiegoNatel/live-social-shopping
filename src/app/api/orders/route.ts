@@ -5,6 +5,8 @@ import { str } from '@/lib/validate'
 import { parseAddress } from '@/lib/addresses'
 import { getActiveFlashSale } from '@/lib/engagement'
 import { broadcast } from '@/lib/live'
+import { getDb } from '@/lib/db'
+import { chargeOrder, normalizeCpf, paymentsEnabled, PaymentError, type PaymentInfo } from '@/lib/payments'
 
 const PAYMENT_METHODS = ['pix', 'credit_card', 'boleto'] as const
 
@@ -50,6 +52,17 @@ export async function POST(request: Request) {
   })
   if (!address) return bad('Endereço incompleto')
 
+  // Asaas needs the buyer's CPF; checked before the order takes any stock
+  let taxId: string | null = null
+  if (paymentsEnabled()) {
+    taxId = body.taxId === undefined ? null : normalizeCpf(body.taxId)
+    if (body.taxId !== undefined && !taxId) return Response.json({ error: 'TAX_ID', message: 'CPF inválido' }, { status: 400 })
+    if (!taxId) {
+      const saved = await getDb().prepare('SELECT tax_id FROM users WHERE id = ?').bind(session.user.id).first<string | null>('tax_id')
+      if (!saved) return Response.json({ error: 'TAX_ID', message: 'Informe seu CPF para pagar' }, { status: 400 })
+    }
+  }
+
   try {
     const order = await createOrder(session.user.id, {
       items,
@@ -62,7 +75,18 @@ export async function POST(request: Request) {
     for (const streamId of order.flashStreamIds) {
       broadcast(streamId, { t: 'flash', flashSale: await getActiveFlashSale(streamId) })
     }
-    return Response.json({ id: order.id, total: order.total }, { status: 201 })
+    // The order stands even if the charge fails: the buyer can pay later from "Meus pedidos"
+    let payment: PaymentInfo | null = null
+    let paymentError: string | undefined
+    if (paymentsEnabled()) {
+      try {
+        payment = await chargeOrder(session.user.id, order.id, { taxId })
+      } catch (e) {
+        if (!(e instanceof PaymentError)) throw e
+        paymentError = e.message
+      }
+    }
+    return Response.json({ id: order.id, total: order.total, payment, paymentError }, { status: 201 })
   } catch (e) {
     if (e instanceof OrderError) {
       return Response.json({ error: e.code, message: e.message }, { status: e.code === 'OUT_OF_STOCK' || e.code === 'PRICE_CHANGED' ? 409 : 400 })

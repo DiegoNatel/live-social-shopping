@@ -15,6 +15,7 @@ import type { User, Product, Stream, Auction } from '@/types'
 import type { SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
 import { GuestInvites, StreamGuestsButton } from './GuestPanels'
+import { PayoutPanel } from './PayoutPanel'
 import type { GuestInvite } from '@/lib/guests'
 import {
   Radio,
@@ -45,9 +46,11 @@ export interface DashboardData {
   recentOrders: SellerOrder[]
   stats: { revenue: number; hostRevenue: number; orders: number; viewers: number }
   invites: GuestInvite[]
+  // null while online payments are off
+  payout: { walletId: string | null } | null
 }
 
-export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites }: DashboardData) {
+export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites, payout }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
@@ -190,6 +193,8 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             A receita inclui {formatCurrency(stats.hostRevenue)} da sua parte nas vendas de convidados.
           </p>
         )}
+
+        {payout && <PayoutPanel walletId={payout.walletId} />}
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 -mx-4 px-4">
