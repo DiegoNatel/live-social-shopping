@@ -4,6 +4,7 @@ import { getSession } from './auth'
 import { notify } from './orders'
 import { canSellInStream } from './guests'
 import { openVideoRoom, closeVideoRoom } from './video'
+import { END_STREAM_SQL } from './livekit'
 
 const newId = () => crypto.randomUUID()
 const cents = (reais: number) => Math.round(reais * 100)
@@ -145,7 +146,7 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
 
   if (status === 'live') {
     // A video service outage shouldn't stop the live: chat, bids and sales still work
-    const recordingKey = await openVideoRoom(streamId).catch(e => {
+    const room = await openVideoRoom(streamId).catch(e => {
       console.error('Could not open the video room', streamId, e)
       return null
     })
@@ -156,23 +157,17 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
     await db.batch([
       db
         .prepare(
-          `UPDATE streams SET status = 'live', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'), recording_key = ? WHERE id = ?`
+          `UPDATE streams SET status = 'live', started_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
+             recording_key = ?, video_room = ?, video_idle_since = NULL
+           WHERE id = ?`
         )
-        .bind(recordingKey, streamId),
+        .bind(room?.recordingKey ?? null, room ? 1 : 0, streamId),
       ...followers.map(f =>
         notify(f.follower_id, 'stream_live', `${stream.host_name} está ao vivo!`, stream.title, `/live/${streamId}`, stream.host_avatar ?? undefined)
       ),
     ])
   } else {
-    // The recording (if any) becomes the stream's video once LiveKit finishes uploading it
-    await db
-      .prepare(
-        `UPDATE streams SET status = 'ended', viewer_count = 0, ended_at = strftime('%Y-%m-%dT%H:%M:%fZ', 'now'),
-           video_url = CASE WHEN recording_key IS NOT NULL THEN '/' || recording_key ELSE video_url END
-         WHERE id = ?`
-      )
-      .bind(streamId)
-      .run()
+    await db.prepare(END_STREAM_SQL).bind(streamId).run()
     closeVideoRoom(streamId)
   }
   return true

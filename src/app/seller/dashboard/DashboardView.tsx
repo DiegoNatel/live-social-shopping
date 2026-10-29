@@ -40,13 +40,14 @@ export interface DashboardData {
   seller: User
   products: Product[]
   streams: Stream[]
+  pastStreams: Stream[]
   auctions: Auction[]
   recentOrders: SellerOrder[]
   stats: { revenue: number; hostRevenue: number; orders: number; viewers: number }
   invites: GuestInvite[]
 }
 
-export function DashboardView({ seller, products, streams, auctions, recentOrders, stats: totals, invites }: DashboardData) {
+export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
@@ -427,6 +428,27 @@ export function DashboardView({ seller, products, streams, auctions, recentOrder
                 </div>
               ))}
             </div>
+            {pastStreams.length > 0 && (
+              <>
+                <p className="text-gray-500 mt-6 mb-3">Lives anteriores</p>
+                <div className="space-y-2">
+                  {pastStreams.map(stream => (
+                    <Link key={stream.id} href={`/live/${stream.id}`} className="flex items-center gap-3 rounded-xl bg-white shadow-card p-2">
+                      <div className="relative w-24 aspect-video rounded-lg overflow-hidden flex-shrink-0 bg-gray-100">
+                        {stream.thumbnail && <Image src={stream.thumbnail} alt={stream.title} fill className="object-cover" />}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-gray-900 line-clamp-1">{stream.title}</p>
+                        <p className="text-xs text-gray-500">
+                          {stream.endedAt ? `Encerrada em ${new Date(stream.endedAt).toLocaleDateString('pt-BR')} · ` : ''}
+                          {stream.videoUrl ? 'Ver gravação' : 'Sem gravação'}
+                        </p>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
 
