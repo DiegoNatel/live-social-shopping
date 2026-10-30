@@ -6,9 +6,8 @@ import { HeroCarousel } from '@/components/stream/HeroCarousel'
 import { CategoryPills } from '@/components/stream/CategoryPills'
 import { StreamCard } from '@/components/stream/StreamCard'
 import { ProductCard } from '@/components/product/ProductCard'
-import { CourseCard } from '@/components/course/CourseCard'
 import { ProductModal } from '@/components/product/ProductModal'
-import type { Stream, Product, Course, Category } from '@/types'
+import type { Stream, Product, Category } from '@/types'
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
 
@@ -18,7 +17,6 @@ interface HomeViewProps {
   recordedStreams: Stream[]
   trendingProducts: Product[]
   flashDeals: Product[]
-  featuredCourses: Course[]
   categories: Category[]
 }
 
@@ -28,7 +26,6 @@ export function HomeView({
   recordedStreams,
   trendingProducts,
   flashDeals,
-  featuredCourses,
   categories,
 }: HomeViewProps) {
   return (
@@ -70,19 +67,6 @@ export function HomeView({
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 px-4">
             {flashDeals.map((product, index) => (
               <ProductCard key={product.id} product={product} index={index} />
-            ))}
-          </div>
-        </section>
-
-        {/* Featured Courses - NEW SECTION */}
-        <section className="mt-8">
-          <SectionHeader
-            title="Cursos em Destaque"
-            href="/courses"
-          />
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 px-4">
-            {featuredCourses.map((course, index) => (
-              <CourseCard key={course.id} course={course} index={index} />
             ))}
           </div>
         </section>

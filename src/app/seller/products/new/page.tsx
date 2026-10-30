@@ -10,5 +10,5 @@ export default async function NewProductPage() {
   if (!session) redirect('/login')
   const profile = await getUser(session.user.id)
   if (!profile?.isSeller) redirect('/seller/dashboard')
-  return <ProductForm categories={(await getCategories()).filter(c => c.slug !== 'courses')} />
+  return <ProductForm categories={await getCategories()} />
 }
