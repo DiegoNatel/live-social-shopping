@@ -83,6 +83,12 @@ export function getOwnWalletId() {
 
 export const deleteCharge = (id: string) => call<{ deleted: boolean }>('DELETE', `/payments/${encodeURIComponent(id)}`)
 
+// Full refund of a Pix or card charge; the split parts are reversed with it
+export const refundCharge = (id: string) => call<Charge>('POST', `/payments/${encodeURIComponent(id)}/refund`, {})
+
+// Boleto has no account to return to: requestUrl is where the buyer gives one
+export const refundBoleto = (id: string) => call<{ requestUrl: string }>('POST', `/payments/${encodeURIComponent(id)}/bankSlip/refund`, {})
+
 // The webhook configured in Asaas sends this token in the asaas-access-token header
 export function webhookTokenMatches(token: string | null) {
   const expected = getCloudflareContext().env.ASAAS_WEBHOOK_TOKEN

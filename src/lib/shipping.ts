@@ -156,10 +156,11 @@ export const trackingUrl = (code: string) => `https://www.melhorrastreio.com.br/
 export async function markShipped(sellerId: string, orderId: string, trackingCode: string) {
   const db = getDb()
   const order = await db
-    .prepare(`SELECT user_id FROM orders WHERE id = ? AND status IN ('confirmed', 'processing', 'shipped')`)
+    .prepare(`SELECT user_id, refund_status FROM orders WHERE id = ? AND status IN ('confirmed', 'processing', 'shipped')`)
     .bind(orderId)
-    .first<{ user_id: string }>()
+    .first<{ user_id: string; refund_status: string | null }>()
   if (!order) return 'not_paid' as const
+  if (order.refund_status) return 'refunding' as const
   const saved = await db
     .prepare(
       `UPDATE order_shipments SET tracking_code = ?, shipped_at = coalesce(shipped_at, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))

@@ -129,6 +129,13 @@ id in the dashboard), minus VivoBuy's fee (`src/lib/fees.ts`); the rest stays in
 
 Without `ASAAS_API_KEY`, orders are registered and wait for payment, as before.
 
+**Refunds** (`src/lib/refunds.ts`) always return the whole order. Before shipping, the buyer cancels in
+"Meus pedidos" and the money goes back right away. After shipping (up to 30 days, `REFUND_WINDOW_DAYS`), the
+buyer asks, the seller arranges the return and confirms "Recebi de volta" in the dashboard, and that sends the
+refund. Boleto buyers give a bank account on an Asaas page. A refund Asaas refuses is tried again every hour.
+Refunds made in Asaas's panel and chargebacks arrive by webhook and update the order; sellers can't ship
+during a refund or dispute. The API key needs the `PAYMENT_REFUND:WRITE` permission.
+
 ### Shipping (Melhor Envio)
 
 Checkout quotes the real freight by CEP (Correios, Jadlog and others) and offers "Econômico" and

@@ -8,7 +8,9 @@ import { BR_TIME_ZONE, formatCurrency } from '@/lib/utils'
 import { variantLabel } from '@/lib/pricing'
 import { CancelOrderButton } from './CancelOrderButton'
 import { PayOrderButton } from './PayOrderButton'
+import { RefundOrderButton } from './RefundOrderButton'
 import { paymentsEnabled } from '@/lib/payments'
+import type { RefundStatus } from '@/lib/refunds'
 import { trackingUrl } from '@/lib/shipping'
 import type { OrderStatus, PaymentMethod } from '@/types'
 
@@ -21,6 +23,15 @@ const STATUS_LABELS: Record<OrderStatus, { label: string; className: string }> =
   shipped: { label: 'Enviado', className: 'bg-sky-blue-50 text-sky-blue-700' },
   delivered: { label: 'Entregue', className: 'bg-green-50 text-tropical-green-700' },
   cancelled: { label: 'Cancelado', className: 'bg-gray-100 text-gray-500' },
+}
+
+// Takes the place of the order's status while there's a refund or dispute
+const REFUND_LABELS: Record<RefundStatus, { label: string; className: string }> = {
+  requested: { label: 'Devolução solicitada', className: 'bg-amber-50 text-amber-700' },
+  processing: { label: 'Reembolso em andamento', className: 'bg-amber-50 text-amber-700' },
+  failed: { label: 'Reembolso em andamento', className: 'bg-amber-50 text-amber-700' },
+  chargeback: { label: 'Pagamento contestado', className: 'bg-amber-50 text-amber-700' },
+  refunded: { label: 'Reembolsado', className: 'bg-gray-100 text-gray-500' },
 }
 
 const PAYMENT_LABELS: Record<PaymentMethod, string> = {
@@ -50,7 +61,7 @@ export default async function OrdersPage() {
         )}
 
         {orders.map(order => {
-          const status = STATUS_LABELS[order.status]
+          const status = order.refundStatus ? REFUND_LABELS[order.refundStatus] : STATUS_LABELS[order.status]
           return (
             <div key={order.id} className="bg-white rounded-md shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-b border-gray-100">
@@ -110,6 +121,20 @@ export default async function OrdersPage() {
                       )}
                       {' · '}
                       <CancelOrderButton orderId={order.id} />
+                    </>
+                  )}
+                  {order.canRefund && (
+                    <>
+                      {' · '}
+                      <RefundOrderButton orderId={order.id} shipped={order.shipments.some(s => s.trackingCode)} />
+                    </>
+                  )}
+                  {order.refundUrl && order.refundStatus !== 'refunded' && (
+                    <>
+                      {' · '}
+                      <a href={order.refundUrl} target="_blank" rel="noopener noreferrer" className="text-sky-blue text-xs hover:underline">
+                        Informar conta para reembolso
+                      </a>
                     </>
                   )}
                 </span>

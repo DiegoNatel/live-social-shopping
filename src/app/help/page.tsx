@@ -32,7 +32,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: 'Posso devolver um produto?',
-    a: 'Sim. Pelo Código de Defesa do Consumidor, você pode desistir de uma compra feita pela internet em até 7 dias depois de receber o produto, sem precisar justificar, e recebe o valor de volta. Produtos com defeito podem ser trocados dentro da garantia.',
+    a: 'Sim. Pelo Código de Defesa do Consumidor, você pode desistir de uma compra feita pela internet em até 7 dias depois de receber o produto, sem precisar justificar, e recebe o valor de volta, frete incluído. Peça em Meus pedidos: antes do envio o reembolso é imediato; depois, o vendedor combina a devolução e o reembolso sai quando ele receber o produto. Produtos com defeito podem ser trocados dentro da garantia.',
   },
   {
     q: 'Como funcionam os leilões?',
