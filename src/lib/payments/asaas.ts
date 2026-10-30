@@ -17,6 +17,8 @@ function config() {
 }
 
 export const asaasEnabled = () => config() !== null
+// Which Asaas the keys point at; ids from one don't exist in the other
+export const asaasEnv = () => (getCloudflareContext().env.ASAAS_ENV === 'production' ? 'production' : 'sandbox')
 
 async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const c = config()
