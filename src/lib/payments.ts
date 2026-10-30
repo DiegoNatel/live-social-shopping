@@ -64,6 +64,7 @@ type OrderRow = {
   shipping_cents: number
   payment_ref: string | null
   payment_url: string | null
+  payment_env: string | null
 }
 
 export type SplitPart = {
@@ -166,11 +167,13 @@ async function customerFor(userId: string, taxId: string | null) {
   if (!user) throw new PaymentError('NOT_FOUND', 'Conta não encontrada')
   const cpf = taxId ?? user.tax_id
   if (!cpf) throw new PaymentError('TAX_ID', 'Informe seu CPF para pagar')
-  // A different CPF than before means a new Asaas customer
-  if (user.asaas_customer_id && user.tax_id === cpf) return user.asaas_customer_id
+  // Saved as '<env>:<id>'. A different CPF, or a customer from the other Asaas (sandbox vs
+  // production), means a new Asaas customer
+  const prefix = `${asaas.asaasEnv()}:`
+  if (user.asaas_customer_id?.startsWith(prefix) && user.tax_id === cpf) return user.asaas_customer_id.slice(prefix.length)
 
   const customer = await asaas.createCustomer({ name: user.name, cpfCnpj: cpf, email: user.email ?? undefined, externalReference: userId })
-  await db.prepare('UPDATE users SET tax_id = ?, asaas_customer_id = ? WHERE id = ?').bind(cpf, customer.id, userId).run()
+  await db.prepare('UPDATE users SET tax_id = ?, asaas_customer_id = ? WHERE id = ?').bind(cpf, prefix + customer.id, userId).run()
   return customer.id
 }
 
@@ -185,13 +188,21 @@ export async function chargeOrder(
   if (!asaas.asaasEnabled()) throw new PaymentError('DISABLED', 'Pagamentos ainda não estão disponíveis')
   const db = getDb()
   const order = await db
-    .prepare('SELECT id, user_id, status, payment_method, total_cents, shipping_cents, payment_ref, payment_url FROM orders WHERE id = ? AND user_id = ?')
+    .prepare(
+      `SELECT id, user_id, status, payment_method, total_cents, shipping_cents, payment_ref, payment_url, payment_env
+       FROM orders WHERE id = ? AND user_id = ?`
+    )
     .bind(orderId, userId)
     .first<OrderRow>()
   if (!order) throw new PaymentError('NOT_FOUND', 'Pedido não encontrado')
   const info: PaymentInfo = { status: 'pending', method: order.payment_method, total: order.total_cents / 100 }
   if (order.status === 'cancelled') return { ...info, status: 'cancelled' }
   if (order.status !== 'pending') return { ...info, status: 'paid' }
+  // Its charge was made in the other Asaas (before switching sandbox/production): it can't be paid
+  if (order.payment_ref && order.payment_env !== asaas.asaasEnv()) {
+    await cancelOrder(order.id, { reason: 'expired' })
+    return { ...info, status: 'cancelled' }
+  }
 
   try {
     let chargeId = order.payment_ref
@@ -210,8 +221,8 @@ export async function chargeOrder(
       const { charge, parts } = await createSplitCharge(order, customer, await splitParts(order))
       // Two requests at once (double tap): keep the first charge, drop the other
       const saved = await db
-        .prepare('UPDATE orders SET payment_ref = ?, payment_url = ?, payment_split = ? WHERE id = ? AND payment_ref IS NULL')
-        .bind(charge.id, charge.invoiceUrl, JSON.stringify(parts), order.id)
+        .prepare('UPDATE orders SET payment_ref = ?, payment_url = ?, payment_split = ?, payment_env = ? WHERE id = ? AND payment_ref IS NULL')
+        .bind(charge.id, charge.invoiceUrl, JSON.stringify(parts), asaas.asaasEnv(), order.id)
         .run()
       if (saved.meta.changes === 0) {
         await asaas.deleteCharge(charge.id).catch(() => {})
@@ -271,51 +282,62 @@ export async function markPaid(chargeId: string) {
   return true
 }
 
-// The buyer cancels an unpaid order: its charge is removed first so it can't be paid afterwards
+// Whether this order's charge lives in the Asaas the keys point at (and can be looked up)
+const chargeHere = (o: { payment_ref: string | null; payment_env: string | null }) =>
+  !!o.payment_ref && asaas.asaasEnabled() && o.payment_env === asaas.asaasEnv()
+
+// The buyer cancels an unpaid order. The order is cancelled before its charge is removed:
+// removing it makes Asaas send PAYMENT_DELETED right away, which must find it already cancelled.
 export async function cancelUnpaidOrder(userId: string, orderId: string): Promise<'cancelled' | 'paid' | 'not_pending'> {
   const order = await getDb()
-    .prepare(`SELECT payment_ref FROM orders WHERE id = ? AND user_id = ? AND status = 'pending'`)
+    .prepare(`SELECT payment_ref, payment_env FROM orders WHERE id = ? AND user_id = ? AND status = 'pending'`)
     .bind(orderId, userId)
-    .first<{ payment_ref: string | null }>()
+    .first<{ payment_ref: string | null; payment_env: string | null }>()
   if (!order) return 'not_pending'
-  if (order.payment_ref && asaas.asaasEnabled()) {
-    const charge = await asaas.getCharge(order.payment_ref).catch(() => null)
+  if (chargeHere(order)) {
+    const charge = await asaas.getCharge(order.payment_ref!).catch(() => null)
     if (charge && asaas.PAID_STATUSES.includes(charge.status)) {
-      await markPaid(order.payment_ref)
+      await markPaid(order.payment_ref!)
       return 'paid'
     }
-    await asaas.deleteCharge(order.payment_ref).catch(e => console.error('Could not delete Asaas charge', order.payment_ref, e))
   }
-  return (await cancelOrder(orderId, { userId })) ? 'cancelled' : 'not_pending'
+  if (!(await cancelOrder(orderId, { userId }))) return 'not_pending'
+  if (chargeHere(order)) await deleteChargeQuietly(order.payment_ref!)
+  return 'cancelled'
 }
 
+const deleteChargeQuietly = (id: string) =>
+  asaas.deleteCharge(id).catch(e => console.error('Could not delete Asaas charge', id, e))
+
 // Cancels Pix and card orders not paid within PAY_WITHIN_MINUTES (run by the cron in
-// worker.ts). Their charge is removed first, so it can't be paid afterwards.
+// worker.ts), then removes their charge so it can't be paid afterwards.
 export async function expireUnpaidOrders() {
   if (!asaas.asaasEnabled()) return 0
   const since = (minutes: number) => `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${minutes} minutes')`
   const { results } = await getDb()
     .prepare(
-      `SELECT id, payment_ref FROM orders
+      `SELECT id, payment_ref, payment_env FROM orders
        WHERE status = 'pending' AND (
          (payment_method = 'pix' AND created_at <= ${since(PAY_WITHIN_MINUTES.pix)}) OR
          (payment_method = 'credit_card' AND created_at <= ${since(PAY_WITHIN_MINUTES.credit_card)}))
        LIMIT 50`
     )
-    .all<{ id: string; payment_ref: string | null }>()
+    .all<{ id: string; payment_ref: string | null; payment_env: string | null }>()
   let cancelled = 0
   for (const order of results) {
-    if (order.payment_ref) {
-      const charge = await asaas.getCharge(order.payment_ref).catch(() => null)
+    // A charge from the other Asaas (sandbox vs production) can't be paid any more: just cancel
+    if (chargeHere(order)) {
+      const charge = await asaas.getCharge(order.payment_ref!).catch(() => null)
       // Asaas didn't answer: try again on the next run rather than cancel a paid order
       if (!charge) continue
       if (asaas.PAID_STATUSES.includes(charge.status)) {
-        await markPaid(order.payment_ref)
+        await markPaid(order.payment_ref!)
         continue
       }
-      await asaas.deleteCharge(order.payment_ref).catch(e => console.error('Could not delete Asaas charge', order.payment_ref, e))
     }
-    if (await cancelOrder(order.id, { reason: 'expired' })) cancelled++
+    if (!(await cancelOrder(order.id, { reason: 'expired' }))) continue
+    cancelled++
+    if (chargeHere(order)) await deleteChargeQuietly(order.payment_ref!)
   }
   return cancelled
 }
