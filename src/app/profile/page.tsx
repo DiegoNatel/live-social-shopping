@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { useMode } from '@/components/layout/ModeProvider'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store'
@@ -30,7 +31,13 @@ import {
 
 export default function ProfilePage() {
   const router = useRouter()
-  const { user, followedHosts, setSession } = useUserStore()
+  const { user, followedHosts, setSession, isSeller } = useUserStore()
+  const { mode, setMode } = useMode()
+  const switchMode = () => {
+    const next = mode === 'seller' ? 'buyer' : 'seller'
+    setMode(next)
+    router.push(next === 'seller' ? '/seller/dashboard' : '/')
+  }
   // Watch time and points aren't tracked yet
   const [stats, setStats] = useState({ purchases: 0, totalSpent: 0, watchTime: 0, points: 0 })
 
@@ -46,6 +53,7 @@ export default function ProfilePage() {
   const handleLogout = async () => {
     await authClient.signOut()
     setSession(null)
+    setMode('buyer')
     router.push('/')
     router.refresh()
   }
@@ -216,11 +224,19 @@ export default function ProfilePage() {
               href="/referral"
               badge="Novo"
             />
-            <MenuItem
-              icon={<Award className="w-5 h-5" />}
-              label="Seja um Vendedor"
-              href="/seller/dashboard"
-            />
+            {isSeller ? (
+              <MenuButton
+                icon={<Award className="w-5 h-5" />}
+                label={mode === 'seller' ? 'Voltar ao modo comprador' : 'Entrar no modo vendedor'}
+                onClick={switchMode}
+              />
+            ) : (
+              <MenuItem
+                icon={<Award className="w-5 h-5" />}
+                label="Seja um Vendedor"
+                href="/seller/dashboard"
+              />
+            )}
             <MenuItem
               icon={<HelpCircle className="w-5 h-5" />}
               label="Ajuda"
@@ -273,6 +289,19 @@ function MenuSection({ title, children }: { title: string; children: React.React
 }
 
 // Menu Item Component
+// Like MenuItem, for an action instead of a link
+function MenuButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left">
+      <div className="flex items-center gap-3">
+        <span className="text-gray-500">{icon}</span>
+        <span className="text-gray-900">{label}</span>
+      </div>
+      <ChevronRight className="w-5 h-5 text-gray-400" />
+    </button>
+  )
+}
+
 interface MenuItemProps {
   icon: React.ReactNode
   label: string

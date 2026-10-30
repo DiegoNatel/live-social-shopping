@@ -1,11 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { useMode } from '@/components/layout/ModeProvider'
+import { useUserStore } from '@/store'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
@@ -62,6 +64,18 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
   const [busyStreamId, setBusyStreamId] = useState<string | null>(null)
   const [actionError, setActionError] = useState('')
   const router = useRouter()
+
+  // Opening the painel puts the app in seller mode, which stays on until switched back.
+  // (The account may have just become a seller, before the session store knows it.)
+  const { setMode } = useMode()
+  useEffect(() => {
+    useUserStore.setState({ isSeller: true })
+    setMode('seller')
+  }, [setMode])
+  const switchToBuyer = () => {
+    setMode('buyer')
+    router.push('/')
+  }
 
   const setStreamStatus = async (streamId: string, status: 'live' | 'ended') => {
     if (status === 'ended' && !confirm('Encerrar a live para todos?')) return
@@ -120,14 +134,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
   const nextStream = streams.find(s => s.isLive) ?? streams[0]
 
   return (
-    <MainLayout
-      showNav={false}
-      headerProps={{
-        title: 'Painel do Vendedor',
-        showSearch: false,
-        showCart: false,
-      }}
-    >
+    <MainLayout headerProps={{ showSearch: false, showCart: false }}>
       <div className="max-w-6xl mx-auto px-4 py-4 pb-24">
         {/* Seller Info */}
         <div className="flex items-center justify-between mb-6">
@@ -138,14 +145,19 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
               <p className="text-gray-500 text-sm">{formatViewerCount(seller.followers)} seguidores</p>
             </div>
           </div>
-          <Button
-            size="sm"
-            leftIcon={<Radio className="w-4 h-4" />}
-            className="bg-coral-pink hover:bg-coral-pink-600"
-            onClick={() => setActiveTab('streams')}
-          >
-            Iniciar Live
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              size="sm"
+              leftIcon={<Radio className="w-4 h-4" />}
+              className="bg-coral-pink hover:bg-coral-pink-600"
+              onClick={() => setActiveTab('streams')}
+            >
+              Iniciar Live
+            </Button>
+            <button onClick={switchToBuyer} className="text-gray-500 text-xs hover:text-gray-900 hover:underline">
+              Mudar para modo comprador
+            </button>
+          </div>
         </div>
 
         {actionError && <p className="text-coral-pink text-sm mb-4">{actionError}</p>}

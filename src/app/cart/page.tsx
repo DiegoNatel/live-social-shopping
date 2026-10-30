@@ -204,11 +204,6 @@ export default function CartPage() {
             </motion.div>
           )}
           
-          {!appliedCoupon && (
-            <p className="text-gray-400 text-xs mt-2">
-              💡 Use o cupom <strong className="text-primary">VIVOBUY10</strong> e ganhe 10% OFF
-            </p>
-          )}
         </div>
 
         {/* Shipping info: the real freight is quoted by CEP at checkout */}
