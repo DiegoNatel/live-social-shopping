@@ -402,17 +402,27 @@ export interface SellerOrder {
   product: Product | undefined
   name: string
   status: string
+  // Set while there's a refund or dispute (see lib/refunds.ts): the order mustn't be shipped
+  refundStatus: string | null
   createdAt: string
   total: number
   // This seller's shipment: the service the buyer chose and, once sent, the tracking code
   shipment?: { serviceName: string; company: string | null; trackingCode: string | null }
 }
 
+// A buyer gave up an order this seller shipped; the seller confirms when the product is back
+export interface ReturnRequest {
+  orderId: string
+  buyerName: string
+  buyerEmail: string | null
+  items: string
+}
+
 const PAID_ORDER = "'confirmed', 'processing', 'shipped', 'delivered'"
 
 export async function getSellerDashboard(sellerId: string) {
   const db = getDb()
-  const [{ results: productRows }, liveStreams, scheduledStreams, pastStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
+  const [{ results: productRows }, liveStreams, scheduledStreams, pastStreams, { results: auctionRows }, salesRow, { results: orderRows }, { results: returnRows }] =
     await Promise.all([
       // Paused products too, so the seller can reactivate them
       db
@@ -453,12 +463,26 @@ export async function getSellerDashboard(sellerId: string) {
         .first<Row>(),
       db
         .prepare(
-          `SELECT o.id, o.status, o.created_at, oi.product_id, oi.name,
+          `SELECT o.id, o.status, o.refund_status, o.created_at, oi.product_id, oi.name,
                   oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) AS total_cents,
                   os.service_name, os.company, os.tracking_code
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
            LEFT JOIN order_shipments os ON os.order_id = o.id AND os.seller_id = oi.seller_id
            WHERE oi.seller_id = ? ORDER BY o.created_at DESC LIMIT 5`
+        )
+        .bind(sellerId)
+        .all<Row>(),
+      db
+        .prepare(
+          `SELECT o.id, u.name AS buyer_name, u.email AS buyer_email,
+                  (SELECT group_concat(oi.quantity || '× ' || oi.name, ', ') FROM order_items oi
+                   WHERE oi.order_id = o.id AND oi.seller_id = os.seller_id) AS items
+           FROM order_shipments os
+           JOIN orders o ON o.id = os.order_id
+           JOIN users u ON u.id = o.user_id
+           WHERE os.seller_id = ? AND o.refund_status = 'requested'
+             AND os.shipped_at IS NOT NULL AND os.return_confirmed_at IS NULL
+           ORDER BY o.created_at`
         )
         .bind(sellerId)
         .all<Row>(),
@@ -487,6 +511,7 @@ export async function getSellerDashboard(sellerId: string) {
     product: productById.get(o.product_id),
     name: o.name,
     status: o.status,
+    refundStatus: o.refund_status,
     createdAt: o.created_at,
     total: fromCents(o.total_cents)!,
     shipment: o.service_name ? { serviceName: o.service_name, company: o.company, trackingCode: o.tracking_code } : undefined,
@@ -498,6 +523,7 @@ export async function getSellerDashboard(sellerId: string) {
     pastStreams,
     auctions,
     recentOrders,
+    returnRequests: returnRows.map((r): ReturnRequest => ({ orderId: r.id, buyerName: r.buyer_name, buyerEmail: r.buyer_email, items: r.items })),
     stats: {
       // Own sales plus shares earned hosting guest sellers
       revenue: fromCents((salesRow?.revenue ?? 0) + (salesRow?.host_revenue ?? 0))!,

@@ -3,6 +3,7 @@ import { getDb } from './db'
 import { notify, cancelOrder } from './orders'
 import * as asaas from './payments/asaas'
 import { PAY_WITHIN_MINUTES, PLATFORM_FEE_PERCENT } from './fees'
+import { chargebackOpened, chargebackWon, finishRefund, refundDenied, refundOrder } from './refunds'
 
 // Charges orders through Asaas and splits each payment:
 // - the seller gets their items minus the host's share (guest sales) and VivoBuy's fee
@@ -273,11 +274,11 @@ export async function markPaid(chargeId: string) {
     .first<{ id: string; user_id: string }>()
   if (!order) {
     const cancelled = await db
-      .prepare(`SELECT id FROM orders WHERE payment_ref = ? AND status = 'cancelled'`)
+      .prepare(`SELECT id FROM orders WHERE payment_ref = ? AND status = 'cancelled' AND refund_status IS NULL`)
       .bind(chargeId)
       .first<{ id: string }>()
-    // Paid at the same moment it was cancelled: needs a refund in Asaas
-    if (cancelled) console.error('Payment received for a cancelled order; refund it in Asaas', cancelled.id, chargeId)
+    // Paid at the same moment it was cancelled: the buyer gets the money back
+    if (cancelled) await refundOrder(cancelled.id)
     return false
   }
   const { results: items } = await db
@@ -376,8 +377,20 @@ export async function handleChargeEvent(event: string, chargeId: string) {
       break
     }
     case 'PAYMENT_REFUNDED':
+      await finishRefund(chargeId)
+      break
+    case 'PAYMENT_REFUND_DENIED':
+      await refundDenied(chargeId)
+      break
     case 'PAYMENT_CHARGEBACK_REQUESTED':
-      console.warn('Charge refunded or disputed; handle the order by hand', event, chargeId)
+      await chargebackOpened(chargeId)
+      break
+    case 'PAYMENT_AWAITING_CHARGEBACK_REVERSAL':
+      await chargebackWon(chargeId)
+      break
+    // We only refund whole orders, so this was done by hand in Asaas's panel
+    case 'PAYMENT_PARTIALLY_REFUNDED':
+      console.warn('Charge partially refunded in Asaas; the order was left as it is', chargeId)
       break
   }
 }

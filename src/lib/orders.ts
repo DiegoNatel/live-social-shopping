@@ -5,6 +5,8 @@ import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
 import { liveSplits, HOST_SHARE } from './guests'
 import { quoteShipping, ShippingError, type ShippingOptionId } from './shipping'
+import { canRefund, type RefundStatus } from './refunds'
+import { asaasEnv } from './payments/asaas'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
 export type NewAddress = Omit<Address, 'id' | 'isDefault'>
@@ -321,6 +323,31 @@ export async function cancelOrder(orderId: string, by: { userId?: string; reason
     .bind(orderId)
     .all<{ seller_id: string }>()
   await db.batch([
+    ...releaseOrder(orderId),
+    notify(
+      userId, 'order_update', 'Pedido cancelado',
+      expired ? `O prazo para pagar o pedido ${orderId} acabou e ele foi cancelado.` : `Seu pedido ${orderId} foi cancelado.`,
+      '/orders'
+    ),
+    ...sellers.map(s =>
+      notify(
+        s.seller_id, 'order_update', 'Pedido cancelado',
+        expired ? `O pedido ${orderId} não foi pago a tempo e foi cancelado.` : `O pedido ${orderId} foi cancelado pelo comprador.`,
+        '/seller/dashboard'
+      )
+    ),
+  ])
+  return true
+}
+
+// Gives back what an order took: stock and flash sale units (unless restock is false) and its coupon use
+export function releaseOrder(orderId: string, { restock = true } = {}) {
+  const db = getDb()
+  const coupon = db
+    .prepare('UPDATE coupons SET uses_count = max(0, uses_count - 1) WHERE code = (SELECT coupon_code FROM orders WHERE id = ?)')
+    .bind(orderId)
+  if (!restock) return [coupon]
+  return [
     db
       .prepare(
         `UPDATE products SET stock = stock + (
@@ -345,23 +372,8 @@ export async function cancelOrder(orderId: string, by: { userId?: string; reason
          WHERE id IN (SELECT flash_sale_id FROM order_items WHERE order_id = ?1)`
       )
       .bind(orderId),
-    db
-      .prepare('UPDATE coupons SET uses_count = max(0, uses_count - 1) WHERE code = (SELECT coupon_code FROM orders WHERE id = ?)')
-      .bind(orderId),
-    notify(
-      userId, 'order_update', 'Pedido cancelado',
-      expired ? `O prazo para pagar o pedido ${orderId} acabou e ele foi cancelado.` : `Seu pedido ${orderId} foi cancelado.`,
-      '/orders'
-    ),
-    ...sellers.map(s =>
-      notify(
-        s.seller_id, 'order_update', 'Pedido cancelado',
-        expired ? `O pedido ${orderId} não foi pago a tempo e foi cancelado.` : `O pedido ${orderId} foi cancelado pelo comprador.`,
-        '/seller/dashboard'
-      )
-    ),
-  ])
-  return true
+    coupon,
+  ]
 }
 
 export function notify(
@@ -388,13 +400,17 @@ export interface OrderSummary {
   items: { name: string; quantity: number; unitPrice: number; variants?: Record<string, string>; image?: string }[]
   // One per seller: the service chosen and, once sent, the tracking code
   shipments: { serviceName: string; company: string | null; days: number | null; trackingCode: string | null }[]
+  refundStatus: RefundStatus | null
+  // Boleto: Asaas page where the buyer gives the account for the refund
+  refundUrl: string | null
+  canRefund: boolean
 }
 
 export async function getOrders(userId: string): Promise<OrderSummary[]> {
   const { results } = await getDb()
     .prepare(
-      `SELECT o.id, o.status, o.payment_method, o.total_cents, o.created_at,
-              oi.name, oi.quantity, oi.unit_price_cents, oi.variants, json_extract(p.images, '$[0]') AS image
+      `SELECT o.id, o.status, o.payment_method, o.total_cents, o.created_at, o.paid_at, o.payment_ref,
+              o.payment_env, o.refund_status, o.refund_url, oi.name, oi.quantity, oi.unit_price_cents, oi.variants, json_extract(p.images, '$[0]') AS image
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
@@ -405,6 +421,7 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
     .all<Record<string, any>>()
 
   const orders = new Map<string, OrderSummary>()
+  const refundable = new Map<string, Parameters<typeof canRefund>[0]>()
   for (const r of results) {
     let order = orders.get(r.id)
     if (!order) {
@@ -416,8 +433,12 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
         createdAt: r.created_at,
         items: [],
         shipments: [],
+        refundStatus: r.refund_status,
+        refundUrl: r.refund_url,
+        canRefund: false,
       }
       orders.set(r.id, order)
+      if (r.payment_ref && r.payment_env === asaasEnv()) refundable.set(r.id, { status: r.status, refundStatus: r.refund_status, paid: !!r.paid_at })
     }
     order.items.push({
       name: r.name,
@@ -431,11 +452,15 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
     const ids = [...orders.keys()]
     const { results: shipments } = await getDb()
       .prepare(
-        `SELECT order_id, service_name, company, delivery_days, tracking_code FROM order_shipments
+        `SELECT order_id, service_name, company, delivery_days, tracking_code, shipped_at FROM order_shipments
          WHERE order_id IN (${ids.map(() => '?').join(',')})`
       )
       .bind(...ids)
-      .all<{ order_id: string; service_name: string; company: string | null; delivery_days: number | null; tracking_code: string | null }>()
+      .all<{ order_id: string; service_name: string; company: string | null; delivery_days: number | null; tracking_code: string | null; shipped_at: string | null }>()
+    for (const [id, order] of refundable) {
+      const shippedAt = shipments.flatMap(s => (s.order_id === id && s.shipped_at ? [s.shipped_at] : [])).sort().at(-1)
+      orders.get(id)!.canRefund = canRefund(order, shippedAt ?? null)
+    }
     for (const s of shipments) {
       orders.get(s.order_id)?.shipments.push({
         serviceName: s.service_name,

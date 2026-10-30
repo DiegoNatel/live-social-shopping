@@ -14,8 +14,9 @@ import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { CreateAuctionModal, type AuctionFormData } from '@/components/auction/CreateAuctionModal'
 import { BR_TIME_ZONE, formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
 import type { User, Product, Stream, Auction } from '@/types'
-import type { SellerOrder } from '@/lib/db'
+import type { ReturnRequest, SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
+import { ReturnRequests } from './ReturnRequests'
 import { GuestInvites, StreamGuestsButton } from './GuestPanels'
 import { PayoutPanel } from './PayoutPanel'
 import { ShipFromPanel, ShipOrderButton } from './ShippingPanels'
@@ -47,6 +48,7 @@ export interface DashboardData {
   pastStreams: Stream[]
   auctions: Auction[]
   recentOrders: SellerOrder[]
+  returnRequests: ReturnRequest[]
   stats: { revenue: number; hostRevenue: number; orders: number; viewers: number }
   invites: GuestInvite[]
   // null while online payments are off
@@ -55,7 +57,7 @@ export interface DashboardData {
   shipFromZip: string | null
 }
 
-export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites, payout, shipFromZip }: DashboardData) {
+export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, returnRequests, stats: totals, invites, payout, shipFromZip }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
@@ -278,6 +280,8 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             </div>
             )}
 
+            <ReturnRequests requests={returnRequests} />
+
             {/* Recent Orders */}
             <div className="mb-6">
               <div className="flex items-center justify-between mb-3">
@@ -307,7 +311,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                         {order.name}
                       </p>
                       <div className="flex items-center gap-2">
-                        <OrderStatusBadge status={order.status} />
+                        <OrderStatusBadge status={order.refundStatus ? `refund_${order.refundStatus}` : order.status} />
                         <span className="text-gray-400 text-xs">{formatRelativeTime(order.createdAt)}</span>
                       </div>
                       {order.shipment && (
@@ -316,7 +320,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                           {order.shipment.trackingCode && ` · Rastreio ${order.shipment.trackingCode}`}
                         </p>
                       )}
-                      {order.shipment && !order.shipment.trackingCode && (order.status === 'confirmed' || order.status === 'processing') && (
+                      {order.shipment && !order.shipment.trackingCode && !order.refundStatus && (order.status === 'confirmed' || order.status === 'processing') && (
                         <ShipOrderButton orderId={order.id} />
                       )}
                     </div>
@@ -656,6 +660,11 @@ function OrderStatusBadge({ status }: { status: string }) {
     shipped: 'bg-sky-blue-50 text-sky-blue-700',
     delivered: 'bg-green-50 text-tropical-green-700',
     cancelled: 'bg-gray-100 text-gray-500',
+    refund_requested: 'bg-amber-50 text-amber-700',
+    refund_processing: 'bg-amber-50 text-amber-700',
+    refund_failed: 'bg-amber-50 text-amber-700',
+    refund_chargeback: 'bg-amber-50 text-amber-700',
+    refund_refunded: 'bg-gray-100 text-gray-500',
   }
 
   const labels = {
@@ -665,6 +674,11 @@ function OrderStatusBadge({ status }: { status: string }) {
     shipped: 'Enviado',
     delivered: 'Entregue',
     cancelled: 'Cancelado',
+    refund_requested: 'Devolução solicitada',
+    refund_processing: 'Reembolso em andamento',
+    refund_failed: 'Reembolso em andamento',
+    refund_chargeback: 'Pagamento contestado',
+    refund_refunded: 'Reembolsado',
   }
 
   return (
