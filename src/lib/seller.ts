@@ -5,8 +5,11 @@ import { notify } from './orders'
 import { canSellInStream } from './guests'
 import { openVideoRoom, closeVideoRoom } from './video'
 import { END_STREAM_SQL } from './livekit'
+import { interestsForLive } from './interests'
 
 const newId = () => crypto.randomUUID()
+// Users told about a live because of their interests (followers are always told)
+const INTERESTED_LIMIT = 500
 const cents = (reais: number) => Math.round(reais * 100)
 
 // Returns the signed-in seller's id, or a Response to send back
@@ -135,16 +138,25 @@ export async function createStream(sellerId: string, s: StreamInput) {
   return id
 }
 
-// Going live notifies every follower; ending closes the stream
+// Going live notifies every follower, and users whose interests match the live's category
+// or hashtags (at most INTERESTED_LIMIT of them); ending closes the stream
 export async function setStreamStatus(sellerId: string, streamId: string, status: 'live' | 'ended') {
   const db = getDb()
   const stream = await db
     .prepare(
-      `SELECT s.id, s.title, s.status, u.name AS host_name, u.avatar AS host_avatar
+      `SELECT s.id, s.title, s.status, s.category_slug, s.tags, u.name AS host_name, u.avatar AS host_avatar
        FROM streams s JOIN users u ON u.id = s.host_id WHERE s.id = ? AND s.host_id = ?`
     )
     .bind(streamId, sellerId)
-    .first<{ id: string; title: string; status: string; host_name: string; host_avatar: string | null }>()
+    .first<{
+      id: string
+      title: string
+      status: string
+      category_slug: string | null
+      tags: string | null
+      host_name: string
+      host_avatar: string | null
+    }>()
   if (!stream) return false
   if (stream.status === status || stream.status === 'ended') return true
 
@@ -158,6 +170,19 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
       .prepare('SELECT follower_id FROM follows WHERE followee_id = ?')
       .bind(sellerId)
       .all<{ follower_id: string }>()
+    const interests = interestsForLive(stream.category_slug ?? '', JSON.parse(stream.tags ?? '[]') as string[])
+    const { results: interested } = interests.length
+      ? await db
+          .prepare(
+            `SELECT u.id FROM users u
+             WHERE u.id != ?1
+               AND NOT EXISTS (SELECT 1 FROM follows f WHERE f.followee_id = ?1 AND f.follower_id = u.id)
+               AND EXISTS (SELECT 1 FROM json_each(u.interests) j WHERE j.value IN (${interests.map(() => '?').join(',')}))
+             LIMIT ${INTERESTED_LIMIT}`
+          )
+          .bind(sellerId, ...interests)
+          .all<{ id: string }>()
+      : { results: [] }
     await db.batch([
       db
         .prepare(
@@ -168,6 +193,9 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
         .bind(room?.recordingKey ?? null, room ? 1 : 0, streamId),
       ...followers.map(f =>
         notify(f.follower_id, 'stream_live', `${stream.host_name} está ao vivo!`, stream.title, `/live/${streamId}`, stream.host_avatar ?? undefined)
+      ),
+      ...interested.map(u =>
+        notify(u.id, 'stream_live', `Ao vivo agora, do seu interesse`, `${stream.host_name}: ${stream.title}`, `/live/${streamId}`, stream.host_avatar ?? undefined)
       ),
     ])
   } else {

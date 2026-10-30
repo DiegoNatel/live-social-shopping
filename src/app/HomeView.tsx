@@ -2,6 +2,7 @@
 
 import { motion } from 'framer-motion'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { AutoRefresh } from '@/components/layout/AutoRefresh'
 import { HeroCarousel } from '@/components/stream/HeroCarousel'
 import { CategoryPills } from '@/components/stream/CategoryPills'
 import { StreamCard } from '@/components/stream/StreamCard'
@@ -22,6 +23,8 @@ interface HomeViewProps {
   categories: Category[]
   // Category slug the page is filtered by (?categoria=), or null for everything
   category: string | null
+  // Lives matching the signed-in user's interests
+  forYou: Stream[]
 }
 
 export function HomeView({
@@ -32,6 +35,7 @@ export function HomeView({
   flashDeals,
   categories,
   category,
+  forYou,
 }: HomeViewProps) {
   const router = useRouter()
   const selectCategory = (slug: string | null) => router.push(slug ? `/?categoria=${slug}` : '/', { scroll: false })
@@ -41,6 +45,7 @@ export function HomeView({
 
   return (
     <MainLayout>
+      <AutoRefresh />
       <div className="pb-8 max-w-6xl mx-auto">
         {/* Hero Carousel */}
         <section className="px-4 pt-4">
@@ -54,6 +59,20 @@ export function HomeView({
 
         {nothingHere && (
           <p className="mt-8 px-4 text-center text-gray-500">Ainda não há lives nem produtos em {categoryName}.</p>
+        )}
+
+        {/* Recommended from the user's interests */}
+        {forYou.length > 0 && (
+          <section className="mt-8">
+            <SectionHeader title="Para você" />
+            <div className="mt-4 flex gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
+              {forYou.map((stream, index) => (
+                <div key={stream.id} className="flex-shrink-0 w-40 md:w-48">
+                  <StreamCard stream={stream} index={index} />
+                </div>
+              ))}
+            </div>
+          </section>
         )}
 
         {/* Live Now Section */}

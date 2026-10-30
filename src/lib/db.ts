@@ -1,6 +1,7 @@
 import 'server-only'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import type { User, Product, ProductVariant, Stream, Category, Auction, AuctionBid } from '@/types'
+import { normalizeTag } from './interests'
 
 export function getDb(): D1Database {
   return getCloudflareContext().env.DB
@@ -195,7 +196,8 @@ const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`
 
 export async function search(q: string) {
   const db = getDb()
-  const pattern = likePattern(q)
+  // "#vestidos" searches the word itself in products and sellers (lives also match the hashtag)
+  const pattern = likePattern(q.replace(/^#+/, ''))
   const [{ results: productRows }, { results: sellerRows }, streams] = await Promise.all([
     db
       .prepare(
@@ -219,7 +221,12 @@ export async function search(q: string) {
     sellers: sellerRows.map(r => toUser(r)),
     streams: streams
       .flat()
-      .filter(s => s.title.toLowerCase().includes(needle) || s.host.name.toLowerCase().includes(needle))
+      .filter(
+        s =>
+          s.title.toLowerCase().includes(needle) ||
+          s.host.name.toLowerCase().includes(needle) ||
+          s.tags.some(t => normalizeTag(t) === normalizeTag(needle))
+      )
       .slice(0, 12),
   }
 }

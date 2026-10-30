@@ -1,4 +1,5 @@
 import { MainLayout } from '@/components/layout/MainLayout'
+import { AutoRefresh } from '@/components/layout/AutoRefresh'
 import { StreamCard } from '@/components/stream/StreamCard'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getStreams } from '@/lib/db'
@@ -32,6 +33,7 @@ export default async function SchedulePage() {
 
   return (
     <MainLayout headerProps={{ title: 'Agenda de lives' }}>
+      <AutoRefresh seconds={60} />
       <div className="max-w-3xl mx-auto px-4 py-6 space-y-6">
         {days.size === 0 && <EmptyState title="Nenhuma live agendada" href="/discover" linkLabel="Ver lives ao vivo" />}
         {[...days].map(([key, day]) => (
