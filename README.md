@@ -150,6 +150,20 @@ code to the order. Products can carry their package weight and size; otherwise a
 
 Without a token (or for a seller with no CEP yet), shipping is a flat R$ 19,90 per seller.
 
+### E-mail (Brevo)
+
+Sends password recovery links and order news (paid, shipped, refunded…). Order e-mails are queued in
+`notifications` and sent by the cron every 5 minutes, so they can take a few minutes; if Brevo is down
+they wait for the next run. Anything older than a day is dropped.
+
+1. Create an account at [brevo.com](https://www.brevo.com) and add a sender (Senders & IP → Senders),
+   confirming it by the e-mail Brevo sends.
+2. Create an API key (SMTP & API → API keys).
+3. Set the secrets `BREVO_API_KEY` and `EMAIL_FROM` (the confirmed sender).
+
+Without them nothing is sent and "Esqueci minha senha" doesn't appear. A sender on your own domain
+(authenticated in Brevo) lands in the inbox far more often than a Gmail address.
+
 ### Before launch
 
 `/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.

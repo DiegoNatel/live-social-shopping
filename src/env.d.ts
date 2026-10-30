@@ -23,4 +23,8 @@ interface CloudflareEnv {
   MELHOR_ENVIO_ENV?: string
   MELHOR_ENVIO_CONTACT?: string
   MELHOR_ENVIO_URL?: string
+  // E-mail (Brevo): API key, the sender confirmed in Brevo, and an API address override (tests)
+  BREVO_API_KEY?: string
+  EMAIL_FROM?: string
+  BREVO_API_URL?: string
 }

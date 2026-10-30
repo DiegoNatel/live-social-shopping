@@ -4,6 +4,7 @@ import { nextCookies } from 'better-auth/next-js'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { headers } from 'next/headers'
 import { hashPassword, verifyPassword } from './password'
+import { sendPasswordResetEmail } from './email'
 
 const timestamps = { createdAt: 'created_at', updatedAt: 'updated_at' }
 
@@ -22,6 +23,8 @@ function createAuth(env: CloudflareEnv) {
       enabled: true,
       minPasswordLength: 8,
       password: { hash: hashPassword, verify: verifyPassword },
+      sendResetPassword: ({ user, url }) => sendPasswordResetEmail(user, url),
+      revokeSessionsOnPasswordReset: true,
     },
     // Enabled once GOOGLE_CLIENT_ID / GOOGLE_CLIENT_SECRET are set
     socialProviders: googleConfigured(env)
