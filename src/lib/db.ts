@@ -1,6 +1,6 @@
 import 'server-only'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
-import type { User, Product, ProductVariant, Stream, Course, CourseModule, Category, Auction, AuctionBid } from '@/types'
+import type { User, Product, ProductVariant, Stream, Category, Auction, AuctionBid } from '@/types'
 
 export function getDb(): D1Database {
   return getCloudflareContext().env.DB
@@ -298,71 +298,6 @@ export async function getStreams({
   }))
 }
 
-// ---------- Courses ----------
-
-export async function getCourses({ limit = 20 } = {}): Promise<Course[]> {
-  const db = getDb()
-  const { results: rows } = await db
-    .prepare(
-      `SELECT c.*, ${userCols('u', 'instructor_')}
-       FROM courses c JOIN users u ON u.id = c.instructor_id
-       ORDER BY c.students_count DESC LIMIT ?`
-    )
-    .bind(limit)
-    .all<Row>()
-  if (rows.length === 0) return []
-
-  const ids = rows.map(r => r.id)
-  const { results: lessonRows } = await db
-    .prepare(
-      `SELECT m.course_id, m.id AS module_id, m.title AS module_title, m.duration AS module_duration,
-              l.id, l.title, l.duration, l.is_free, l.type
-       FROM course_modules m LEFT JOIN course_lessons l ON l.module_id = m.id
-       WHERE m.course_id IN (${ids.map(() => '?').join(',')})
-       ORDER BY m.sort_order, l.sort_order`
-    )
-    .bind(...ids)
-    .all<Row>()
-
-  const modules = new Map<string, CourseModule[]>()
-  for (const r of lessonRows) {
-    const list = modules.get(r.course_id) ?? []
-    let mod = list.find(m => m.id === r.module_id)
-    if (!mod) {
-      mod = { id: r.module_id, title: r.module_title, duration: r.module_duration ?? '', lessonsCount: 0, lessons: [] }
-      list.push(mod)
-      modules.set(r.course_id, list)
-    }
-    if (r.id) {
-      mod.lessons.push({ id: r.id, title: r.title, duration: r.duration ?? '', isFree: !!r.is_free, type: r.type })
-      mod.lessonsCount++
-    }
-  }
-
-  return rows.map(r => ({
-    id: r.id,
-    name: r.name,
-    description: r.description,
-    price: fromCents(r.price_cents)!,
-    originalPrice: fromCents(r.original_price_cents),
-    thumbnail: r.thumbnail ?? '',
-    category: r.category_slug,
-    instructor: toUser(r, 'instructor_'),
-    rating: r.rating,
-    reviews: r.reviews_count,
-    tags: parseList(r.tags),
-    itemType: 'course' as const,
-    duration: r.duration ?? '',
-    lessonsCount: r.lessons_count,
-    studentsCount: r.students_count,
-    level: r.level,
-    language: r.language,
-    lastUpdated: r.updated_at,
-    modules: modules.get(r.id) ?? [],
-    certificateIncluded: !!r.certificate_included,
-  }))
-}
-
 // ---------- Single stream ----------
 
 export async function getStream(id: string): Promise<Stream | null> {
@@ -376,8 +311,9 @@ export async function getStream(id: string): Promise<Stream | null> {
 
 // ---------- Categories ----------
 
+// Product categories. Courses are off for now (the tables and the 'courses' category stay)
 export async function getCategories(): Promise<Category[]> {
-  const { results } = await getDb().prepare('SELECT * FROM categories ORDER BY sort_order').all<Row>()
+  const { results } = await getDb().prepare("SELECT * FROM categories WHERE slug != 'courses' ORDER BY sort_order").all<Row>()
   return results.map(r => ({ id: r.id, name: r.name, icon: r.icon ?? '', slug: r.slug, color: r.color ?? '' }))
 }
 
