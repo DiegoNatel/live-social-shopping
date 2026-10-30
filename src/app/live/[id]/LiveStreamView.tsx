@@ -24,7 +24,7 @@ import { useUserStore, useUIStore } from '@/store'
 import { formatCurrency, formatViewerCount } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
-  ChevronLeft,
+  X,
   Share2,
   Volume2,
   VolumeX,
@@ -371,11 +371,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           {/* Top Bar */}
           <div className="flex items-center justify-between p-3 z-20">
             <div className="flex items-center gap-2">
-              <Link href="/">
-                <button className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white">
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-              </Link>
+              <LeaveLiveButton />
               <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
               <ViewersBadge count={viewerCount} />
             </div>
@@ -551,11 +547,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                 exit={{ opacity: 0, y: -20 }}
               >
                 <div className="flex items-center gap-3">
-                  <Link href="/">
-                    <button className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white">
-                      <ChevronLeft className="w-6 h-6" />
-                    </button>
-                  </Link>
+                  <LeaveLiveButton />
                   <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
                   <ViewersBadge count={viewerCount} />
                 </div>
@@ -783,6 +775,20 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       {/* Product Modal */}
       <ProductModal />
     </div>
+  )
+}
+
+// Leaves the live for the home page; labelled, so it reads as a way out and not just an icon
+function LeaveLiveButton() {
+  return (
+    <Link
+      href="/"
+      aria-label="Sair da live"
+      className="h-10 pl-2.5 pr-3.5 rounded-full bg-black/50 backdrop-blur-sm flex items-center gap-1.5 text-white text-sm font-medium hover:bg-black/70"
+    >
+      <X className="w-5 h-5" />
+      Sair
+    </Link>
   )
 }
 

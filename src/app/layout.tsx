@@ -1,6 +1,9 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { cookies } from 'next/headers'
 import { SessionSync } from '@/components/auth/SessionSync'
+import { ModeProvider } from '@/components/layout/ModeProvider'
+import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
   title: 'VivoBuy - Live Social Shopping | Compras ao Vivo',
@@ -32,16 +35,18 @@ export const viewport: Viewport = {
   themeColor: '#0A1628',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode
 }) {
+  // Buyer or seller mode, so the server renders the same menu the browser shows
+  const mode = parseMode((await cookies()).get(MODE_COOKIE)?.value)
   return (
     <html lang="pt-BR">
       <body className="min-h-screen bg-page">
         <SessionSync />
-        {children}
+        <ModeProvider initial={mode}>{children}</ModeProvider>
       </body>
     </html>
   )

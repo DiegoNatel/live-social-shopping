@@ -6,7 +6,7 @@ import { useUserStore, useNotificationStore } from '@/store'
 import type { User } from '@/types'
 
 type MeResponse =
-  | { user: User; interests: string[]; followedHosts: string[]; favoriteIds: string[] }
+  | { user: User; interests: string[]; isSeller: boolean; followedHosts: string[]; favoriteIds: string[] }
   | { user: null }
 
 // Loads the signed-in user's profile and notifications into the stores whenever the session changes

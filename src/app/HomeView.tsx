@@ -7,9 +7,11 @@ import { CategoryPills } from '@/components/stream/CategoryPills'
 import { StreamCard } from '@/components/stream/StreamCard'
 import { ProductCard } from '@/components/product/ProductCard'
 import { ProductModal } from '@/components/product/ProductModal'
+import { cn } from '@/lib/utils'
 import type { Stream, Product, Category } from '@/types'
 import { ChevronRight } from 'lucide-react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 
 interface HomeViewProps {
   liveStreams: Stream[]
@@ -18,6 +20,8 @@ interface HomeViewProps {
   trendingProducts: Product[]
   flashDeals: Product[]
   categories: Category[]
+  // Category slug the page is filtered by (?categoria=), or null for everything
+  category: string | null
 }
 
 export function HomeView({
@@ -27,22 +31,33 @@ export function HomeView({
   trendingProducts,
   flashDeals,
   categories,
+  category,
 }: HomeViewProps) {
+  const router = useRouter()
+  const selectCategory = (slug: string | null) => router.push(slug ? `/?categoria=${slug}` : '/', { scroll: false })
+  const categoryName = categories.find(c => c.slug === category)?.name
+  const nothingHere =
+    !!category && [liveStreams, upcomingStreams, recordedStreams, trendingProducts, flashDeals].every(list => list.length === 0)
+
   return (
     <MainLayout>
       <div className="pb-8 max-w-6xl mx-auto">
         {/* Hero Carousel */}
         <section className="px-4 pt-4">
-          <HeroCarousel streams={liveStreams} />
+          <HeroCarousel key={category ?? 'all'} streams={liveStreams} />
         </section>
 
         {/* Categories */}
         <section className="mt-4 px-4">
-          <CategoryPills categories={categories} />
+          <CategoryPills categories={categories} selected={category} onSelect={selectCategory} />
         </section>
 
+        {nothingHere && (
+          <p className="mt-8 px-4 text-center text-gray-500">Ainda não há lives nem produtos em {categoryName}.</p>
+        )}
+
         {/* Live Now Section */}
-        <section className="mt-8">
+        <section className={cn('mt-8', category && liveStreams.length === 0 && 'hidden')}>
           <SectionHeader
             title="Ao Vivo Agora"
             href="/discover"
@@ -58,7 +73,7 @@ export function HomeView({
         </section>
 
         {/* Flash Deals */}
-        <section className="mt-8">
+        <section className={cn('mt-8', category && flashDeals.length === 0 && 'hidden')}>
           <SectionHeader
             title="Ofertas Relâmpago"
             href="/deals"
@@ -72,7 +87,7 @@ export function HomeView({
         </section>
 
         {/* Upcoming Streams */}
-        <section className="mt-8">
+        <section className={cn('mt-8', category && upcomingStreams.length === 0 && 'hidden')}>
           <SectionHeader
             title="Em Breve"
             href="/schedule"
@@ -97,7 +112,7 @@ export function HomeView({
         )}
 
         {/* Trending Products */}
-        <section className="mt-8">
+        <section className={cn('mt-8', category && trendingProducts.length === 0 && 'hidden')}>
           <SectionHeader
             title="Em Alta"
             href="/trending"

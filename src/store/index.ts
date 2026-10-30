@@ -129,9 +129,13 @@ export const useCartStore = create<CartState>()(
 interface UserState {
   user: User | null
   isAuthenticated: boolean
+  // Whether the account can sell (seller mode is only offered then)
+  isSeller: boolean
+  // The session has been checked (signed in or not)
+  sessionLoaded: boolean
   interests: string[]
   setSession: (
-    session: { user: User; interests: string[]; followedHosts: string[]; favoriteIds: string[] } | null
+    session: { user: User; interests: string[]; isSeller?: boolean; followedHosts: string[]; favoriteIds: string[] } | null
   ) => void
   setInterests: (interests: string[]) => void
   followedHosts: string[]
@@ -156,6 +160,8 @@ const saveFollow = (hostId: string, follow: boolean) => send('/api/follows', fol
 export const useUserStore = create<UserState>()((set, get) => ({
   user: null,
   isAuthenticated: false,
+  isSeller: false,
+  sessionLoaded: false,
   interests: [],
   followedHosts: [],
   favoriteIds: [],
@@ -166,11 +172,13 @@ export const useUserStore = create<UserState>()((set, get) => ({
         ? {
             user: session.user,
             isAuthenticated: true,
+            isSeller: !!session.isSeller,
+            sessionLoaded: true,
             interests: session.interests,
             followedHosts: session.followedHosts,
             favoriteIds: session.favoriteIds,
           }
-        : { user: null, isAuthenticated: false, interests: [], followedHosts: [], favoriteIds: [] }
+        : { user: null, isAuthenticated: false, isSeller: false, sessionLoaded: true, interests: [], followedHosts: [], favoriteIds: [] }
     ),
 
   // Optimistic, rolled back if the request fails

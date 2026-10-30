@@ -4,14 +4,23 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ShoppingCart, Search, Home } from 'lucide-react'
+import { Bell, ShoppingCart, Search, Home, LayoutDashboard, PackagePlus, Radio, Store } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { useCartStore, useNotificationStore, useUserStore } from '@/store'
 import { cn } from '@/lib/utils'
+import { useMode } from './ModeProvider'
 
 const navItems = [
   { href: '/', label: 'Início', icon: Home },
   { href: '/discover', label: 'Explorar', icon: Search },
+]
+
+// Seller mode: the seller's own tools, plus a way to see the shop as buyers do
+const sellerNavItems = [
+  { href: '/seller/dashboard', label: 'Painel', icon: LayoutDashboard },
+  { href: '/seller/products/new', label: 'Novo produto', icon: PackagePlus },
+  { href: '/seller/streams/new', label: 'Nova live', icon: Radio },
+  { href: '/', label: 'Ver loja', icon: Store },
 ]
 
 interface HeaderProps {
@@ -38,6 +47,10 @@ export function Header({
   className,
 }: HeaderProps) {
   const pathname = usePathname()
+  const { mode } = useMode()
+  const seller = mode === 'seller'
+  const home = seller ? '/seller/dashboard' : '/'
+  const items = seller ? sellerNavItems : navItems
   const { user } = useUserStore()
   const { getItemCount } = useCartStore()
   const { unreadCount } = useNotificationStore()
@@ -60,37 +73,44 @@ export function Header({
       <div className="max-w-6xl mx-auto px-4">
         <div className="flex items-center justify-between h-14">
           {/* Left section - Logo & Nav */}
-          <div className="flex items-center gap-8">
+          <div className="flex items-center gap-3 sm:gap-8">
             {showBack ? (
-              <Link href="/" className="btn-icon">
+              <Link href={home} className="btn-icon">
                 <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
                 </svg>
               </Link>
             ) : (
-              <Link href="/" className="flex items-center gap-2">
+              <Link href={home} className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
                   <span className="text-white font-semibold text-sm">V</span>
                 </div>
-                <span className="font-semibold text-lg text-gray-900">
+                {/* In seller mode the phone header needs the room for the seller menu */}
+                <span className={cn('font-semibold text-lg text-gray-900', seller && 'hidden sm:inline')}>
                   VivoBuy
                 </span>
+                {seller && (
+                  <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">Vendedor</span>
+                )}
               </Link>
             )}
 
             {/* Navigation Links */}
             {showNav && !title && (
               <nav className="flex items-center gap-1">
-                {navItems.map((item) => {
+                {items.map((item) => {
                   const isActive = pathname === item.href
+                  // Icons only on phones: a label for screen readers and hover
                   const Icon = item.icon
 
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
+                      aria-label={item.label}
+                      title={item.label}
                       className={cn(
-                        'relative flex items-center gap-2 px-3 py-2 rounded-md font-medium transition-colors text-sm',
+                        'relative flex items-center gap-2 px-2 sm:px-3 py-2 rounded-md font-medium transition-colors text-sm',
                         isActive
                           ? 'text-gray-900'
                           : 'text-gray-500 hover:text-gray-900'
@@ -119,7 +139,7 @@ export function Header({
           </div>
 
           {/* Right section */}
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
             {showSearch && (
               <Link href="/search" className="btn-icon">
                 <Search className="w-5 h-5 text-gray-600" />
@@ -142,7 +162,7 @@ export function Header({
             )}
             
             {showCart && (
-              <Link href="/cart" className="btn-icon relative">
+              <Link href="/cart" className={cn('btn-icon relative', seller && 'hidden sm:flex')}>
                 <ShoppingCart className="w-5 h-5 text-gray-600" />
                 {cartCount > 0 && (
                   <motion.span
@@ -157,7 +177,7 @@ export function Header({
             )}
             
             {showAvatar && user && (
-              <Link href="/profile" className="ml-1">
+              <Link href="/profile" className="sm:ml-1">
                 <Avatar
                   src={user.avatar}
                   alt={user.name}

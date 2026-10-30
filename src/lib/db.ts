@@ -158,18 +158,21 @@ const PRODUCT_ORDER = {
              p.rating * p.reviews_count DESC, p.id`,
 }
 
+// category: only products of that category slug
 export async function getProducts({
   onSale = false,
   inStock = false,
   sort = 'default' as keyof typeof PRODUCT_ORDER,
   limit = 20,
-} = {}): Promise<Product[]> {
+  category,
+}: { onSale?: boolean; inStock?: boolean; sort?: keyof typeof PRODUCT_ORDER; limit?: number; category?: string } = {}): Promise<Product[]> {
   const { results } = await getDb()
     .prepare(
       `${PRODUCT_SELECT} ${onSale ? 'AND p.original_price_cents > p.price_cents' : ''} ${inStock ? 'AND p.stock > 0' : ''}
+       ${category ? 'AND p.category_slug = ?' : ''}
        ORDER BY ${PRODUCT_ORDER[sort]} LIMIT ?`
     )
-    .bind(limit)
+    .bind(...(category ? [category] : []), limit)
     .all<Row>()
   return hydrateProducts(results)
 }
@@ -234,22 +237,29 @@ export async function getProductsByIds(ids: string[]): Promise<Product[]> {
 
 // Live streams (most viewers first) or scheduled ones (soonest first), optionally for one host or one id.
 // ended: the latest finished lives instead (whose recording, if any, is in videoUrl);
-// recorded: only those with a recording
+// recorded: only those with a recording; category: only lives of that category slug
 export async function getStreams({
   live,
   ended,
   recorded,
   hostId,
   id,
+  category,
 }: {
   live: boolean
   ended?: boolean
   recorded?: boolean
   hostId?: string
   id?: string
+  category?: string
 }): Promise<Stream[]> {
   const db = getDb()
-  const filters = [hostId ? 'AND s.host_id = ?' : '', id ? 'AND s.id = ?' : '', recorded ? 'AND s.video_url IS NOT NULL' : ''].join(' ')
+  const filters = [
+    hostId ? 'AND s.host_id = ?' : '',
+    id ? 'AND s.id = ?' : '',
+    recorded ? 'AND s.video_url IS NOT NULL' : '',
+    category ? 'AND s.category_slug = ?' : '',
+  ].join(' ')
   const { results: rows } = await db
     .prepare(
       `SELECT s.*, ${userCols('u', 'host_')}
@@ -257,7 +267,7 @@ export async function getStreams({
        WHERE s.status ${ended ? "= 'ended'" : live ? "= 'live'" : "= 'scheduled'"} ${filters}
        ORDER BY ${ended ? 's.ended_at DESC LIMIT 20' : live ? 's.viewer_count DESC' : 's.scheduled_at'}`
     )
-    .bind(...[hostId, id].filter((v): v is string => !!v))
+    .bind(...[hostId, id, category].filter((v): v is string => !!v))
     .all<Row>()
   if (rows.length === 0) return []
 
