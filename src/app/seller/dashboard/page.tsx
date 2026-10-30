@@ -16,12 +16,16 @@ export default async function SellerDashboardPage() {
   if (!profile) redirect('/login')
   if (!profile.isSeller) return <BecomeSeller />
 
-  const [data, invites, walletId] = await Promise.all([
+  const [data, invites, account] = await Promise.all([
     getSellerDashboard(session.user.id),
     getGuestInvites(session.user.id),
-    getDb().prepare('SELECT asaas_wallet_id FROM users WHERE id = ?').bind(session.user.id).first<string | null>('asaas_wallet_id'),
+    getDb()
+      .prepare('SELECT asaas_wallet_id, ship_from_zip FROM users WHERE id = ?')
+      .bind(session.user.id)
+      .first<{ asaas_wallet_id: string | null; ship_from_zip: string | null }>(),
   ])
+  const walletId = account?.asaas_wallet_id
   // Sellers only need a wallet once payments are on
   const payout = paymentsEnabled() ? { walletId: walletId ?? null } : null
-  return <DashboardView seller={profile.user} {...data} invites={invites} payout={payout} />
+  return <DashboardView seller={profile.user} {...data} invites={invites} payout={payout} shipFromZip={account?.ship_from_zip ?? null} />
 }

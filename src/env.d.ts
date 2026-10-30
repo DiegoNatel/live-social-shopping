@@ -16,4 +16,11 @@ interface CloudflareEnv {
   ASAAS_WEBHOOK_TOKEN?: string
   ASAAS_ENV?: string
   ASAAS_API_URL?: string
+  // Shipping quotes (Melhor Envio): personal access token, 'production' for real quotes
+  // (otherwise the sandbox), the contact email Melhor Envio asks for, and an API address
+  // override (tests)
+  MELHOR_ENVIO_TOKEN?: string
+  MELHOR_ENVIO_ENV?: string
+  MELHOR_ENVIO_CONTACT?: string
+  MELHOR_ENVIO_URL?: string
 }

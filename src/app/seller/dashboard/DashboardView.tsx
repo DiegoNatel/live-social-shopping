@@ -16,6 +16,7 @@ import type { SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
 import { GuestInvites, StreamGuestsButton } from './GuestPanels'
 import { PayoutPanel } from './PayoutPanel'
+import { ShipFromPanel, ShipOrderButton } from './ShippingPanels'
 import type { GuestInvite } from '@/lib/guests'
 import {
   Radio,
@@ -48,9 +49,11 @@ export interface DashboardData {
   invites: GuestInvite[]
   // null while online payments are off
   payout: { walletId: string | null } | null
+  // CEP the seller ships from (null until set)
+  shipFromZip: string | null
 }
 
-export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites, payout }: DashboardData) {
+export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, stats: totals, invites, payout, shipFromZip }: DashboardData) {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
@@ -194,6 +197,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
         </p>
 
         {payout && <PayoutPanel walletId={payout.walletId} />}
+        <ShipFromPanel zip={shipFromZip} />
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 -mx-4 px-4">
@@ -294,6 +298,15 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                         <OrderStatusBadge status={order.status} />
                         <span className="text-gray-400 text-xs">{formatRelativeTime(order.createdAt)}</span>
                       </div>
+                      {order.shipment && (
+                        <p className="text-gray-500 text-xs truncate">
+                          {[order.shipment.company, order.shipment.serviceName].filter(Boolean).join(' ')}
+                          {order.shipment.trackingCode && ` · Rastreio ${order.shipment.trackingCode}`}
+                        </p>
+                      )}
+                      {order.shipment && !order.shipment.trackingCode && (order.status === 'confirmed' || order.status === 'processing') && (
+                        <ShipOrderButton orderId={order.id} />
+                      )}
                     </div>
                     <span className="text-gray-900 font-medium">{formatCurrency(order.total)}
                     </span>

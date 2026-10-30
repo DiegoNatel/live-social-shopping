@@ -33,6 +33,21 @@ export async function POST(request: Request) {
     variants.push({ type, name: vName, value: value!, stock: vStock, priceModifier })
   }
 
+  // Package for shipping quotes: each value optional (Correios limits: 30 kg, 100 cm a side)
+  const pkg = (b.package ?? {}) as Record<string, unknown>
+  const optional = (v: unknown, min: number, max: number) => (v === undefined || v === null || v === '' ? null : int(v, min, max))
+  const packageSize = {
+    weightG: optional(pkg.weightG, 1, 30_000),
+    heightCm: optional(pkg.heightCm, 1, 100),
+    widthCm: optional(pkg.widthCm, 1, 100),
+    lengthCm: optional(pkg.lengthCm, 1, 100),
+  }
+  for (const [key, raw] of Object.entries(pkg)) {
+    if (raw !== '' && raw !== undefined && raw !== null && packageSize[key as keyof typeof packageSize] === null) {
+      return badRequest('Peso ou medidas da embalagem inválidos')
+    }
+  }
+
   const id = await createProduct(sellerId, {
     name,
     description: str(b.description, 2000) ?? '',
@@ -43,6 +58,7 @@ export async function POST(request: Request) {
     images,
     tags: strList(b.tags, 10, 30),
     variants,
+    package: packageSize,
   })
   return Response.json({ id }, { status: 201 })
 }

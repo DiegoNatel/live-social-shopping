@@ -9,6 +9,7 @@ import { variantLabel } from '@/lib/pricing'
 import { CancelOrderButton } from './CancelOrderButton'
 import { PayOrderButton } from './PayOrderButton'
 import { paymentsEnabled } from '@/lib/payments'
+import { trackingUrl } from '@/lib/shipping'
 import type { OrderStatus, PaymentMethod } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -78,6 +79,24 @@ export default async function OrdersPage() {
                   </li>
                 ))}
               </ul>
+              {order.shipments.length > 0 && (
+                <ul className="px-4 py-2 border-t border-gray-100 text-xs text-gray-500 space-y-1">
+                  {order.shipments.map((s, i) => (
+                    <li key={i}>
+                      Entrega: {[s.company, s.serviceName].filter(Boolean).join(' ')}
+                      {s.days ? ` · até ${s.days} ${s.days > 1 ? 'dias úteis' : 'dia útil'}` : ''}
+                      {s.trackingCode && (
+                        <>
+                          {' · '}
+                          <a href={trackingUrl(s.trackingCode)} target="_blank" rel="noopener noreferrer" className="text-sky-blue hover:underline">
+                            Rastrear {s.trackingCode}
+                          </a>
+                        </>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
                 <span className="text-gray-500">
                   {PAYMENT_LABELS[order.paymentMethod]}

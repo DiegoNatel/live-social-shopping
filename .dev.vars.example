@@ -16,3 +16,7 @@ RECORDINGS_S3_SECRET=
 ASAAS_API_KEY=
 ASAAS_WEBHOOK_TOKEN=
 # ASAAS_ENV=production
+# Optional: freight quotes (sandbox.melhorenvio.com.br → Integrações → Permissões de acesso → Gerar token)
+MELHOR_ENVIO_TOKEN=
+# MELHOR_ENVIO_ENV=production
+# MELHOR_ENVIO_CONTACT=voce@exemplo.com

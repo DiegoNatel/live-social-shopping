@@ -36,6 +36,11 @@ export function ProductForm({ categories }: { categories: Category[] }) {
     stock: '',
     category: categories[0]?.slug ?? '',
     tags: '',
+    // Package for shipping quotes (optional; a small parcel when empty)
+    weightG: '',
+    heightCm: '',
+    widthCm: '',
+    lengthCm: '',
   })
   const [images, setImages] = useState<string[]>([])
   const [variants, setVariants] = useState<VariantRow[]>([])
@@ -66,6 +71,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
         category: form.category,
         images,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+        package: { weightG: form.weightG, heightCm: form.heightCm, widthCm: form.widthCm, lengthCm: form.lengthCm },
         variants: variants.map(v => ({
           type: v.type,
           name: v.name,
@@ -109,6 +115,16 @@ export function ProductForm({ categories }: { categories: Category[] }) {
             </FormField>
             <FormField label="Estoque">
               <input className={inputClass} inputMode="numeric" value={form.stock} onChange={set('stock')} required />
+            </FormField>
+            <FormField label="Peso com embalagem (g)" hint="Para calcular o frete. Vazio: 300 g">
+              <input className={inputClass} inputMode="numeric" value={form.weightG} onChange={set('weightG')} />
+            </FormField>
+            <FormField label="Embalagem: altura × largura × comprimento (cm)" hint="Vazio: 4 × 12 × 17 cm">
+              <div className="grid grid-cols-3 gap-2">
+                <input className={inputClass} inputMode="numeric" placeholder="A" aria-label="Altura (cm)" value={form.heightCm} onChange={set('heightCm')} />
+                <input className={inputClass} inputMode="numeric" placeholder="L" aria-label="Largura (cm)" value={form.widthCm} onChange={set('widthCm')} />
+                <input className={inputClass} inputMode="numeric" placeholder="C" aria-label="Comprimento (cm)" value={form.lengthCm} onChange={set('lengthCm')} />
+              </div>
             </FormField>
             <FormField label="Categoria">
               <select className={inputClass} value={form.category} onChange={set('category')}>
