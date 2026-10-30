@@ -13,6 +13,10 @@ interface StreamFormProps {
   products: { id: string; name: string }[]
 }
 
+// "#promoção, #Vestidos verão" → ["promoção", "vestidos", "verão"]
+const parseHashtags = (text: string) =>
+  [...new Set(text.split(/[\s,]+/).map(t => t.replace(/^#+/, '').trim().toLowerCase()).filter(Boolean))].slice(0, 10)
+
 export function StreamForm({ categories, products }: StreamFormProps) {
   const router = useRouter()
   const [form, setForm] = useState({
@@ -20,6 +24,8 @@ export function StreamForm({ categories, products }: StreamFormProps) {
     description: '',
     category: categories[0]?.slug ?? '',
     scheduledAt: '',
+    // "#promoção #vestidos": shown on the live and used to recommend it to interested buyers
+    hashtags: '',
   })
   const [thumbnail, setThumbnail] = useState<string[]>([])
   const [productIds, setProductIds] = useState<string[]>([])
@@ -38,7 +44,10 @@ export function StreamForm({ categories, products }: StreamFormProps) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        ...form,
+        title: form.title,
+        description: form.description,
+        category: form.category,
+        tags: parseHashtags(form.hashtags),
         // datetime-local is in the seller's timezone; send an absolute time
         scheduledAt: form.scheduledAt ? new Date(form.scheduledAt).toISOString() : '',
         thumbnail: thumbnail[0],
@@ -79,6 +88,14 @@ export function StreamForm({ categories, products }: StreamFormProps) {
               <input type="datetime-local" className={inputClass} value={form.scheduledAt} onChange={set('scheduledAt')} required />
             </FormField>
           </div>
+          <FormField label="Hashtags" hint="Até 10, separadas por espaço. Ajudam a live a chegar em quem se interessa pelo assunto.">
+            <input
+              className={inputClass}
+              value={form.hashtags}
+              onChange={set('hashtags')}
+              placeholder="#promoção #vestidos #verão"
+            />
+          </FormField>
           <div>
             <span className="block text-sm text-gray-700 mb-1">Imagem de capa (opcional)</span>
             <ImageUpload value={thumbnail} onChange={setThumbnail} max={1} />

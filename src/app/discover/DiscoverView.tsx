@@ -4,6 +4,7 @@ import { useState, useMemo } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { AutoRefresh } from '@/components/layout/AutoRefresh'
 import { SearchInput } from '@/components/ui/Input'
 import { StreamCard } from '@/components/stream/StreamCard'
 import { ProductCard } from '@/components/product/ProductCard'
@@ -141,6 +142,7 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
 
   return (
     <MainLayout headerProps={{ showSearch: false }}>
+      <AutoRefresh />
       <div className="max-w-7xl mx-auto">
         {/* Search Bar */}
         <div className="px-4 py-4">

@@ -459,6 +459,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               <h1 className="text-white font-semibold text-sm line-clamp-2 drop-shadow-lg">
                 {stream.title}
               </h1>
+              <Hashtags tags={stream.tags} />
             </div>
 
             {pinnedProduct && (
@@ -620,7 +621,10 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                 exit={{ opacity: 0, y: 20 }}
               >
                 <div className="max-w-lg">
-                  <h1 className="text-white font-semibold text-xl mb-3">{stream.title}</h1>
+                  <h1 className="text-white font-semibold text-xl mb-1">{stream.title}</h1>
+                  <div className="mb-3">
+                    <Hashtags tags={stream.tags} />
+                  </div>
                   {activeFlash && <FlashSaleTimer flashSale={activeFlash} />}
                 </div>
               </motion.div>
@@ -774,6 +778,20 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
       {/* Product Modal */}
       <ProductModal />
+    </div>
+  )
+}
+
+// The live's hashtags; each searches for other lives and products with it
+function Hashtags({ tags }: { tags: string[] }) {
+  if (tags.length === 0) return null
+  return (
+    <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+      {tags.slice(0, 5).map(tag => (
+        <Link key={tag} href={`/search?q=${encodeURIComponent('#' + tag)}`} className="text-white/80 text-xs drop-shadow hover:text-white">
+          #{tag}
+        </Link>
+      ))}
     </div>
   )
 }

@@ -3,6 +3,7 @@ import './globals.css'
 import { cookies } from 'next/headers'
 import { SessionSync } from '@/components/auth/SessionSync'
 import { ModeProvider } from '@/components/layout/ModeProvider'
+import { LiveAlerts } from '@/components/layout/LiveAlerts'
 import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
@@ -47,6 +48,7 @@ export default async function RootLayout({
       <body className="min-h-screen bg-page">
         <SessionSync />
         <ModeProvider initial={mode}>{children}</ModeProvider>
+        <LiveAlerts />
       </body>
     </html>
   )
