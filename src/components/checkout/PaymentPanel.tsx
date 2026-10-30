@@ -5,6 +5,7 @@ import { Check, Copy, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { formatCurrency } from '@/lib/utils'
+import { PAY_WITHIN_MINUTES } from '@/lib/fees'
 import type { PaymentInfo } from '@/lib/payments'
 
 // How to pay an order: the Pix QR code and copia e cola, or a link to Asaas's card/boleto page.
@@ -121,7 +122,9 @@ export function PaymentPanel({ orderId, initial, onPaid }: { orderId: string; in
             {copied ? 'Copiado' : 'Copiar'}
           </Button>
         </div>
-        <p className="text-gray-400 text-xs">Aguardando o pagamento… esta tela atualiza sozinha.</p>
+        <p className="text-gray-400 text-xs">
+          Pague em até {PAY_WITHIN_MINUTES.pix} minutos para garantir seu pedido. Esta tela atualiza sozinha.
+        </p>
       </div>
     )
   }

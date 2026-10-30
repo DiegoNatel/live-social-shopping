@@ -2,13 +2,14 @@ import 'server-only'
 import { getDb } from './db'
 import { notify, cancelOrder } from './orders'
 import * as asaas from './payments/asaas'
-import { PLATFORM_FEE_PERCENT } from './fees'
+import { PAY_WITHIN_MINUTES, PLATFORM_FEE_PERCENT } from './fees'
 
 // Charges orders through Asaas and splits each payment:
 // - the seller gets their items minus the host's share (guest sales) and VivoBuy's fee
 // - a live's host gets their share of guest sales, minus VivoBuy's fee
-// - VivoBuy keeps the rest: its fee, shipping, and parts of sellers who have no Asaas wallet
-//   yet (recorded in orders.payment_split, to pay out by hand)
+// - VivoBuy keeps the rest: its fee, shipping, and parts it couldn't send: sellers with no
+//   Asaas wallet yet, or whose wallet Asaas refused (recorded in orders.payment_split with
+//   `held`, to pay out by hand). A seller using VivoBuy's own wallet just keeps it there.
 // Discounts (coupons, Pix) and Asaas's own fee reduce every part in proportion.
 
 const PLATFORM_FEE = PLATFORM_FEE_PERCENT / 100
@@ -65,7 +66,14 @@ type OrderRow = {
   payment_url: string | null
 }
 
-export type SplitPart = { userId: string; role: 'seller' | 'host'; cents: number; walletId: string | null }
+export type SplitPart = {
+  userId: string
+  role: 'seller' | 'host'
+  cents: number
+  walletId: string | null
+  // Why VivoBuy kept this part instead of sending it
+  held?: 'no_wallet' | 'own_account' | 'wallet_rejected'
+}
 
 // Each seller's and host's part of an order, in centavos of what the buyer pays
 async function splitParts(order: OrderRow): Promise<SplitPart[]> {
@@ -96,7 +104,56 @@ async function splitParts(order: OrderRow): Promise<SplitPart[]> {
     add(r.seller_id, 'seller', r.line_cents - r.host_cents, r.seller_wallet)
     if (r.host_id && r.host_cents > 0) add(r.host_id, 'host', r.host_cents, r.host_wallet)
   }
-  return [...parts.values()].map(p => ({ ...p, cents: Math.floor(p.cents * scale) })).filter(p => p.cents > 0)
+  const own = await asaas.getOwnWalletId()
+  return [...parts.values()]
+    .map((p): SplitPart => {
+      const cents = Math.floor(p.cents * scale)
+      if (!p.walletId) return { ...p, cents, held: 'no_wallet' }
+      if (p.walletId === own) return { ...p, cents, walletId: null, held: 'own_account' }
+      return { ...p, cents }
+    })
+    .filter(p => p.cents > 0)
+}
+
+// Creates the charge, sending each part to its wallet. If Asaas refuses a wallet (a typo in
+// the seller's id), the charge is created anyway with that part kept by VivoBuy, and the
+// seller is told to check their wallet id: one bad wallet doesn't block the buyer.
+async function createSplitCharge(order: OrderRow, customer: string, parts: SplitPart[]) {
+  const charge = (sent: SplitPart[]) =>
+    asaas.createCharge({
+      customer,
+      billingType: BILLING[order.payment_method],
+      value: order.total_cents / 100,
+      dueDate: brDate(DAYS_TO_PAY[order.payment_method]),
+      description: `Pedido ${order.id} na VivoBuy`,
+      externalReference: order.id,
+      // Percent of the charge's value (Asaas takes its fee from each part in proportion)
+      split: sent.map(p => ({ walletId: p.walletId!, percentualValue: Math.floor((p.cents / order.total_cents) * 1e6) / 1e4 })),
+    })
+  const sent = parts.filter(p => p.walletId)
+  try {
+    return { charge: await charge(sent), parts }
+  } catch (e) {
+    if (!(e instanceof asaas.AsaasError) || sent.length === 0) throw e
+    // Asaas names the wallet it refused; if it doesn't, none are sent this time
+    const named = sent.filter(p => e.message.includes(p.walletId!))
+    const rejected = new Set(named.length ? named : sent)
+    console.error('Asaas refused split wallets; keeping those parts', order.id, e.message)
+    const kept = parts.map(p => (rejected.has(p) ? { ...p, walletId: null, held: 'wallet_rejected' as const } : p))
+    const result = { charge: await charge(kept.filter(p => p.walletId)), parts: kept }
+    if (named.length) {
+      await getDb().batch(
+        named.map(p =>
+          notify(
+            p.userId, 'order_update', 'Confira sua carteira Asaas',
+            `O Asaas recusou o ID da carteira cadastrado no seu painel. Sua parte do pedido ${order.id} ficou com a VivoBuy e será repassada; corrija o ID para receber as próximas vendas direto.`,
+            '/seller/dashboard'
+          )
+        )
+      )
+    }
+    return result
+  }
 }
 
 // The buyer's Asaas customer, created the first time they pay
@@ -150,19 +207,7 @@ export async function chargeOrder(
     } else {
       if (opts.statusOnly) return info
       const customer = await customerFor(userId, opts.taxId ?? null)
-      const parts = await splitParts(order)
-      const charge = await asaas.createCharge({
-        customer,
-        billingType: BILLING[order.payment_method],
-        value: order.total_cents / 100,
-        dueDate: brDate(DAYS_TO_PAY[order.payment_method]),
-        description: `Pedido ${order.id} na VivoBuy`,
-        externalReference: order.id,
-        // Percent of the charge's value (Asaas takes its fee from each part in proportion)
-        split: parts
-          .filter(p => p.walletId)
-          .map(p => ({ walletId: p.walletId!, percentualValue: Math.floor((p.cents / order.total_cents) * 1e6) / 1e4 })),
-      })
+      const { charge, parts } = await createSplitCharge(order, customer, await splitParts(order))
       // Two requests at once (double tap): keep the first charge, drop the other
       const saved = await db
         .prepare('UPDATE orders SET payment_ref = ?, payment_url = ?, payment_split = ? WHERE id = ? AND payment_ref IS NULL')
@@ -208,13 +253,20 @@ export async function markPaid(chargeId: string) {
     if (cancelled) console.error('Payment received for a cancelled order; refund it in Asaas', cancelled.id, chargeId)
     return false
   }
-  const { results: people } = await db
-    .prepare('SELECT DISTINCT seller_id AS id FROM order_items WHERE order_id = ?1 UNION SELECT DISTINCT host_id FROM order_items WHERE order_id = ?1 AND host_id IS NOT NULL')
+  const { results: items } = await db
+    .prepare('SELECT DISTINCT seller_id, host_id FROM order_items WHERE order_id = ?')
     .bind(order.id)
-    .all<{ id: string }>()
+    .all<{ seller_id: string; host_id: string | null }>()
+  const sellers = new Set(items.map(i => i.seller_id))
+  const hosts = new Set(items.flatMap(i => (i.host_id && !sellers.has(i.host_id) ? [i.host_id] : [])))
   await db.batch([
     notify(order.user_id, 'order_update', 'Pagamento confirmado', `Recebemos o pagamento do pedido ${order.id}.`, '/orders'),
-    ...people.map(p => notify(p.id, 'order_update', 'Pedido pago', `O pedido ${order.id} foi pago. Já pode preparar o envio.`, '/seller/dashboard')),
+    ...[...sellers].map(id =>
+      notify(id, 'order_update', 'Novo pedido pago', `O pedido ${order.id} foi pago. Já pode preparar o envio.`, '/seller/dashboard')
+    ),
+    ...[...hosts].map(id =>
+      notify(id, 'order_update', 'Venda de convidado', `Um convidado vendeu na sua live e o pedido ${order.id} foi pago.`, '/seller/dashboard')
+    ),
   ])
   return true
 }
@@ -235,6 +287,37 @@ export async function cancelUnpaidOrder(userId: string, orderId: string): Promis
     await asaas.deleteCharge(order.payment_ref).catch(e => console.error('Could not delete Asaas charge', order.payment_ref, e))
   }
   return (await cancelOrder(orderId, { userId })) ? 'cancelled' : 'not_pending'
+}
+
+// Cancels Pix and card orders not paid within PAY_WITHIN_MINUTES (run by the cron in
+// worker.ts). Their charge is removed first, so it can't be paid afterwards.
+export async function expireUnpaidOrders() {
+  if (!asaas.asaasEnabled()) return 0
+  const since = (minutes: number) => `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${minutes} minutes')`
+  const { results } = await getDb()
+    .prepare(
+      `SELECT id, payment_ref FROM orders
+       WHERE status = 'pending' AND (
+         (payment_method = 'pix' AND created_at <= ${since(PAY_WITHIN_MINUTES.pix)}) OR
+         (payment_method = 'credit_card' AND created_at <= ${since(PAY_WITHIN_MINUTES.credit_card)}))
+       LIMIT 50`
+    )
+    .all<{ id: string; payment_ref: string | null }>()
+  let cancelled = 0
+  for (const order of results) {
+    if (order.payment_ref) {
+      const charge = await asaas.getCharge(order.payment_ref).catch(() => null)
+      // Asaas didn't answer: try again on the next run rather than cancel a paid order
+      if (!charge) continue
+      if (asaas.PAID_STATUSES.includes(charge.status)) {
+        await markPaid(order.payment_ref)
+        continue
+      }
+      await asaas.deleteCharge(order.payment_ref).catch(e => console.error('Could not delete Asaas charge', order.payment_ref, e))
+    }
+    if (await cancelOrder(order.id, { reason: 'expired' })) cancelled++
+  }
+  return cancelled
 }
 
 // Asaas webhook events about a charge (Asaas → Integrações → Webhooks)

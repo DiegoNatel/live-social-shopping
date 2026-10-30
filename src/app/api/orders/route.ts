@@ -71,7 +71,7 @@ export async function POST(request: Request) {
       expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
       auctionId: str(body.auctionId, 64) ?? undefined,
       address,
-    })
+    }, { notifySellers: !paymentsEnabled() })
     for (const streamId of order.flashStreamIds) {
       broadcast(streamId, { t: 'flash', flashSale: await getActiveFlashSale(streamId) })
     }

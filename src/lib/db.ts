@@ -453,6 +453,8 @@ export interface SellerOrder {
   total: number
 }
 
+const PAID_ORDER = "'confirmed', 'processing', 'shipped', 'delivered'"
+
 export async function getSellerDashboard(sellerId: string) {
   const db = getDb()
   const [{ results: productRows }, liveStreams, scheduledStreams, pastStreams, { results: auctionRows }, salesRow, { results: orderRows }] =
@@ -476,16 +478,19 @@ export async function getSellerDashboard(sellerId: string) {
         )
         .bind(sellerId)
         .all<Row>(),
-      // A guest's sale through someone's live is split: the seller keeps the line minus the
-      // host's share, and the host earns host_share_cents
+      // Paid orders only. Each seller's and host's part is what the payment split gave them
+      // (after VivoBuy's fee and discounts; see lib/payments.ts), kept in orders.payment_split
       db
         .prepare(
-          `SELECT count(DISTINCT CASE WHEN oi.seller_id = ?1 THEN oi.order_id END) AS orders,
-                  coalesce(sum(CASE WHEN oi.seller_id = ?1
-                    THEN oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) ELSE 0 END), 0) AS revenue,
-                  coalesce(sum(CASE WHEN oi.host_id = ?1 THEN oi.host_share_cents ELSE 0 END), 0) AS host_revenue
-           FROM order_items oi JOIN orders o ON o.id = oi.order_id
-           WHERE (oi.seller_id = ?1 OR oi.host_id = ?1) AND o.status != 'cancelled'`
+          `SELECT
+             (SELECT count(DISTINCT oi.order_id) FROM order_items oi JOIN orders o ON o.id = oi.order_id
+              WHERE oi.seller_id = ?1 AND o.status IN (${PAID_ORDER})) AS orders,
+             coalesce((SELECT sum(json_extract(p.value, '$.cents')) FROM orders o, json_each(o.payment_split) p
+              WHERE o.status IN (${PAID_ORDER}) AND json_extract(p.value, '$.userId') = ?1
+                AND json_extract(p.value, '$.role') = 'seller'), 0) AS revenue,
+             coalesce((SELECT sum(json_extract(p.value, '$.cents')) FROM orders o, json_each(o.payment_split) p
+              WHERE o.status IN (${PAID_ORDER}) AND json_extract(p.value, '$.userId') = ?1
+                AND json_extract(p.value, '$.role') = 'host'), 0) AS host_revenue`
         )
         .bind(sellerId)
         .first<Row>(),

@@ -1,10 +1,13 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { PaymentPanel } from '@/components/checkout/PaymentPanel'
+import type { PaymentInfo } from '@/lib/payments'
 import { cn, formatCurrency } from '@/lib/utils'
 import { computeTotals, fromCents, VARIANT_LABELS, VARIANT_TYPES } from '@/lib/pricing'
 import type { Address, Product } from '@/types'
@@ -29,6 +32,17 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
   const [payment, setPayment] = useState<(typeof PAYMENTS)[number]['id']>('pix')
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
+  // Online payment (Asaas) needs the buyer's CPF once
+  const [paymentSetup, setPaymentSetup] = useState<{ enabled: boolean; savedTaxId: string | null } | null>(null)
+  const [taxId, setTaxId] = useState('')
+  const [order, setOrder] = useState<{ id: string; payment?: PaymentInfo | null; paymentError?: string } | null>(null)
+
+  useEffect(() => {
+    fetch('/api/me/payment')
+      .then(res => (res.ok ? (res.json() as Promise<{ enabled: boolean; savedTaxId: string | null }>) : null))
+      .then(setPaymentSetup)
+      .catch(() => {})
+  }, [])
 
   const totals = computeTotals(priceCents, { pix: payment === 'pix' })
   const types = VARIANT_TYPES.filter(t => product.variants?.some(v => v.type === t))
@@ -49,15 +63,34 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
         expectedTotalCents: totals.total,
         address,
         items: [{ productId: product.id, quantity: 1, variants }],
+        taxId: taxId || undefined,
       }),
     })
     setIsSaving(false)
-    if (!res.ok) {
-      const data = (await res.json().catch(() => null)) as { message?: string } | null
+    const data = (await res.json().catch(() => null)) as
+      | { id: string; payment?: PaymentInfo | null; paymentError?: string; error?: string; message?: string }
+      | null
+    if (!res.ok || !data) {
+      if (data?.error === 'TAX_ID') setPaymentSetup(p => (p ? { ...p, savedTaxId: null } : p))
       return setError(data?.message ?? 'Não foi possível finalizar. Tente novamente.')
     }
-    router.push('/orders')
-    router.refresh()
+    // Without online payment the order just waits, as before
+    if (!paymentSetup?.enabled) {
+      router.push('/orders')
+      router.refresh()
+      return
+    }
+    setOrder(data)
+  }
+
+  if (order) {
+    return (
+      <div className="bg-white rounded-md shadow-card p-6 space-y-4">
+        <p className="text-gray-900 font-medium">Pedido {order.id} registrado</p>
+        {order.paymentError && !order.payment && <p className="text-gray-500 text-sm">{order.paymentError}</p>}
+        <PaymentPanel orderId={order.id} initial={order.payment} onPaid={() => router.push('/orders')} />
+      </div>
+    )
   }
 
   return (
@@ -155,6 +188,13 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
           <span>{formatCurrency(fromCents(totals.total))}</span>
         </div>
       </div>
+
+      {paymentSetup?.enabled && !paymentSetup.savedTaxId && (
+        <div>
+          <Input label="CPF de quem paga" placeholder="000.000.000-00" inputMode="numeric" value={taxId} onChange={e => setTaxId(e.target.value)} />
+          <p className="text-gray-400 text-xs mt-1">Exigido para emitir o pagamento. Pedimos só uma vez.</p>
+        </div>
+      )}
 
       {error && <p className="text-coral-pink text-sm">{error}</p>}
       <Button fullWidth size="lg" isLoading={isSaving} onClick={submit} disabled={addresses.length === 0}>

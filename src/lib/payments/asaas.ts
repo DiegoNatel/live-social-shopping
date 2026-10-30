@@ -64,6 +64,18 @@ export const getCharge = (id: string) => call<Charge>('GET', `/payments/${encode
 export const getPixQrCode = (id: string) =>
   call<{ encodedImage: string; payload: string; expirationDate: string }>('GET', `/payments/${encodeURIComponent(id)}/pixQrCode`)
 
+// VivoBuy's own wallet: splitting to it is refused by Asaas (it's already the one charging)
+let ownWallet: Promise<string | null> | undefined
+export function getOwnWalletId() {
+  ownWallet ??= call<{ data: { id: string }[] }>('GET', '/wallets')
+    .then(r => r.data[0]?.id ?? null)
+    .catch(e => {
+      ownWallet = undefined
+      throw e
+    })
+  return ownWallet
+}
+
 export const deleteCharge = (id: string) => call<{ deleted: boolean }>('DELETE', `/payments/${encodeURIComponent(id)}`)
 
 // The webhook configured in Asaas sends this token in the asaas-access-token header
