@@ -23,10 +23,13 @@ export const asaasEnv = () => (getCloudflareContext().env.ASAAS_ENV === 'product
 async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: unknown): Promise<T> {
   const c = config()
   if (!c) throw new AsaasError('Pagamentos não configurados')
+  // Network failures count as Asaas errors too, so callers handle them the same way
   const res = await fetch(`${c.base}${path}`, {
     method,
     headers: { access_token: c.key, 'Content-Type': 'application/json', 'User-Agent': 'VivoBuy' },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((e: unknown) => {
+    throw new AsaasError(`Asaas fora do ar: ${e instanceof Error ? e.message : String(e)}`)
   })
   const data = (await res.json().catch(() => null)) as { errors?: { description?: string }[] } | null
   if (!res.ok) {
