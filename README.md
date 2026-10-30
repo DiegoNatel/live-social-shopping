@@ -129,6 +129,20 @@ id in the dashboard), minus VivoBuy's fee (`src/lib/fees.ts`); the rest stays in
 
 Without `ASAAS_API_KEY`, orders are registered and wait for payment, as before.
 
+### Shipping (Melhor Envio)
+
+Checkout quotes the real freight by CEP (Correios, Jadlog and others) and offers "Econômico" and
+"Expresso". Each seller ships their own items from the CEP they set in the dashboard, receives the
+shipping in the payment split (no VivoBuy fee on it), buys the label themselves and adds the tracking
+code to the order. Products can carry their package weight and size; otherwise a small parcel is assumed.
+
+1. Create an account at [sandbox.melhorenvio.com.br](https://sandbox.melhorenvio.com.br) and generate a
+   token (Integrações → Permissões de acesso → Gerar token) with the `shipping-calculate` scope.
+2. Set the secrets `MELHOR_ENVIO_TOKEN` and `MELHOR_ENVIO_CONTACT` (an email Melhor Envio can reach).
+3. For real prices, use a token from melhorenvio.com.br and set `MELHOR_ENVIO_ENV=production`.
+
+Without a token (or for a seller with no CEP yet), shipping is a flat R$ 19,90 per seller.
+
 ### Before launch
 
 `/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.

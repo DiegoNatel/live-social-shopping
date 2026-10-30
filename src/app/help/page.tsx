@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { TextPage } from '@/components/layout/TextPage'
 import { COMPANY } from '@/lib/company'
-import { FREE_SHIPPING_FROM_CENTS, PIX_DISCOUNT_PERCENT, SHIPPING_CENTS } from '@/lib/pricing'
+import { PIX_DISCOUNT_PERCENT } from '@/lib/pricing'
 import { formatCurrency } from '@/lib/utils'
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
@@ -20,7 +20,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: 'Quanto custa o frete?',
-    a: `O frete é grátis em compras a partir de ${formatCurrency(FREE_SHIPPING_FROM_CENTS / 100)}. Abaixo disso, custa ${formatCurrency(SHIPPING_CENTS / 100)}.`,
+    a: 'O frete é calculado pelo seu CEP no checkout, com as opções dos Correios e transportadoras parceiras. Você escolhe entre a mais econômica e a mais rápida. Se o carrinho tem produtos de vendedores diferentes, cada um envia o seu e o frete é a soma dos envios.',
   },
   {
     q: 'Onde acompanho meu pedido?',

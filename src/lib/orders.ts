@@ -4,6 +4,7 @@ import { checkCoupon } from './coupons'
 import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
 import { liveSplits, HOST_SHARE } from './guests'
+import { quoteShipping, ShippingError, type ShippingOptionId } from './shipping'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
 export type NewAddress = Omit<Address, 'id' | 'isDefault'>
@@ -17,11 +18,13 @@ export interface NewOrderInput {
   expectedTotalCents?: number
   // Paying for a won auction: one unit of the auctioned product at the winning bid
   auctionId?: string
+  // Freight option chosen at checkout (quoted again here, so the price can't be tampered with)
+  shippingOption: ShippingOptionId
 }
 
 export class OrderError extends Error {
   constructor(
-    public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON' | 'PRICE_CHANGED',
+    public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON' | 'PRICE_CHANGED' | 'SHIPPING',
     message: string
   ) {
     super(message)
@@ -174,7 +177,16 @@ export async function createOrder(userId: string, input: NewOrderInput, { notify
     coupon = check.coupon
   }
 
-  const totals = computeTotals(subtotal, { coupon, pix: input.paymentMethod === 'pix' })
+  let shippingOptions
+  try {
+    shippingOptions = await quoteShipping(input.address.zipCode, lines)
+  } catch (e) {
+    if (e instanceof ShippingError) throw new OrderError('SHIPPING', e.message)
+    throw e
+  }
+  const shipping = shippingOptions.find(o => o.id === input.shippingOption) ?? shippingOptions[0]
+
+  const totals = computeTotals(subtotal, { coupon, pix: input.paymentMethod === 'pix', shippingCents: shipping.cents })
   // The cart shows prices saved in the browser; if any changed, show the new total before charging
   if (input.expectedTotalCents !== undefined && input.expectedTotalCents !== totals.total) {
     throw new OrderError('PRICE_CHANGED', 'Os preços mudaram. Confira o novo total antes de finalizar.')
@@ -221,6 +233,15 @@ export async function createOrder(userId: string, input: NewOrderInput, { notify
           split?.streamId ?? null, split?.hostId ?? null,
           split ? Math.floor(line.unitPriceCents * line.quantity * HOST_SHARE) : null)
     }),
+    // Each seller's shipment: service and price (the seller's part of the shipping)
+    ...shipping.shipments.map(s =>
+      db
+        .prepare(
+          `INSERT INTO order_shipments (order_id, seller_id, service_id, service_name, company, price_cents, delivery_days)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        )
+        .bind(orderId, s.sellerId, s.serviceId, s.serviceName, s.company, s.cents, s.days)
+    ),
     // Remember the address for next time (only if it isn't saved already)
     db
       .prepare(
@@ -365,6 +386,8 @@ export interface OrderSummary {
   total: number
   createdAt: string
   items: { name: string; quantity: number; unitPrice: number; variants?: Record<string, string>; image?: string }[]
+  // One per seller: the service chosen and, once sent, the tracking code
+  shipments: { serviceName: string; company: string | null; days: number | null; trackingCode: string | null }[]
 }
 
 export async function getOrders(userId: string): Promise<OrderSummary[]> {
@@ -392,6 +415,7 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
         total: r.total_cents / 100,
         createdAt: r.created_at,
         items: [],
+        shipments: [],
       }
       orders.set(r.id, order)
     }
@@ -402,6 +426,24 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
       variants: r.variants ? JSON.parse(r.variants) : undefined,
       image: r.image ?? undefined,
     })
+  }
+  if (orders.size) {
+    const ids = [...orders.keys()]
+    const { results: shipments } = await getDb()
+      .prepare(
+        `SELECT order_id, service_name, company, delivery_days, tracking_code FROM order_shipments
+         WHERE order_id IN (${ids.map(() => '?').join(',')})`
+      )
+      .bind(...ids)
+      .all<{ order_id: string; service_name: string; company: string | null; delivery_days: number | null; tracking_code: string | null }>()
+    for (const s of shipments) {
+      orders.get(s.order_id)?.shipments.push({
+        serviceName: s.service_name,
+        company: s.company,
+        days: s.delivery_days,
+        trackingCode: s.tracking_code,
+      })
+    }
   }
   return [...orders.values()]
 }

@@ -28,7 +28,6 @@ export default function CartPage() {
   const pix = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: true })
   const subtotal = fromCents(card.subtotal)
   const couponDiscount = fromCents(card.coupon)
-  const shipping = fromCents(card.shipping)
   const total = fromCents(card.total)
   const pixDiscount = fromCents(pix.pix)
   const pixTotal = fromCents(pix.total)
@@ -212,24 +211,10 @@ export default function CartPage() {
           )}
         </div>
 
-        {/* Shipping info */}
-        <div className={cn(
-          "flex items-center gap-2 p-3 rounded-xl mb-6",
-          shipping === 0 ? 'bg-primary/10 border border-primary/20' : 'bg-gray-100'
-        )}>
-          <Truck className={cn(
-            'w-5 h-5',
-            shipping === 0 ? 'text-primary' : 'text-gray-500'
-          )} />
-          <span className={cn(
-            'text-sm',
-            shipping === 0 ? 'text-primary font-medium' : 'text-gray-600'
-          )}>
-            {shipping === 0 
-              ? '🎉 Frete grátis!' 
-              : `Frete grátis a partir de ${formatCurrency(199)} - faltam ${formatCurrency(199 - subtotal)}`
-            }
-          </span>
+        {/* Shipping info: the real freight is quoted by CEP at checkout */}
+        <div className="flex items-center gap-2 p-3 rounded-xl mb-6 bg-gray-100">
+          <Truck className="w-5 h-5 text-gray-500" />
+          <span className="text-sm text-gray-600">O frete é calculado pelo seu CEP na próxima etapa.</span>
         </div>
 
         {/* Summary */}
@@ -248,15 +233,13 @@ export default function CartPage() {
           
           <div className="flex items-center justify-between text-gray-600">
             <span>Frete</span>
-            <span className={shipping === 0 ? 'text-primary font-medium' : ''}>
-              {shipping === 0 ? 'Grátis' : formatCurrency(shipping)}
-            </span>
+            <span className="text-gray-400 text-sm">Calculado no checkout</span>
           </div>
           
           <div className="h-px bg-gray-100" />
           
           <div className="flex items-center justify-between">
-            <span className="text-gray-900 font-semibold">Total</span>
+            <span className="text-gray-900 font-semibold">Total sem frete</span>
             <span className="text-gray-900 font-bold text-xl">{formatCurrency(total)}</span>
           </div>
           

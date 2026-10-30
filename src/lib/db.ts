@@ -451,6 +451,8 @@ export interface SellerOrder {
   status: string
   createdAt: string
   total: number
+  // This seller's shipment: the service the buyer chose and, once sent, the tracking code
+  shipment?: { serviceName: string; company: string | null; trackingCode: string | null }
 }
 
 const PAID_ORDER = "'confirmed', 'processing', 'shipped', 'delivered'"
@@ -479,13 +481,15 @@ export async function getSellerDashboard(sellerId: string) {
         .bind(sellerId)
         .all<Row>(),
       // Paid orders only. Each seller's and host's part is what the payment split gave them
-      // (after VivoBuy's fee and discounts; see lib/payments.ts), kept in orders.payment_split
+      // (after VivoBuy's fee and discounts; see lib/payments.ts), kept in orders.payment_split,
+      // without the shipping sellers receive to buy labels
       db
         .prepare(
           `SELECT
              (SELECT count(DISTINCT oi.order_id) FROM order_items oi JOIN orders o ON o.id = oi.order_id
               WHERE oi.seller_id = ?1 AND o.status IN (${PAID_ORDER})) AS orders,
-             coalesce((SELECT sum(json_extract(p.value, '$.cents')) FROM orders o, json_each(o.payment_split) p
+             coalesce((SELECT sum(json_extract(p.value, '$.cents') - coalesce(json_extract(p.value, '$.shippingCents'), 0))
+              FROM orders o, json_each(o.payment_split) p
               WHERE o.status IN (${PAID_ORDER}) AND json_extract(p.value, '$.userId') = ?1
                 AND json_extract(p.value, '$.role') = 'seller'), 0) AS revenue,
              coalesce((SELECT sum(json_extract(p.value, '$.cents')) FROM orders o, json_each(o.payment_split) p
@@ -497,8 +501,10 @@ export async function getSellerDashboard(sellerId: string) {
       db
         .prepare(
           `SELECT o.id, o.status, o.created_at, oi.product_id, oi.name,
-                  oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) AS total_cents
+                  oi.unit_price_cents * oi.quantity - coalesce(oi.host_share_cents, 0) AS total_cents,
+                  os.service_name, os.company, os.tracking_code
            FROM order_items oi JOIN orders o ON o.id = oi.order_id
+           LEFT JOIN order_shipments os ON os.order_id = o.id AND os.seller_id = oi.seller_id
            WHERE oi.seller_id = ? ORDER BY o.created_at DESC LIMIT 5`
         )
         .bind(sellerId)
@@ -530,6 +536,7 @@ export async function getSellerDashboard(sellerId: string) {
     status: o.status,
     createdAt: o.created_at,
     total: fromCents(o.total_cents)!,
+    shipment: o.service_name ? { serviceName: o.service_name, company: o.company, trackingCode: o.tracking_code } : undefined,
   }))
 
   return {

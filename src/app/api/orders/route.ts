@@ -9,6 +9,7 @@ import { getDb } from '@/lib/db'
 import { chargeOrder, normalizeCpf, paymentsEnabled, PaymentError, type PaymentInfo } from '@/lib/payments'
 
 const PAYMENT_METHODS = ['pix', 'credit_card', 'boleto'] as const
+const SHIPPING_OPTIONS = ['economico', 'expresso'] as const
 
 export async function GET() {
   const session = await getSession()
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
 
   const paymentMethod = PAYMENT_METHODS.find(m => m === body.paymentMethod)
   if (!paymentMethod) return bad('Forma de pagamento inválida')
+  const shippingOption = SHIPPING_OPTIONS.find(o => o === body.shippingOption) ?? 'economico'
 
   if (!Array.isArray(body.items) || body.items.length === 0 || body.items.length > 50) return bad('Carrinho inválido')
   const items: NewOrderInput['items'] = []
@@ -70,6 +72,7 @@ export async function POST(request: Request) {
       couponCode: str(body.couponCode, 32) ?? undefined,
       expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
       auctionId: str(body.auctionId, 64) ?? undefined,
+      shippingOption,
       address,
     }, { notifySellers: !paymentsEnabled() })
     for (const streamId of order.flashStreamIds) {

@@ -7,7 +7,8 @@ import { PAY_WITHIN_MINUTES, PLATFORM_FEE_PERCENT } from './fees'
 // Charges orders through Asaas and splits each payment:
 // - the seller gets their items minus the host's share (guest sales) and VivoBuy's fee
 // - a live's host gets their share of guest sales, minus VivoBuy's fee
-// - VivoBuy keeps the rest: its fee, shipping, and parts it couldn't send: sellers with no
+// - each seller also gets the shipping for their items (no fee): they buy the label
+// - VivoBuy keeps the rest: its fee, and parts it couldn't send: sellers with no
 //   Asaas wallet yet, or whose wallet Asaas refused (recorded in orders.payment_split with
 //   `held`, to pay out by hand). A seller using VivoBuy's own wallet just keeps it there.
 // Discounts (coupons, Pix) and Asaas's own fee reduce every part in proportion.
@@ -71,6 +72,8 @@ export type SplitPart = {
   userId: string
   role: 'seller' | 'host'
   cents: number
+  // Of `cents`, the shipping the seller receives to buy the label (not revenue)
+  shippingCents?: number
   walletId: string | null
   // Why VivoBuy kept this part instead of sending it
   held?: 'no_wallet' | 'own_account' | 'wallet_rejected'
@@ -105,10 +108,18 @@ async function splitParts(order: OrderRow): Promise<SplitPart[]> {
     add(r.seller_id, 'seller', r.line_cents - r.host_cents, r.seller_wallet)
     if (r.host_id && r.host_cents > 0) add(r.host_id, 'host', r.host_cents, r.host_wallet)
   }
+  const { results: shipments } = await getDb()
+    .prepare('SELECT seller_id, price_cents FROM order_shipments WHERE order_id = ?')
+    .bind(order.id)
+    .all<{ seller_id: string; price_cents: number }>()
+  const shippingOf = new Map(shipments.map(s => [s.seller_id, s.price_cents]))
+
   const own = await asaas.getOwnWalletId()
   return [...parts.values()]
     .map((p): SplitPart => {
-      const cents = Math.floor(p.cents * scale)
+      const shippingCents = p.role === 'seller' ? (shippingOf.get(p.userId) ?? 0) : 0
+      const cents = Math.floor(p.cents * scale) + shippingCents
+      if (shippingCents) p = { ...p, shippingCents }
       if (!p.walletId) return { ...p, cents, held: 'no_wallet' }
       if (p.walletId === own) return { ...p, cents, walletId: null, held: 'own_account' }
       return { ...p, cents }

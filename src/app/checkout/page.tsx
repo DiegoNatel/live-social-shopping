@@ -29,6 +29,8 @@ import { PixIcon } from '@/components/ui/Icons'
 import { authClient } from '@/lib/auth-client'
 import { PaymentPanel } from '@/components/checkout/PaymentPanel'
 import { lookupCep } from '@/lib/cep'
+import { ShippingOptions } from '@/components/checkout/ShippingOptions'
+import type { ShippingOption } from '@/lib/shipping'
 import type { PaymentInfo } from '@/lib/payments'
 
 type Step = 'address' | 'payment' | 'confirmation'
@@ -64,7 +66,13 @@ export default function CheckoutPage() {
   })
 
   // Same rules the order API uses (src/lib/pricing.ts)
-  const totals = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: paymentMethod === 'pix' })
+  // Freight chosen in the payment step (quoted from the delivery CEP)
+  const [shippingOption, setShippingOption] = useState<ShippingOption | null>(null)
+  const totals = computeTotals(toCents(getTotal()), {
+    coupon: appliedCoupon,
+    pix: paymentMethod === 'pix',
+    shippingCents: shippingOption?.cents ?? 0,
+  })
   const subtotal = fromCents(totals.subtotal)
   const couponDiscount = fromCents(totals.coupon)
   const shipping = fromCents(totals.shipping)
@@ -130,6 +138,7 @@ export default function CheckoutPage() {
       body: JSON.stringify({
         paymentMethod: paymentMethod === 'credit' ? 'credit_card' : paymentMethod,
         couponCode: appliedCoupon?.code,
+        shippingOption: shippingOption?.id,
         taxId: taxId || undefined,
         // Lets the server refuse the order if prices changed since the page loaded
         expectedTotalCents: totals.total,
@@ -320,6 +329,12 @@ export default function CheckoutPage() {
                 Forma de Pagamento
               </h2>
 
+              <ShippingOptions
+                zipCode={address.zipCode}
+                items={items.map(item => ({ productId: item.product.id, quantity: item.quantity, variants: item.selectedVariants }))}
+                onChange={setShippingOption}
+              />
+
               {/* Payment Methods */}
               <div className="space-y-3 mb-6">
                 {/* PIX */}
@@ -368,7 +383,7 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <span className="text-gray-900 font-medium block">Cartão de Crédito</span>
-                        <span className="text-gray-500 text-sm">Em até 12x sem juros</span>
+                        <span className="text-gray-500 text-sm">À vista</span>
                       </div>
                     </div>
                     <div className={cn(
@@ -485,7 +500,7 @@ export default function CheckoutPage() {
                 )}
                 <div className="flex justify-between text-gray-500 text-sm">
                   <span>Frete</span>
-                  <span>{shipping === 0 ? 'Grátis' : formatCurrency(shipping)}</span>
+                  <span>{shippingOption ? formatCurrency(shipping) : '—'}</span>
                 </div>
                 {pixDiscount > 0 && (
                   <div className="flex justify-between text-tropical-green text-sm">
@@ -525,6 +540,7 @@ export default function CheckoutPage() {
                   size="lg"
                   onClick={handlePaymentSubmit}
                   isLoading={isProcessing}
+                  disabled={!shippingOption}
                 >
                   {paymentMethod === 'pix' ? 'Confirmar Pagamento PIX' : 'Finalizar Compra'}
                 </Button>

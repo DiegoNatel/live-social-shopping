@@ -3,7 +3,7 @@
 
 import type { Product, ProductVariant } from '@/types'
 
-export const FREE_SHIPPING_FROM_CENTS = 199_00
+// Flat shipping per seller when a real quote isn't available (see lib/shipping.ts)
 export const SHIPPING_CENTS = 19_90
 export const PIX_DISCOUNT_PERCENT = 5
 
@@ -19,10 +19,11 @@ export function couponDiscountCents(subtotalCents: number, coupon?: AppliedCoupo
   return Math.min(discount, coupon.maxDiscountCents ?? Infinity, subtotalCents)
 }
 
-export function computeTotals(subtotalCents: number, opts: { coupon?: AppliedCoupon | null; pix: boolean }) {
+// shippingCents: the freight option the buyer chose (0 until a CEP is known). Discounts
+// apply to the products only, never to shipping.
+export function computeTotals(subtotalCents: number, opts: { coupon?: AppliedCoupon | null; pix: boolean; shippingCents?: number }) {
   const coupon = couponDiscountCents(subtotalCents, opts.coupon)
-  // Free shipping is based on the products' price, before discounts
-  const shipping = subtotalCents >= FREE_SHIPPING_FROM_CENTS ? 0 : SHIPPING_CENTS
+  const shipping = opts.shippingCents ?? 0
   // PIX discount applies after the coupon
   const pix = opts.pix ? Math.round(((subtotalCents - coupon) * PIX_DISCOUNT_PERCENT) / 100) : 0
   return { subtotal: subtotalCents, coupon, shipping, pix, total: subtotalCents - coupon + shipping - pix }

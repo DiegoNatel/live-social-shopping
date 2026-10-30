@@ -30,6 +30,8 @@ export interface ProductInput {
   images: string[]
   tags: string[]
   variants: { type: 'size' | 'color'; name: string; value: string; stock: number; priceModifier: number }[]
+  // Shipping package; null values use DEFAULT_PACKAGE in lib/shipping.ts
+  package?: { weightG: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null }
 }
 
 export async function createProduct(sellerId: string, p: ProductInput) {
@@ -38,12 +40,14 @@ export async function createProduct(sellerId: string, p: ProductInput) {
   await db.batch([
     db
       .prepare(
-        `INSERT INTO products (id, seller_id, category_slug, name, description, price_cents, original_price_cents, stock, images, tags)
-         VALUES (?, ?, (SELECT slug FROM categories WHERE slug = ?), ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO products (id, seller_id, category_slug, name, description, price_cents, original_price_cents, stock, images, tags,
+                               weight_g, height_cm, width_cm, length_cm)
+         VALUES (?, ?, (SELECT slug FROM categories WHERE slug = ?), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         id, sellerId, p.category, p.name, p.description, cents(p.price),
-        p.originalPrice ? cents(p.originalPrice) : null, p.stock, JSON.stringify(p.images), JSON.stringify(p.tags)
+        p.originalPrice ? cents(p.originalPrice) : null, p.stock, JSON.stringify(p.images), JSON.stringify(p.tags),
+        p.package?.weightG ?? null, p.package?.heightCm ?? null, p.package?.widthCm ?? null, p.package?.lengthCm ?? null
       ),
     ...p.variants.map((v, i) =>
       db

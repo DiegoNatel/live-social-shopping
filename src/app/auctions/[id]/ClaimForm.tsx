@@ -7,6 +7,8 @@ import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PaymentPanel } from '@/components/checkout/PaymentPanel'
+import { ShippingOptions } from '@/components/checkout/ShippingOptions'
+import type { ShippingOption } from '@/lib/shipping'
 import type { PaymentInfo } from '@/lib/payments'
 import { cn, formatCurrency } from '@/lib/utils'
 import { computeTotals, fromCents, VARIANT_LABELS, VARIANT_TYPES } from '@/lib/pricing'
@@ -44,7 +46,9 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
       .catch(() => {})
   }, [])
 
-  const totals = computeTotals(priceCents, { pix: payment === 'pix' })
+  const [shippingOption, setShippingOption] = useState<ShippingOption | null>(null)
+  const totals = computeTotals(priceCents, { pix: payment === 'pix', shippingCents: shippingOption?.cents ?? 0 })
+  const zipCode = addresses.find(a => a.id === addressId)?.zipCode ?? ''
   const types = VARIANT_TYPES.filter(t => product.variants?.some(v => v.type === t))
   const missing = types.filter(t => !variants[t])
 
@@ -63,6 +67,7 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
         expectedTotalCents: totals.total,
         address,
         items: [{ productId: product.id, quantity: 1, variants }],
+        shippingOption: shippingOption?.id,
         taxId: taxId || undefined,
       }),
     })
@@ -149,6 +154,8 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
         )}
       </div>
 
+      {zipCode && <ShippingOptions zipCode={zipCode} items={[{ productId: product.id, quantity: 1 }]} onChange={setShippingOption} />}
+
       <div>
         <p className="text-sm text-gray-700 mb-1">Pagamento</p>
         <div className="flex flex-wrap gap-2">
@@ -174,7 +181,7 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
         </div>
         <div className="flex justify-between text-gray-500">
           <span>Frete</span>
-          <span>{totals.shipping ? formatCurrency(fromCents(totals.shipping)) : 'Grátis'}</span>
+          <span>{shippingOption ? formatCurrency(fromCents(totals.shipping)) : '—'}</span>
         </div>
         {totals.pix > 0 && (
           <div className="flex justify-between text-tropical-green-700">
@@ -196,7 +203,7 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
       )}
 
       {error && <p className="text-coral-pink text-sm">{error}</p>}
-      <Button fullWidth size="lg" isLoading={isSaving} onClick={submit} disabled={addresses.length === 0}>
+      <Button fullWidth size="lg" isLoading={isSaving} onClick={submit} disabled={addresses.length === 0 || !shippingOption}>
         Finalizar compra
       </Button>
     </div>
