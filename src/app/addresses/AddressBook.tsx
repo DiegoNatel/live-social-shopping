@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { MapPin, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
+import { lookupCep } from '@/lib/cep'
 import type { Address } from '@/types'
 
 const emptyForm = (name: string) => ({
@@ -36,27 +37,22 @@ export function AddressBook({ initial, defaultName }: { initial: Address[]; defa
   const set = (key: keyof ReturnType<typeof emptyForm>) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm(f => f && { ...f, [key]: e.target.type === 'checkbox' ? e.target.checked : e.target.value })
 
-  // Fills street/neighborhood/city/state from the CEP (ViaCEP, free public API)
-  const lookupCep = async (cep: string) => {
-    const digits = cep.replace(/\D/g, '')
-    if (digits.length !== 8) return
-    try {
-      const res = await fetch(`https://viacep.com.br/ws/${digits}/json/`)
-      const data = (await res.json()) as { erro?: boolean; logradouro?: string; bairro?: string; localidade?: string; uf?: string }
-      if (data.erro) return setError('CEP não encontrado')
-      setError('')
-      setForm(f =>
+  // Fills street/neighborhood/city/state from the CEP
+  const fillFromCep = async (cep: string) => {
+    const found = await lookupCep(cep)
+    if (!found) return
+    if (found === 'NOT_FOUND') return setError('CEP não encontrado')
+    setError('')
+    setForm(
+      f =>
         f && {
           ...f,
-          street: data.logradouro || f.street,
-          neighborhood: data.bairro || f.neighborhood,
-          city: data.localidade || f.city,
-          state: data.uf || f.state,
+          street: found.street || f.street,
+          neighborhood: found.neighborhood || f.neighborhood,
+          city: found.city || f.city,
+          state: found.state || f.state,
         }
-      )
-    } catch {
-      // Offline or ViaCEP down: the fields can still be typed in
-    }
+    )
   }
 
   const save = async (e: React.FormEvent) => {
@@ -138,7 +134,7 @@ export function AddressBook({ initial, defaultName }: { initial: Address[]; defa
                 value={form.zipCode}
                 onChange={e => {
                   set('zipCode')(e)
-                  lookupCep(e.target.value)
+                  fillFromCep(e.target.value)
                 }}
                 inputMode="numeric"
                 maxLength={9}

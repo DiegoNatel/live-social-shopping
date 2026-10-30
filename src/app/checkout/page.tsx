@@ -28,6 +28,7 @@ import {
 import { PixIcon } from '@/components/ui/Icons'
 import { authClient } from '@/lib/auth-client'
 import { PaymentPanel } from '@/components/checkout/PaymentPanel'
+import { lookupCep } from '@/lib/cep'
 import type { PaymentInfo } from '@/lib/payments'
 
 type Step = 'address' | 'payment' | 'confirmation'
@@ -96,6 +97,23 @@ export default function CheckoutPage() {
         }))
       })
   }, [session, sessionPending, router])
+
+  // Typing a full CEP fills street, neighborhood, city and state
+  const [cepError, setCepError] = useState('')
+  const changeCep = async (zipCode: string) => {
+    setAddress(a => ({ ...a, zipCode }))
+    const found = await lookupCep(zipCode)
+    if (!found) return setCepError('')
+    if (found === 'NOT_FOUND') return setCepError('CEP não encontrado')
+    setCepError('')
+    setAddress(a => ({
+      ...a,
+      street: found.street || a.street,
+      neighborhood: found.neighborhood || a.neighborhood,
+      city: found.city || a.city,
+      state: found.state || a.state,
+    }))
+  }
 
   const handleAddressSubmit = () => {
     setStep('payment')
@@ -225,8 +243,11 @@ export default function CheckoutPage() {
                 <Input
                   label="CEP"
                   placeholder="00000-000"
+                  inputMode="numeric"
+                  maxLength={9}
                   value={address.zipCode}
-                  onChange={(e) => setAddress({ ...address, zipCode: e.target.value })}
+                  onChange={(e) => changeCep(e.target.value)}
+                  error={cepError || undefined}
                 />
                 
                 <div className="grid grid-cols-3 gap-4">
@@ -543,9 +564,6 @@ export default function CheckoutPage() {
 
               {order && paymentSetup?.enabled && !paid && (
                 <div className="rounded-xl bg-white shadow-card p-4 mb-6">
-                  {order.paymentError && !order.payment && (
-                    <p className="text-gray-500 text-sm mb-3">{order.paymentError}</p>
-                  )}
                   <PaymentPanel orderId={order.id} initial={order.payment} onPaid={() => setPaid(true)} />
                 </div>
               )}

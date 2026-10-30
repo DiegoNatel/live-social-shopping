@@ -87,7 +87,6 @@ export function ClaimForm({ auctionId, product, priceCents, addresses }: ClaimFo
     return (
       <div className="bg-white rounded-md shadow-card p-6 space-y-4">
         <p className="text-gray-900 font-medium">Pedido {order.id} registrado</p>
-        {order.paymentError && !order.payment && <p className="text-gray-500 text-sm">{order.paymentError}</p>}
         <PaymentPanel orderId={order.id} initial={order.payment} onPaid={() => router.push('/orders')} />
       </div>
     )

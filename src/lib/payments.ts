@@ -237,8 +237,13 @@ export async function chargeOrder(
     return { ...info, pix: { image: qr.encodedImage, code: qr.payload, expiresAt: qr.expirationDate } }
   } catch (e) {
     if (e instanceof asaas.AsaasError) {
+      // Asaas's message is about VivoBuy's account (e.g. "sua conta precisa estar aprovada"):
+      // logged for us, not shown to buyers
       console.error('Asaas error', orderId, e.message)
-      throw new PaymentError('PROVIDER', `Não foi possível gerar o pagamento: ${e.message}`)
+      throw new PaymentError(
+        'PROVIDER',
+        'Não foi possível gerar o pagamento agora. Tente de novo em alguns minutos, ou cancele o pedido em "Meus pedidos" e escolha outra forma de pagamento.'
+      )
     }
     throw e
   }
