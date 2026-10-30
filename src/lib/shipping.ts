@@ -85,6 +85,9 @@ async function sellerServices(fromZip: string, toZip: string, lines: ShippingLin
     .sort((a, b) => a.cents - b.cents)
 }
 
+// Seller CEPs in logs: enough to debug a route, without the full address
+const fromZipLog = (zip: string) => `${zip.slice(0, 5)}-***`
+
 type SizeRow = { id: string; weight_g: number | null; height_cm: number | null; width_cm: number | null; length_cm: number | null }
 
 // The shipping options for these cart lines to a CEP. Throws ShippingError when an item
@@ -116,8 +119,12 @@ export async function quoteShipping(toZipRaw: string, lines: ShippingLine[]): Pr
         services = await sellerServices(seller.ship_from_zip, toZip, lines.filter(l => l.sellerId === sellerId), sizeById)
       } catch (e) {
         if (!(e instanceof me.MelhorEnvioError)) throw e
-        console.error('Melhor Envio quote failed', sellerId, e.message)
-        throw new ShippingError('Não foi possível calcular o frete agora. Tente de novo em instantes.')
+        console.error('Melhor Envio quote failed', sellerId, fromZipLog(seller.ship_from_zip), '->', toZip, e.message)
+        throw new ShippingError(
+          e.invalid
+            ? 'Não conseguimos calcular o frete para esse CEP. Confira se ele está certo.'
+            : 'Não foi possível calcular o frete agora. Tente de novo em instantes.'
+        )
       }
       if (services.length === 0) throw new ShippingError(`${seller.name} não entrega nesse CEP`)
       const tagged = services.map(s => ({ ...s, sellerId }))
@@ -134,7 +141,9 @@ export async function quoteShipping(toZipRaw: string, lines: ShippingLine[]): Pr
   }
   const economico = option('economico', 'Econômico', 'cheapest')
   const expresso = option('expresso', 'Expresso', 'fastest')
-  // Same services either way (one service available, or flat shipping): offer just one
+  // No real quote at all (Melhor Envio off, or no seller has a CEP): say it's a flat fee
+  if (economico.shipments.every(s => s.serviceId === null)) return [{ ...economico, label: 'Envio padrão' }]
+  // Same services either way (only one service available): offer just one
   const same = economico.shipments.every((s, i) => s.serviceId === expresso.shipments[i].serviceId)
   return same ? [economico] : [economico, expresso]
 }

@@ -81,7 +81,7 @@ export function ShippingOptions({
               <div className="flex-1">
                 <p className="text-gray-900 font-medium text-sm">{o.label}</p>
                 <p className="text-gray-500 text-xs">
-                  {o.days ? `Chega em até ${o.days} ${o.days > 1 ? 'dias úteis' : 'dia útil'}` : 'Prazo informado pelo vendedor'}
+                  {o.days ? `Chega em até ${o.days} ${o.days > 1 ? 'dias úteis' : 'dia útil'}` : o.label === 'Envio padrão' ? 'Valor fixo · prazo informado pelo vendedor' : 'Prazo informado pelo vendedor'}
                   {o.shipments.length === 1 && o.shipments[0].company ? ` · ${o.shipments[0].company} ${o.shipments[0].serviceName}` : ''}
                   {o.shipments.length > 1 ? ` · ${o.shipments.length} envios (um por vendedor)` : ''}
                 </p>
