@@ -21,11 +21,7 @@ export const metadata: Metadata = {
     title: 'VivoBuy - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
   },
-  manifest: '/manifest.json',
-  icons: {
-    icon: '/favicon.ico',
-    apple: '/apple-touch-icon.png',
-  },
+  // Icons and the manifest come from app/icon.png, apple-icon.png, favicon.ico and manifest.ts
 }
 
 export const viewport: Viewport = {

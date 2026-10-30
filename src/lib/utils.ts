@@ -34,6 +34,10 @@ export function calculateDiscount(original: number, current: number): number {
   return Math.round(((original - current) / original) * 100)
 }
 
+// Dates show in Brasília time on the server (UTC) and in every browser, so the server-rendered
+// HTML matches what the browser renders (otherwise React reports a hydration error)
+export const BR_TIME_ZONE = 'America/Sao_Paulo'
+
 // Format date to Brazilian format
 export function formatDate(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
@@ -41,6 +45,7 @@ export function formatDate(date: Date | string): string {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
+    timeZone: BR_TIME_ZONE,
   }).format(d)
 }
 
@@ -50,6 +55,7 @@ export function formatTime(date: Date | string): string {
   return new Intl.DateTimeFormat('pt-BR', {
     hour: '2-digit',
     minute: '2-digit',
+    timeZone: BR_TIME_ZONE,
   }).format(d)
 }
 
@@ -58,14 +64,20 @@ export function formatRelativeTime(date: Date | string): string {
   const d = typeof date === 'string' ? new Date(date) : date
   const now = new Date()
   const diff = now.getTime() - d.getTime()
-  const seconds = Math.floor(diff / 1000)
-  const minutes = Math.floor(seconds / 60)
-  const hours = Math.floor(minutes / 60)
-  const days = Math.floor(hours / 24)
+  const seconds = Math.trunc(diff / 1000)
+  const minutes = Math.trunc(seconds / 60)
+  const hours = Math.trunc(minutes / 60)
+  const days = Math.trunc(hours / 24)
 
-  if (days > 0) return `há ${days} dia${days > 1 ? 's' : ''}`
-  if (hours > 0) return `há ${hours} hora${hours > 1 ? 's' : ''}`
-  if (minutes > 0) return `há ${minutes} minuto${minutes > 1 ? 's' : ''}`
+  // Future dates (scheduled lives) read "em 2 horas"; past ones "há 2 horas"
+  const ago = (n: number, unit: string) => {
+    const abs = Math.abs(n)
+    const text = `${abs} ${unit}${abs > 1 ? 's' : ''}`
+    return n > 0 ? `há ${text}` : `em ${text}`
+  }
+  if (Math.abs(days) > 0) return ago(days, 'dia')
+  if (Math.abs(hours) > 0) return ago(hours, 'hora')
+  if (Math.abs(minutes) > 0) return ago(minutes, 'minuto')
   return 'agora mesmo'
 }
 

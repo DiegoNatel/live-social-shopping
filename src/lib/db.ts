@@ -282,7 +282,7 @@ export async function getStreams({
     title: r.title,
     description: r.description,
     host: toUser(r, 'host_'),
-    thumbnail: r.thumbnail ?? '',
+    thumbnail: r.thumbnail || byStream.get(r.id)?.[0]?.images[0] || '/icon.png',
     videoUrl: r.video_url ?? undefined,
     isLive: r.status === 'live',
     hasEnded: r.status === 'ended',

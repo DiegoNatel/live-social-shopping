@@ -117,7 +117,7 @@ export function HeroCarousel({ streams, autoPlay = true, interval = 5000 }: Hero
             </div>
 
             {/* CTA */}
-            <Link href={stream.isLive ? `/live/${stream.id}` : `/stream/${stream.id}`}>
+            <Link href={`/live/${stream.id}`}>
               <Button
                 leftIcon={<Play className="w-4 h-4" fill="currentColor" />}
                 size="md"
