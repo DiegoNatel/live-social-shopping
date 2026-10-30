@@ -8,7 +8,12 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 // acesso → Gerar token, scope shipping-calculate). Sandbox by default; MELHOR_ENVIO_ENV=production
 // for real quotes.
 
-export class MelhorEnvioError extends Error {}
+export class MelhorEnvioError extends Error {
+  // invalid: Melhor Envio refused the request's data (e.g. a CEP it doesn't know)
+  constructor(message: string, public invalid = false) {
+    super(message)
+  }
+}
 
 function config() {
   const env = getCloudflareContext().env
@@ -62,7 +67,10 @@ export async function calculate(fromZip: string, toZip: string, products: QuoteP
   })
   const data = (await res.json().catch(() => null)) as Service[] | { message?: string; errors?: unknown } | null
   if (!res.ok || !Array.isArray(data)) {
-    throw new MelhorEnvioError((data && !Array.isArray(data) && data.message) || `Melhor Envio respondeu ${res.status}`)
+    const body = data && !Array.isArray(data) ? data : null
+    // Validation errors list the fields Melhor Envio refused, e.g. {"to.postal_code": ["…"]}
+    const details = body?.errors ? ` ${JSON.stringify(body.errors)}` : ''
+    throw new MelhorEnvioError(`${body?.message || `Melhor Envio respondeu ${res.status}`}${details}`, res.status === 422)
   }
   return data
 }
