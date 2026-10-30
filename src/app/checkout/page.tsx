@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -79,6 +79,9 @@ export default function CheckoutPage() {
   const pixDiscount = fromCents(totals.pix)
   const total = fromCents(totals.total)
 
+  // CEP the street, number and complement on screen belong to
+  const filledCep = useRef('')
+
   // Checkout needs an account; prefill the last address used
   useEffect(() => {
     if (sessionPending) return
@@ -94,6 +97,7 @@ export default function CheckoutPage() {
       .then(res => (res.ok ? (res.json() as Promise<Record<string, string> | null>) : null))
       .then(saved => {
         if (!saved) return
+        filledCep.current ||= saved.zipCode.replace(/\D/g, '')
         setAddress(a => ({
           zipCode: a.zipCode || saved.zipCode,
           street: a.street || saved.street,
@@ -106,7 +110,9 @@ export default function CheckoutPage() {
       })
   }, [session, sessionPending, router])
 
-  // Typing a full CEP fills street, neighborhood, city and state
+  // Typing a full CEP fills street, neighborhood, city and state. A different CEP than the
+  // one filled in (e.g. the saved address) is a new address: its number and complement are
+  // cleared too, so the old ones aren't sent by mistake.
   const [cepError, setCepError] = useState('')
   const changeCep = async (zipCode: string) => {
     setAddress(a => ({ ...a, zipCode }))
@@ -114,13 +120,20 @@ export default function CheckoutPage() {
     if (!found) return setCepError('')
     if (found === 'NOT_FOUND') return setCepError('CEP não encontrado')
     setCepError('')
-    setAddress(a => ({
-      ...a,
-      street: found.street || a.street,
-      neighborhood: found.neighborhood || a.neighborhood,
-      city: found.city || a.city,
-      state: found.state || a.state,
-    }))
+    const digits = zipCode.replace(/\D/g, '')
+    const isNewAddress = digits !== filledCep.current
+    filledCep.current = digits
+    setAddress(a =>
+      isNewAddress
+        ? { ...a, street: found.street, neighborhood: found.neighborhood, city: found.city, state: found.state, number: '', complement: '' }
+        : {
+            ...a,
+            street: found.street || a.street,
+            neighborhood: found.neighborhood || a.neighborhood,
+            city: found.city || a.city,
+            state: found.state || a.state,
+          }
+    )
   }
 
   const handleAddressSubmit = () => {
