@@ -68,10 +68,20 @@ export default {
     return nextWorker.fetch(request, env, ctx)
   },
 
-  // Cron (every 5 minutes): ends abandoned lives, and hands auctions past their end without a
-  // winner (e.g. in streams nobody has opened since) to their room, which closes them as usual
-  async scheduled(_controller: ScheduledController, env: CloudflareEnv) {
+  // Cron (every 5 minutes): ends abandoned lives, cancels unpaid orders (in the Next app,
+  // which has the payment code), and hands auctions past their end without a winner (e.g. in
+  // streams nobody has opened since) to their room, which closes them as usual
+  async scheduled(_controller: ScheduledController, env: CloudflareEnv, ctx: ExecutionContext) {
     await endAbandonedLives(env).catch(e => console.error('Ending abandoned lives failed', e))
+    const expire = new Request('https://vivobuy.internal/api/internal/expire-orders', {
+      method: 'POST',
+      headers: { 'x-cron-key': env.BETTER_AUTH_SECRET },
+    })
+    await Promise.resolve(nextWorker.fetch(expire, env, ctx))
+      .then(async (res: Response) => {
+        if (!res.ok) console.error('Expiring unpaid orders failed', res.status, await res.text())
+      })
+      .catch((e: unknown) => console.error('Expiring unpaid orders failed', e))
     const { results } = await env.DB.prepare(
       `SELECT id, stream_id, ends_at FROM auctions
        WHERE status != 'ended' AND winner_id IS NULL AND ends_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now')

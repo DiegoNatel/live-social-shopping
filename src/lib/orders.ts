@@ -158,7 +158,9 @@ async function wonAuctionPrice(userId: string, input: NewOrderInput) {
   return new Map([[won.product_id, won.current_bid_cents]])
 }
 
-export async function createOrder(userId: string, input: NewOrderInput) {
+// notifySellers: tell sellers and hosts now. With online payment they're told once it's paid
+// (markPaid in lib/payments.ts), so nobody ships an order that was never paid.
+export async function createOrder(userId: string, input: NewOrderInput, { notifySellers = true } = {}) {
   const db = getDb()
   const fixedUnitPriceCents = input.auctionId ? await wonAuctionPrice(userId, input) : undefined
   const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items, { fixedUnitPriceCents })
@@ -235,10 +237,10 @@ export async function createOrder(userId: string, input: NewOrderInput) {
         userId, userId, input.address.zipCode, input.address.street, input.address.number
       ),
     notify(userId, 'order_update', 'Pedido recebido', `Seu pedido ${orderId} foi registrado e aguarda pagamento.`, '/orders'),
-    ...[...new Set(lines.map(l => l.sellerId))].map(sellerId =>
+    ...(notifySellers ? [...new Set(lines.map(l => l.sellerId))] : []).map(sellerId =>
       notify(sellerId, 'order_update', 'Novo pedido', `Você recebeu o pedido ${orderId}.`, '/seller/dashboard')
     ),
-    ...[...new Set([...splits.values()].map(s => s.hostId))].map(hostId =>
+    ...(notifySellers ? [...new Set([...splits.values()].map(s => s.hostId))] : []).map(hostId =>
       notify(hostId, 'order_update', 'Venda de convidado', `Um convidado vendeu na sua live (pedido ${orderId}).`, '/seller/dashboard')
     ),
   ]

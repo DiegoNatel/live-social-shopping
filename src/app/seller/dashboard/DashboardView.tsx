@@ -188,11 +188,10 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             color="sunset-gold"
           />
         </div>
-        {stats.hostRevenue > 0 && (
-          <p className="text-gray-500 text-xs -mt-4 mb-6">
-            A receita inclui {formatCurrency(stats.hostRevenue)} da sua parte nas vendas de convidados.
-          </p>
-        )}
+        <p className="text-gray-500 text-xs -mt-4 mb-6">
+          Receita e pedidos contam só vendas pagas, já descontada a taxa da VivoBuy.
+          {stats.hostRevenue > 0 && ` Inclui ${formatCurrency(stats.hostRevenue)} da sua parte nas vendas de convidados.`}
+        </p>
 
         {payout && <PayoutPanel walletId={payout.walletId} />}
 
