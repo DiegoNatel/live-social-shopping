@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { getSession } from '@/lib/auth'
 import { getOrders } from '@/lib/orders'
-import { formatCurrency } from '@/lib/utils'
+import { BR_TIME_ZONE, formatCurrency } from '@/lib/utils'
 import { variantLabel } from '@/lib/pricing'
 import { CancelOrderButton } from './CancelOrderButton'
 import { PayOrderButton } from './PayOrderButton'
@@ -57,7 +57,7 @@ export default async function OrdersPage() {
                   <span className="text-gray-900 font-medium font-mono">{order.id}</span>
                   <span className="text-gray-400">
                     {' · '}
-                    {new Date(order.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                    {new Date(order.createdAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric', timeZone: BR_TIME_ZONE })}
                   </span>
                 </div>
                 <span className={`text-xs font-medium px-2 py-0.5 rounded ${status.className}`}>{status.label}</span>

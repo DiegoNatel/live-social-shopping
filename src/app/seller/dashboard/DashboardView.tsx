@@ -10,7 +10,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { CreateAuctionModal, type AuctionFormData } from '@/components/auction/CreateAuctionModal'
-import { formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
+import { BR_TIME_ZONE, formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
 import type { User, Product, Stream, Auction } from '@/types'
 import type { SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
@@ -249,7 +249,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                       {nextStream.isLive
                         ? 'Ao vivo agora'
                         : nextStream.scheduledTime
-                          ? new Date(nextStream.scheduledTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+                          ? new Date(nextStream.scheduledTime).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short', timeZone: BR_TIME_ZONE })
                           : 'Sem data'}
                     </span>
                   </div>
@@ -444,7 +444,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                       <div className="min-w-0">
                         <p className="text-sm font-medium text-gray-900 line-clamp-1">{stream.title}</p>
                         <p className="text-xs text-gray-500">
-                          {stream.endedAt ? `Encerrada em ${new Date(stream.endedAt).toLocaleDateString('pt-BR')} · ` : ''}
+                          {stream.endedAt ? `Encerrada em ${new Date(stream.endedAt).toLocaleDateString('pt-BR', { timeZone: BR_TIME_ZONE })} · ` : ''}
                           {stream.videoUrl ? 'Ver gravação' : 'Sem gravação'}
                         </p>
                       </div>

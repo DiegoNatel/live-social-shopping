@@ -113,7 +113,7 @@ export function CourseCard({
             </div>
             <div className="flex items-center gap-1 text-gray-500">
               <Users className="w-4 h-4" />
-              <span>{course.studentsCount.toLocaleString()}</span>
+              <span>{course.studentsCount.toLocaleString('pt-BR')}</span>
             </div>
           </div>
           <div className="flex items-baseline gap-2 mt-3">
@@ -212,7 +212,7 @@ export function CourseCard({
           <span className="text-gray-300">•</span>
           <div className="flex items-center gap-1 text-gray-500">
             <Users className="w-3.5 h-3.5" />
-            <span>{course.studentsCount.toLocaleString()}</span>
+            <span>{course.studentsCount.toLocaleString('pt-BR')}</span>
           </div>
           <span className="text-gray-300">•</span>
           <div className="flex items-center gap-1 text-gray-500">
