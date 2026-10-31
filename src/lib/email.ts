@@ -9,7 +9,8 @@ import { getDb } from './db'
 // the site hides password recovery.
 
 const SENDER_NAME = 'VivoBuy'
-const SEND_PER_RUN = 50
+// Each send is a subrequest, and a Worker invocation only gets so many
+const SEND_PER_RUN = 30
 // Don't send old news (e.g. a backlog from before e-mail was set up)
 const MAX_AGE_HOURS = 24
 
@@ -52,7 +53,7 @@ async function send(to: { email: string; name?: string }, subject: string, text:
   })
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    throw new EmailError(`Brevo respondeu ${res.status}: ${detail.slice(0, 200)}`, res.status < 500 && res.status !== 401 && res.status !== 429)
+    throw new EmailError(`Brevo respondeu ${res.status}: ${detail.slice(0, 200)}`, res.status === 400)
   }
 }
 
