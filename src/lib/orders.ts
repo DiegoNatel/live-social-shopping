@@ -386,9 +386,10 @@ export function notify(
 ) {
   return getDb()
     .prepare(
-      `INSERT INTO notifications (id, user_id, type, title, message, action_url, image) VALUES (?, ?, ?, ?, ?, ?, ?)`
+      `INSERT INTO notifications (id, user_id, type, title, message, action_url, image, email_status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .bind(newId(), userId, type, title, message, actionUrl ?? null, image ?? null)
+    // Order news also goes by e-mail (sendPendingEmails in lib/email.ts)
+    .bind(newId(), userId, type, title, message, actionUrl ?? null, image ?? null, type === 'order_update' ? 'pending' : null)
 }
 
 export interface OrderSummary {

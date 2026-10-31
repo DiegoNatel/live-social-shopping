@@ -20,3 +20,6 @@ ASAAS_WEBHOOK_TOKEN=
 MELHOR_ENVIO_TOKEN=
 # MELHOR_ENVIO_ENV=production
 # MELHOR_ENVIO_CONTACT=voce@exemplo.com
+# Optional: e-mail (app.brevo.com → SMTP & API → API keys; EMAIL_FROM is a sender confirmed in Brevo)
+BREVO_API_KEY=
+EMAIL_FROM=

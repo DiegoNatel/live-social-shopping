@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 
 
-export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled: boolean; canRecoverPassword: boolean }) {
   const router = useRouter()
   
   
@@ -161,6 +161,11 @@ export function LoginForm({ googleEnabled }: { googleEnabled: boolean }) {
                   </button>
                 </div>
                 {errors.password && <p className="text-coral-pink text-sm mt-1">{errors.password}</p>}
+                {canRecoverPassword && (
+                  <Link href="/forgot-password" className="inline-block text-sky-blue text-sm mt-2 hover:underline">
+                    Esqueci minha senha
+                  </Link>
+                )}
               </div>
 
               {errors.form && <p className="text-coral-pink text-sm">{errors.form}</p>}
