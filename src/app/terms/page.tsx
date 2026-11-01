@@ -12,11 +12,11 @@ export default function TermsPage() {
         <Link href="/privacy">Política de privacidade</Link>.
       </p>
 
-      <h2>1. O que é o {COMPANY.brand}</h2>
+      <h2>1. O que é a {COMPANY.brand}</h2>
       <p>
-        O {COMPANY.brand} é um marketplace de compras ao vivo. Vendedores independentes apresentam produtos em transmissões e
+        A {COMPANY.brand} é um marketplace de compras ao vivo. Vendedores independentes apresentam produtos em transmissões e
         os compradores podem conversar, participar de enquetes e leilões e comprar pela plataforma. Salvo indicação em contrário,
-        o {COMPANY.brand} não é o vendedor dos produtos: atua como intermediador entre comprador e vendedor.
+        a {COMPANY.brand} não é a vendedora dos produtos: atua como intermediadora entre comprador e vendedor.
       </p>
 
       <h2>2. Conta</h2>

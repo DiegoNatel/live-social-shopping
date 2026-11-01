@@ -1,7 +1,7 @@
 // Company details shown on /terms, /privacy and /help.
 // TODO: replace the placeholders before launch (and have both documents reviewed by a lawyer).
 export const COMPANY = {
-  brand: 'VivoBuy',
+  brand: 'Luma',
   legalName: '[RAZÃO SOCIAL]',
   cnpj: '[CNPJ]',
   address: '[ENDEREÇO COMPLETO]',

@@ -59,7 +59,7 @@ export async function calculate(fromZip: string, toZip: string, products: QuoteP
       Accept: 'application/json',
       'Content-Type': 'application/json',
       // Required by Melhor Envio: app name and a contact email
-      'User-Agent': `VivoBuy (${c.contact})`,
+      'User-Agent': `Luma (${c.contact})`,
     },
     body: JSON.stringify({ from: { postal_code: fromZip }, to: { postal_code: toZip }, products }),
   }).catch((e: unknown) => {

@@ -17,7 +17,7 @@ export default async function ReferralPage() {
           <div>
             <h2 className="text-gray-900 font-semibold text-lg">Chame seus amigos para as lives</h2>
             <p className="text-gray-500 text-sm mt-1">
-              Compartilhe seu link. Quem entrar por ele cai direto na página de cadastro do VivoBuy.
+              Compartilhe seu link. Quem entrar por ele cai direto na página de cadastro da Luma.
             </p>
           </div>
           <InviteLink username={username} />

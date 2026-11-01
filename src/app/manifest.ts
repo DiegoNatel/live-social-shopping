@@ -1,10 +1,10 @@
 import type { MetadataRoute } from 'next'
 
-// Lets phones add VivoBuy to the home screen (served at /manifest.webmanifest)
+// Lets phones add Luma to the home screen (served at /manifest.webmanifest)
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'VivoBuy - Live Social Shopping',
-    short_name: 'VivoBuy',
+    name: 'Luma - Live Social Shopping',
+    short_name: 'Luma',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
     start_url: '/',
     display: 'standalone',

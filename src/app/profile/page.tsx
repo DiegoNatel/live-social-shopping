@@ -117,7 +117,7 @@ export default function ProfilePage() {
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
                 <Crown className="w-6 h-6 text-sunset-gold" />
-                <span className="text-gray-900 font-semibold">VivoBuy Gold</span>
+                <span className="text-gray-900 font-semibold">Luma Gold</span>
               </div>
               <span className="text-gray-700 text-sm">{stats.points} pts</span>
             </div>

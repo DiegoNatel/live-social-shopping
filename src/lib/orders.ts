@@ -34,7 +34,7 @@ export class OrderError extends Error {
 }
 
 const newId = () => crypto.randomUUID()
-const orderNumber = () => `VB-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`
+const orderNumber = () => `LM-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`
 
 export type CartItemInput = NewOrderInput['items'][number]
 
