@@ -73,6 +73,7 @@ export async function POST(request: Request) {
       expectedTotalCents: Number.isInteger(body.expectedTotalCents) ? body.expectedTotalCents : undefined,
       auctionId: str(body.auctionId, 64) ?? undefined,
       shippingOption,
+      installments: Number.isInteger(body.installments) ? body.installments : undefined,
       address,
     }, { notifySellers: !paymentsEnabled() })
     for (const streamId of order.flashStreamIds) {

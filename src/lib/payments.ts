@@ -67,6 +67,7 @@ type OrderRow = {
   payment_ref: string | null
   payment_url: string | null
   payment_env: string | null
+  installments: number
 }
 
 export type SplitPart = {
@@ -140,6 +141,7 @@ async function createSplitCharge(order: OrderRow, customer: string, parts: Split
       dueDate: brDate(DAYS_TO_PAY[order.payment_method]),
       description: `Pedido ${order.id} na Luma`,
       externalReference: order.id,
+      installments: order.installments,
       // Percent of the charge's value (Asaas takes its fee from each part in proportion)
       split: sent.map(p => ({ walletId: p.walletId!, percentualValue: Math.floor((p.cents / order.total_cents) * 1e6) / 1e4 })),
     })
@@ -201,7 +203,7 @@ export async function chargeOrder(
   const db = getDb()
   const order = await db
     .prepare(
-      `SELECT id, user_id, status, payment_method, total_cents, shipping_cents, payment_ref, payment_url, payment_env
+      `SELECT id, user_id, status, payment_method, total_cents, shipping_cents, payment_ref, payment_url, payment_env, installments
        FROM orders WHERE id = ? AND user_id = ?`
     )
     .bind(orderId, userId)
@@ -233,11 +235,14 @@ export async function chargeOrder(
       const { charge, parts } = await createSplitCharge(order, customer, await splitParts(order))
       // Two requests at once (double tap): keep the first charge, drop the other
       const saved = await db
-        .prepare('UPDATE orders SET payment_ref = ?, payment_url = ?, payment_split = ?, payment_env = ? WHERE id = ? AND payment_ref IS NULL')
-        .bind(charge.id, charge.invoiceUrl, JSON.stringify(parts), asaas.asaasEnv(), order.id)
+        .prepare(
+          `UPDATE orders SET payment_ref = ?, payment_installment = ?, payment_url = ?, payment_split = ?, payment_env = ?
+           WHERE id = ? AND payment_ref IS NULL`
+        )
+        .bind(charge.id, charge.installment ?? null, charge.invoiceUrl, JSON.stringify(parts), asaas.asaasEnv(), order.id)
         .run()
       if (saved.meta.changes === 0) {
-        await asaas.deleteCharge(charge.id).catch(() => {})
+        await removeCharge({ payment_ref: charge.id, payment_installment: charge.installment ?? null }).catch(() => {})
         return chargeOrder(userId, orderId)
       }
       chargeId = charge.id
@@ -303,13 +308,17 @@ export async function markPaid(chargeId: string) {
 const chargeHere = (o: { payment_ref: string | null; payment_env: string | null }) =>
   !!o.payment_ref && asaas.asaasEnabled() && o.payment_env === asaas.asaasEnv()
 
+// Removes an unpaid order's charge, or all of them if it's split into installments
+const removeCharge = (o: { payment_ref: string | null; payment_installment: string | null }) =>
+  o.payment_installment ? asaas.deleteInstallment(o.payment_installment) : asaas.deleteCharge(o.payment_ref!)
+
 // The buyer cancels an unpaid order. The order is cancelled before its charge is removed:
 // removing it makes Asaas send PAYMENT_DELETED right away, which must find it already cancelled.
 export async function cancelUnpaidOrder(userId: string, orderId: string): Promise<'cancelled' | 'paid' | 'not_pending'> {
   const order = await getDb()
-    .prepare(`SELECT payment_ref, payment_env FROM orders WHERE id = ? AND user_id = ? AND status = 'pending'`)
+    .prepare(`SELECT payment_ref, payment_installment, payment_env FROM orders WHERE id = ? AND user_id = ? AND status = 'pending'`)
     .bind(orderId, userId)
-    .first<{ payment_ref: string | null; payment_env: string | null }>()
+    .first<{ payment_ref: string | null; payment_installment: string | null; payment_env: string | null }>()
   if (!order) return 'not_pending'
   if (chargeHere(order)) {
     const charge = await asaas.getCharge(order.payment_ref!).catch(() => null)
@@ -319,12 +328,12 @@ export async function cancelUnpaidOrder(userId: string, orderId: string): Promis
     }
   }
   if (!(await cancelOrder(orderId, { userId }))) return 'not_pending'
-  if (chargeHere(order)) await deleteChargeQuietly(order.payment_ref!)
+  if (chargeHere(order)) await deleteChargeQuietly(order)
   return 'cancelled'
 }
 
-const deleteChargeQuietly = (id: string) =>
-  asaas.deleteCharge(id).catch(e => console.error('Could not delete Asaas charge', id, e))
+const deleteChargeQuietly = (o: { payment_ref: string | null; payment_installment: string | null }) =>
+  removeCharge(o).catch(e => console.error('Could not delete Asaas charge', o.payment_ref, e))
 
 // Cancels Pix and card orders not paid within PAY_WITHIN_MINUTES (run by the cron in
 // worker.ts), then removes their charge so it can't be paid afterwards.
@@ -333,13 +342,13 @@ export async function expireUnpaidOrders() {
   const since = (minutes: number) => `strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${minutes} minutes')`
   const { results } = await getDb()
     .prepare(
-      `SELECT id, payment_ref, payment_env FROM orders
+      `SELECT id, payment_ref, payment_installment, payment_env FROM orders
        WHERE status = 'pending' AND (
          (payment_method = 'pix' AND created_at <= ${since(PAY_WITHIN_MINUTES.pix)}) OR
          (payment_method = 'credit_card' AND created_at <= ${since(PAY_WITHIN_MINUTES.credit_card)}))
        LIMIT 50`
     )
-    .all<{ id: string; payment_ref: string | null; payment_env: string | null }>()
+    .all<{ id: string; payment_ref: string | null; payment_installment: string | null; payment_env: string | null }>()
   let cancelled = 0
   for (const order of results) {
     // A charge from the other Asaas (sandbox vs production) can't be paid any more: just cancel
@@ -354,13 +363,24 @@ export async function expireUnpaidOrders() {
     }
     if (!(await cancelOrder(order.id, { reason: 'expired' }))) continue
     cancelled++
-    if (chargeHere(order)) await deleteChargeQuietly(order.payment_ref!)
+    if (chargeHere(order)) await deleteChargeQuietly(order)
   }
   return cancelled
 }
 
-// Asaas webhook events about a charge (Asaas → Integrações → Webhooks)
-export async function handleChargeEvent(event: string, chargeId: string) {
+// The order behind an installment plan: its events can arrive on any installment
+async function planOrder(installmentId?: string | null) {
+  if (!installmentId) return null
+  return getDb()
+    .prepare('SELECT payment_ref, refund_status FROM orders WHERE payment_installment = ?')
+    .bind(installmentId)
+    .first<{ payment_ref: string; refund_status: string | null }>()
+}
+
+// Asaas webhook events about a charge (Asaas → Integrações → Webhooks). installmentId is the
+// plan when the charge is one of its installments. Most events only matter on the first
+// charge, which is the one the order keeps; the ones below that look at the plan don't.
+export async function handleChargeEvent(event: string, chargeId: string, installmentId?: string | null) {
   switch (event) {
     case 'PAYMENT_RECEIVED':
     case 'PAYMENT_CONFIRMED':
@@ -376,17 +396,22 @@ export async function handleChargeEvent(event: string, chargeId: string) {
       if (order) await cancelOrder(order.id, { reason: 'expired' })
       break
     }
-    case 'PAYMENT_REFUNDED':
-      await finishRefund(chargeId)
+    case 'PAYMENT_REFUNDED': {
+      // A refund or lost dispute of the whole plan; one installment refunded by hand in
+      // Asaas's panel doesn't refund the order
+      const plan = await planOrder(installmentId)
+      const whole = plan?.refund_status === 'processing' || plan?.refund_status === 'chargeback'
+      await finishRefund(whole ? plan.payment_ref : chargeId)
       break
+    }
     case 'PAYMENT_REFUND_DENIED':
       await refundDenied(chargeId)
       break
     case 'PAYMENT_CHARGEBACK_REQUESTED':
-      await chargebackOpened(chargeId)
+      await chargebackOpened((await planOrder(installmentId))?.payment_ref ?? chargeId)
       break
     case 'PAYMENT_AWAITING_CHARGEBACK_REVERSAL':
-      await chargebackWon(chargeId)
+      await chargebackWon((await planOrder(installmentId))?.payment_ref ?? chargeId)
       break
     // We only refund whole orders, so this was done by hand in Asaas's panel
     case 'PAYMENT_PARTIALLY_REFUNDED':

@@ -48,6 +48,9 @@ export interface Charge {
   status: ChargeStatus
   invoiceUrl: string
   value: number
+  // Set on a charge split into installments: the plan it belongs to. Each installment is its
+  // own charge, and creating a plan returns the first one.
+  installment?: string
 }
 
 export const createCustomer = (c: { name: string; cpfCnpj: string; email?: string; externalReference: string }) =>
@@ -60,9 +63,15 @@ export const createCharge = (c: {
   dueDate: string
   description: string
   externalReference: string
+  // Card only; above 1 the charge becomes a plan of this many installments, without interest
+  installments: number
   // Each part is a percentage of what's left after Asaas's fee; the rest stays with Luma
   split: { walletId: string; percentualValue: number }[]
-}) => call<Charge>('POST', '/payments', { ...c, split: c.split.length ? c.split : undefined })
+}) => {
+  const { installments, value, ...rest } = c
+  const amount = installments > 1 ? { installmentCount: installments, totalValue: value } : { value }
+  return call<Charge>('POST', '/payments', { ...rest, ...amount, split: c.split.length ? c.split : undefined })
+}
 
 export const getCharge = (id: string) => call<Charge>('GET', `/payments/${encodeURIComponent(id)}`)
 
@@ -83,8 +92,15 @@ export function getOwnWalletId() {
 
 export const deleteCharge = (id: string) => call<{ deleted: boolean }>('DELETE', `/payments/${encodeURIComponent(id)}`)
 
+// Removes every charge of a plan; deleting the first one would leave the rest
+export const deleteInstallment = (id: string) => call<{ deleted: boolean }>('DELETE', `/installments/${encodeURIComponent(id)}`)
+
 // Full refund of a Pix or card charge; the split parts are reversed with it
 export const refundCharge = (id: string) => call<Charge>('POST', `/payments/${encodeURIComponent(id)}/refund`, {})
+
+// Refunds a whole plan; refunding its first charge would only return one installment.
+// The answer doesn't say it's done: PAYMENT_REFUNDED does.
+export const refundInstallment = (id: string) => call<unknown>('POST', `/installments/${encodeURIComponent(id)}/refund`, {})
 
 // Boleto has no account to return to: requestUrl is where the buyer gives one
 export const refundBoleto = (id: string) => call<{ requestUrl: string }>('POST', `/payments/${encodeURIComponent(id)}/bankSlip/refund`, {})

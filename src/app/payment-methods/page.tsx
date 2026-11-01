@@ -2,6 +2,7 @@ import { CreditCard, FileText } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { PixIcon } from '@/components/ui/Icons'
 import { PIX_DISCOUNT_PERCENT } from '@/lib/pricing'
+import { MAX_INSTALLMENTS, MIN_INSTALLMENT_CENTS } from '@/lib/fees'
 
 const METHODS = [
   {
@@ -12,7 +13,7 @@ const METHODS = [
   {
     icon: <CreditCard className="w-6 h-6 text-sky-blue" />,
     name: 'Cartão de crédito',
-    text: 'Em até 12x. Os dados do cartão são digitados no momento da compra.',
+    text: `Em até ${MAX_INSTALLMENTS}x sem juros, com parcela mínima de R$ ${MIN_INSTALLMENT_CENTS / 100}. Os dados do cartão são digitados no momento da compra.`,
   },
   {
     icon: <FileText className="w-6 h-6 text-gray-500" />,

@@ -111,6 +111,7 @@ export default async function OrdersPage() {
               <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100 text-sm">
                 <span className="text-gray-500">
                   {PAYMENT_LABELS[order.paymentMethod]}
+                  {order.installments > 1 && ` em ${order.installments}x`}
                   {order.status === 'pending' && (
                     <>
                       {canPay && (

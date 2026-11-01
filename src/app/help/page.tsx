@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { TextPage } from '@/components/layout/TextPage'
 import { COMPANY } from '@/lib/company'
 import { PIX_DISCOUNT_PERCENT } from '@/lib/pricing'
+import { MAX_INSTALLMENTS, MIN_INSTALLMENT_CENTS } from '@/lib/fees'
 import { formatCurrency } from '@/lib/utils'
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
@@ -13,7 +14,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
     q: 'Quais as formas de pagamento?',
     a: (
       <>
-        PIX (com {PIX_DISCOUNT_PERCENT}% de desconto), cartão de crédito em até 12x e boleto. Veja{' '}
+        PIX (com {PIX_DISCOUNT_PERCENT}% de desconto), cartão de crédito em até {MAX_INSTALLMENTS}x sem juros (parcela mínima de R$ {MIN_INSTALLMENT_CENTS / 100}) e boleto. Veja{' '}
         <Link href="/payment-methods">formas de pagamento</Link>.
       </>
     ),

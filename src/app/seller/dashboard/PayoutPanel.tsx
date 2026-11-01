@@ -48,7 +48,7 @@ export function PayoutPanel({ walletId }: { walletId: string | null }) {
       <p className="text-gray-500 text-sm mb-3">
         Os pagamentos são feitos pelo Asaas. Crie uma conta grátis em asaas.com e cole aqui o ID da sua carteira
         (Asaas → Minha conta → Integrações). A cada venda paga, sua parte cai direto lá, já descontada a taxa da Luma de{' '}
-        {PLATFORM_FEE_PERCENT}%.
+        {PLATFORM_FEE_PERCENT}%. Em vendas parceladas, sua parte cai mês a mês, a cada parcela, e a taxa do Asaas sai de cada parte da venda.
       </p>
       <Input placeholder="00000000-0000-0000-0000-000000000000" value={value} onChange={e => setValue(e.target.value)} />
       {error && <p className="text-coral-pink text-sm mt-2">{error}</p>}
