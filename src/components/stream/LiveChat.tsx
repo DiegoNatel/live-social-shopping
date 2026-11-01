@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
+import { ReportButton } from '@/components/moderation/ReportButton'
 import { cn } from '@/lib/utils'
 import { CHAT_MAX_LENGTH } from '@/realtime/protocol'
 import type { RoomStatus } from '@/hooks/useLiveRoom'
@@ -86,6 +87,7 @@ export function LiveChat({ messages, status, canChat, ended, isHost, hostId, err
               message={message}
               isFromHost={message.user.id === hostId}
               onDelete={isHost ? () => onDelete(message.id) : undefined}
+              canReport={!isHost}
             />
           ))}
         </AnimatePresence>
@@ -178,10 +180,12 @@ function ChatMessageItem({
   message,
   isFromHost,
   onDelete,
+  canReport,
 }: {
   message: ChatMessage
   isFromHost: boolean
   onDelete?: () => void
+  canReport: boolean
 }) {
   const { user, message: text, type, isPinned } = message
 
@@ -225,6 +229,14 @@ function ChatMessageItem({
         >
           <Trash2 className="w-3.5 h-3.5" />
         </button>
+      )}
+      {canReport && (
+        <ReportButton
+          type="message"
+          id={message.id}
+          iconClassName="w-3.5 h-3.5"
+          className="lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 w-6 h-6 flex items-center justify-center text-white/40 hover:text-coral-pink"
+        />
       )}
     </motion.div>
   )

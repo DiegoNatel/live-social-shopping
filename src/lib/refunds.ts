@@ -60,7 +60,7 @@ export async function requestRefund(userId: string, orderId: string): Promise<'r
   }
 
   const claimed = await db
-    .prepare(`UPDATE orders SET refund_status = 'requested' WHERE id = ? AND refund_status IS NULL`)
+    .prepare(`UPDATE orders SET refund_status = 'requested', refund_requested_at = ${NOW} WHERE id = ? AND refund_status IS NULL`)
     .bind(orderId)
     .run()
   if (claimed.meta.changes === 0) return 'not_refundable'

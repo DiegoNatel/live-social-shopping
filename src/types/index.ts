@@ -29,6 +29,7 @@ export interface Product {
   tags?: string[]
   itemType?: ItemType // 'product' by default
   isActive?: boolean // false when the seller paused it (only in the seller's own lists)
+  isBlocked?: boolean // removed by moderation: the seller can't reactivate it
   // Set while a flash sale is running; price is already the sale price
   flashSale?: { id: string; discountPercent: number; endsAt: string; remaining: number; regularPrice: number }
 }

@@ -16,8 +16,11 @@ const cents = (reais: number) => Math.round(reais * 100)
 export async function requireSeller(): Promise<string | Response> {
   const session = await getSession()
   if (!session) return new Response('Unauthorized', { status: 401 })
-  const row = await getDb().prepare('SELECT is_seller FROM users WHERE id = ?').bind(session.user.id).first<{ is_seller: number }>()
-  if (!row?.is_seller) return new Response('Forbidden', { status: 403 })
+  const row = await getDb()
+    .prepare('SELECT is_seller, banned_at FROM users WHERE id = ?')
+    .bind(session.user.id)
+    .first<{ is_seller: number; banned_at: string | null }>()
+  if (!row?.is_seller || row.banned_at) return new Response('Forbidden', { status: 403 })
   return session.user.id
 }
 
@@ -83,7 +86,7 @@ export async function updateProduct(
       `UPDATE products SET
          price_cents = coalesce(?, price_cents),
          stock = coalesce(?, stock),
-         is_active = coalesce(?, is_active)
+         is_active = CASE WHEN blocked_at IS NULL THEN coalesce(?, is_active) ELSE 0 END
        WHERE id = ? AND seller_id = ?`
     )
     .bind(

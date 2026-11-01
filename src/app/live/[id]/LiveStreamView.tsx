@@ -10,6 +10,7 @@ import { LiveBadge, ViewersBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ProductCarousel } from '@/components/stream/ProductCarousel'
 import { LiveChat } from '@/components/stream/LiveChat'
+import { ReportButton } from '@/components/moderation/ReportButton'
 import { FloatingReactions, useFloatingReactions } from '@/components/stream/FloatingReactions'
 import { PollWidget } from '@/components/stream/PollWidget'
 import { FlashSaleTimer } from '@/components/stream/FlashSaleTimer'
@@ -390,6 +391,11 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               >
                 <Share2 className="w-5 h-5" />
               </button>
+              <ReportButton
+                type="stream"
+                id={stream.id}
+                className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white"
+              />
             </div>
           </div>
 
@@ -567,6 +573,11 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   >
                     <Share2 className="w-5 h-5" />
                   </button>
+                  <ReportButton
+                    type="stream"
+                    id={stream.id}
+                    className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
+                  />
                   <button
                     onClick={toggleFullscreen}
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"

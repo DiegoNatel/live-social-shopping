@@ -23,3 +23,5 @@ MELHOR_ENVIO_TOKEN=
 # Optional: e-mail (app.brevo.com → SMTP & API → API keys; EMAIL_FROM is a sender confirmed in Brevo)
 BREVO_API_KEY=
 EMAIL_FROM=
+# Optional: accounts with access to /admin (comma-separated e-mails)
+ADMIN_EMAILS=

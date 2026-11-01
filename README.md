@@ -164,6 +164,17 @@ they wait for the next run. Anything older than a day is dropped.
 Without them nothing is sent and "Esqueci minha senha" doesn't appear. A sender on your own domain
 (authenticated in Brevo) lands in the inbox far more often than a Gmail address.
 
+### Moderation
+
+Signed-in users report products, lives and chat messages with the flag icon. Admins decide at `/admin`:
+dismiss, remove the content, or remove it and ban the account (no login, no chat, products and lives taken
+down; lifting the ban restores the products and recordings, but not lives the ban ended or cancelled). The same page lists orders that need a person: returns a seller
+never confirmed, refused refunds and a banned seller's unshipped orders. Removed content is hidden, not
+deleted. The chat refuses a short list of words, and viewers' links and phone numbers (`src/realtime/chat-filter.ts`).
+
+Set the secret `ADMIN_EMAILS` to the admins' e-mails (comma-separated). Sign-up doesn't verify e-mails, so
+create those accounts before adding them.
+
 ### Before launch
 
 `/terms`, `/privacy` and `/help` show placeholders (company name, CNPJ, address, contact e-mails) defined in `src/lib/company.ts`. Fill them in and have the terms and privacy policy reviewed by a lawyer.

@@ -14,11 +14,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const [stream, user] = await Promise.all([
     db.prepare('SELECT host_id FROM streams WHERE id = ?').bind(id).first<{ host_id: string }>(),
     db
-      .prepare('SELECT name, username, avatar, is_verified FROM users WHERE id = ?')
+      .prepare('SELECT name, username, avatar, is_verified, banned_at FROM users WHERE id = ?')
       .bind(session.user.id)
-      .first<{ name: string; username: string; avatar: string | null; is_verified: number }>(),
+      .first<{ name: string; username: string; avatar: string | null; is_verified: number; banned_at: string | null }>(),
   ])
   if (!stream || !user) return new Response('Not found', { status: 404 })
+  if (user.banned_at) return Response.json({ ticket: null })
 
   const ticket = await signTicket(
     {

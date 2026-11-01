@@ -62,7 +62,12 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
 
     if (error) {
       setErrors({
-        form: error.status === 401 ? 'E-mail ou senha incorretos' : 'Não foi possível entrar. Tente novamente.',
+        form:
+          error.status === 401
+            ? 'E-mail ou senha incorretos'
+            : error.status === 403
+              ? 'Esta conta foi suspensa por violar as regras da Luma.'
+              : 'Não foi possível entrar. Tente novamente.',
       })
       setIsLoading(false)
       return
