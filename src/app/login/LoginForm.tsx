@@ -5,6 +5,7 @@ import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { authClient } from '@/lib/auth-client'
 import { loadSession } from '@/components/auth/SessionSync'
 import { GoogleButton, OrDivider } from '@/components/auth/GoogleButton'
@@ -103,7 +104,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 300 }}
               >
-                <span className="text-white font-semibold text-xl">V</span>
+                <BrandMark className="w-full h-full" />
               </motion.div>
               <h1 className="text-2xl font-semibold text-gray-900 mb-1">
                 Bem-vindo de volta!

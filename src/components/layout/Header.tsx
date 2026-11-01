@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Bell, ShoppingCart, Search, Home, LayoutDashboard, PackagePlus, Radio, Store } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
+import { BrandMark } from '@/components/ui/BrandMark'
 import { useCartStore, useNotificationStore, useUserStore } from '@/store'
 import { cn } from '@/lib/utils'
 import { useMode } from './ModeProvider'
@@ -83,7 +84,7 @@ export function Header({
             ) : (
               <Link href={home} className="flex items-center gap-2">
                 <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
-                  <span className="text-white font-semibold text-sm">V</span>
+                  <BrandMark className="w-full h-full" />
                 </div>
                 {/* In seller mode the phone header needs the room for the seller menu */}
                 <span className={cn('font-semibold text-lg text-gray-900', seller && 'hidden sm:inline')}>
