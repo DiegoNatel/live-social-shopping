@@ -83,7 +83,7 @@ export function Header({
               </Link>
             ) : (
               <Link href={home} className="flex items-center gap-2">
-                <div className="w-7 h-7 rounded-md bg-primary flex items-center justify-center">
+                <div className="w-7 h-7 rounded-md bg-black flex items-center justify-center">
                   <BrandMark className="w-full h-full" />
                 </div>
                 {/* In seller mode the phone header needs the room for the seller menu */}

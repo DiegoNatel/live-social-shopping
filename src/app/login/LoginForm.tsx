@@ -99,7 +99,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
             {/* Logo */}
             <div className="text-center mb-8">
               <motion.div
-                className="w-12 h-12 rounded-md bg-primary mx-auto mb-4 flex items-center justify-center"
+                className="w-12 h-12 rounded-md bg-black mx-auto mb-4 flex items-center justify-center"
                 initial={{ scale: 0.5, rotate: -10 }}
                 animate={{ scale: 1, rotate: 0 }}
                 transition={{ type: 'spring', stiffness: 300 }}
