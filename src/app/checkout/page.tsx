@@ -12,6 +12,7 @@ import { useFreshCart } from '@/hooks/useFreshCart'
 import { useCartStore, useUserStore } from '@/store'
 import { formatCurrency } from '@/lib/utils'
 import { computeTotals, toCents, fromCents, unitPrice, variantLabel } from '@/lib/pricing'
+import { maxInstallments } from '@/lib/fees'
 import { cn } from '@/lib/utils'
 import {
   ChevronLeft,
@@ -78,6 +79,11 @@ export default function CheckoutPage() {
   const shipping = fromCents(totals.shipping)
   const pixDiscount = fromCents(totals.pix)
   const total = fromCents(totals.total)
+
+  // Card installments, without interest; the choice is capped as the total changes
+  const [chosenInstallments, setChosenInstallments] = useState(1)
+  const installmentLimit = maxInstallments(totals.total)
+  const installments = Math.min(chosenInstallments, installmentLimit)
 
   // CEP the street, number and complement on screen belong to
   const filledCep = useRef('')
@@ -153,6 +159,7 @@ export default function CheckoutPage() {
         couponCode: appliedCoupon?.code,
         shippingOption: shippingOption?.id,
         taxId: taxId || undefined,
+        installments: paymentMethod === 'credit' ? installments : undefined,
         // Lets the server refuse the order if prices changed since the page loaded
         expectedTotalCents: totals.total,
         address,
@@ -396,7 +403,9 @@ export default function CheckoutPage() {
                       </div>
                       <div>
                         <span className="text-gray-900 font-medium block">Cartão de Crédito</span>
-                        <span className="text-gray-500 text-sm">À vista</span>
+                        <span className="text-gray-500 text-sm">
+                          {installmentLimit > 1 ? `Em até ${installmentLimit}x sem juros` : 'À vista'}
+                        </span>
                       </div>
                     </div>
                     <div className={cn(
@@ -437,6 +446,23 @@ export default function CheckoutPage() {
                   </div>
                 </button>
               </div>
+
+              {paymentMethod === 'credit' && installmentLimit > 1 && (
+                <label className="block mb-4 text-sm font-medium text-gray-700">
+                  Parcelas
+                  <select
+                    value={installments}
+                    onChange={e => setChosenInstallments(Number(e.target.value))}
+                    className="mt-1 w-full h-12 px-3 rounded-xl border border-gray-300 bg-white text-gray-900 font-normal"
+                  >
+                    {Array.from({ length: installmentLimit }, (_, i) => i + 1).map(n => (
+                      <option key={n} value={n}>
+                        {n === 1 ? `À vista: ${formatCurrency(total)}` : `${n}x de ${formatCurrency(total / n)} sem juros`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
 
               {/* Payment Details */}
               {paymentMethod === 'pix' && (

@@ -9,7 +9,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { ReportButton } from '@/components/moderation/ReportButton'
 import { useUIStore, useCartStore, useUserStore } from '@/store'
-import { formatCurrency, calculateDiscount, calculateInstallments } from '@/lib/utils'
+import { formatCurrency, calculateDiscount, installmentOffer } from '@/lib/utils'
 import { availableStock, missingVariantTypes, unitPrice, VARIANT_LABELS } from '@/lib/pricing'
 import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield, Zap } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
@@ -36,7 +36,7 @@ export function ProductModal() {
   const price = unitPrice(product, selectedVariants)
   const stock = availableStock(product, selectedVariants)
   const missing = missingVariantTypes(product, selectedVariants)
-  const installments = calculateInstallments(price * quantity)
+  const installments = installmentOffer(price * quantity)
   const pixPrice = price * quantity * 0.95
 
   const sizeVariants = product.variants?.filter(v => v.type === 'size') || []
@@ -213,9 +213,11 @@ export function ProductModal() {
                     </div>
                     
                     {/* Installments */}
-                    <p className="text-gray-500 text-sm mt-2">
-                      ou em até <strong>12x de {formatCurrency(installments[11]?.value || price / 12)}</strong>
-                    </p>
+                    {installments && (
+                      <p className="text-gray-500 text-sm mt-2">
+                        ou em até <strong>{installments}</strong>
+                      </p>
+                    )}
                   </div>
 
                   {/* Seller */}

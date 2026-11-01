@@ -129,6 +129,11 @@ id in the dashboard), minus Luma's fee (`src/lib/fees.ts`); the rest stays in Lu
 
 Without `ASAAS_API_KEY`, orders are registered and wait for payment, as before.
 
+**Card installments** go up to `MAX_INSTALLMENTS`, with no interest and at least `MIN_INSTALLMENT_CENTS` each
+(`src/lib/fees.ts`). Asaas makes one charge per installment: the order keeps the first in `payment_ref` and the
+plan in `payment_installment`, and refunds and deletions act on the plan. Sellers receive each installment as
+it's paid, and Asaas's fee comes out of every part of the sale.
+
 **Refunds** (`src/lib/refunds.ts`) always return the whole order. Before shipping, the buyer cancels in
 "Meus pedidos" and the money goes back right away. After shipping (up to 30 days, `REFUND_WINDOW_DAYS`), the
 buyer asks, the seller arranges the return and confirms "Recebi de volta" in the dashboard, and that sends the
@@ -261,7 +266,7 @@ The platform is fully localized for Brazilian Portuguese (pt-BR):
 ## 🔐 Payment Methods
 
 - **PIX** - Instant payment with 5% discount
-- **Credit Card** - Up to 12x installments
+- **Credit Card** - Up to 12x without interest (R$ 10 minimum per installment)
 - **Boleto Bancário** - Bank slip payment
 - **Digital Wallets** - Mercado Pago, PicPay
 

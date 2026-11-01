@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { formatCurrency, calculateDiscount } from '@/lib/utils'
+import { formatCurrency, calculateDiscount, installmentOffer } from '@/lib/utils'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { useCartStore, useUIStore, useUserStore } from '@/store'
@@ -138,9 +138,9 @@ export function ProductCard({
               </span>
             )}
           </div>
-          <p className="text-gray-400 text-xs mt-1">
-            em até 12x de {formatCurrency(product.price / 12)}
-          </p>
+          {installmentOffer(product.price) && (
+            <p className="text-gray-400 text-xs mt-1">em até {installmentOffer(product.price)}</p>
+          )}
         </div>
       </motion.div>
     )
@@ -216,9 +216,9 @@ export function ProductCard({
         </div>
 
         {/* Installments */}
-        <p className="text-gray-600 text-xs mt-0.5">
-          em até 12x de {formatCurrency(product.price / 12)}
-        </p>
+        {installmentOffer(product.price) && (
+          <p className="text-gray-600 text-xs mt-0.5">em até {installmentOffer(product.price)}</p>
+        )}
 
         {/* PIX discount */}
         <p className="text-tropical-green text-xs font-semibold mt-1">

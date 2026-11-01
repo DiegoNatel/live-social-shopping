@@ -106,10 +106,10 @@ export async function refundOrder(orderId: string) {
       `UPDATE orders SET refund_status = 'processing', refund_attempted_at = ${NOW}
        WHERE id = ? AND payment_ref IS NOT NULL AND refunded_at IS NULL
          AND (refund_status IS NULL OR refund_status IN ('requested', 'failed'))
-       RETURNING user_id, payment_ref, payment_method`
+       RETURNING user_id, payment_ref, payment_installment, payment_method`
     )
     .bind(orderId)
-    .first<{ user_id: string; payment_ref: string; payment_method: string }>()
+    .first<{ user_id: string; payment_ref: string; payment_installment: string | null; payment_method: string }>()
   if (!order) return
   try {
     if (order.payment_method === 'boleto') {
@@ -118,6 +118,10 @@ export async function refundOrder(orderId: string) {
         db.prepare('UPDATE orders SET refund_url = ? WHERE id = ?').bind(requestUrl, orderId),
         notify(order.user_id, 'order_update', 'Informe sua conta para o reembolso', `Para devolver o valor do pedido ${orderId}, preencha seus dados bancários no link em "Meus pedidos".`, '/orders'),
       ])
+      return
+    }
+    if (order.payment_installment) {
+      await asaas.refundInstallment(order.payment_installment)
       return
     }
     const charge = await asaas.refundCharge(order.payment_ref)

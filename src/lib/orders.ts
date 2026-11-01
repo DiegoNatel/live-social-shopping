@@ -6,6 +6,7 @@ import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
 import { liveSplits, HOST_SHARE } from './guests'
 import { quoteShipping, ShippingError, type ShippingOptionId } from './shipping'
 import { canRefund, type RefundStatus } from './refunds'
+import { maxInstallments } from './fees'
 import { asaasEnv } from './payments/asaas'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
@@ -22,6 +23,8 @@ export interface NewOrderInput {
   auctionId?: string
   // Freight option chosen at checkout (quoted again here, so the price can't be tampered with)
   shippingOption: ShippingOptionId
+  // Card only; checked against the total here
+  installments?: number
 }
 
 export class OrderError extends Error {
@@ -194,17 +197,22 @@ export async function createOrder(userId: string, input: NewOrderInput, { notify
     throw new OrderError('PRICE_CHANGED', 'Os preços mudaram. Confira o novo total antes de finalizar.')
   }
 
+  const installments = input.paymentMethod === 'credit_card' ? (input.installments ?? 1) : 1
+  if (installments < 1 || installments > maxInstallments(totals.total)) {
+    throw new OrderError('INVALID', 'Número de parcelas inválido para este valor')
+  }
+
   const orderId = orderNumber()
   const statements = [
     db
       .prepare(
         `INSERT INTO orders (id, user_id, status, payment_method, subtotal_cents, shipping_cents,
-                             discount_cents, total_cents, shipping_address, coupon_code, coupon_discount_cents, auction_id)
-         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                             discount_cents, total_cents, shipping_address, coupon_code, coupon_discount_cents, auction_id, installments)
+         VALUES (?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .bind(
         orderId, userId, input.paymentMethod, subtotal, totals.shipping, totals.coupon + totals.pix, totals.total,
-        JSON.stringify(input.address), coupon?.code ?? null, totals.coupon, input.auctionId ?? null
+        JSON.stringify(input.address), coupon?.code ?? null, totals.coupon, input.auctionId ?? null, installments
       ),
     // coupons has CHECK (uses_count <= max_uses) and orders has a unique (user, coupon) index,
     // so an exhausted or already-used coupon rolls the whole order back
@@ -396,6 +404,7 @@ export interface OrderSummary {
   id: string
   status: OrderStatus
   paymentMethod: PaymentMethod
+  installments: number
   total: number
   createdAt: string
   items: { name: string; quantity: number; unitPrice: number; variants?: Record<string, string>; image?: string }[]
@@ -411,7 +420,7 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
   const { results } = await getDb()
     .prepare(
       `SELECT o.id, o.status, o.payment_method, o.total_cents, o.created_at, o.paid_at, o.payment_ref,
-              o.payment_env, o.refund_status, o.refund_url, oi.name, oi.quantity, oi.unit_price_cents, oi.variants, json_extract(p.images, '$[0]') AS image
+              o.payment_env, o.installments, o.refund_status, o.refund_url, oi.name, oi.quantity, oi.unit_price_cents, oi.variants, json_extract(p.images, '$[0]') AS image
        FROM orders o
        JOIN order_items oi ON oi.order_id = o.id
        LEFT JOIN products p ON p.id = oi.product_id
@@ -430,6 +439,7 @@ export async function getOrders(userId: string): Promise<OrderSummary[]> {
         id: r.id,
         status: r.status,
         paymentMethod: r.payment_method,
+        installments: r.installments,
         total: r.total_cents / 100,
         createdAt: r.created_at,
         items: [],
