@@ -7,6 +7,7 @@ import * as Dialog from '@radix-ui/react-dialog'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
 import { DiscountBadge } from '@/components/ui/Badge'
+import { ReportButton } from '@/components/moderation/ReportButton'
 import { useUIStore, useCartStore, useUserStore } from '@/store'
 import { formatCurrency, calculateDiscount, calculateInstallments } from '@/lib/utils'
 import { availableStock, missingVariantTypes, unitPrice, VARIANT_LABELS } from '@/lib/pricing'
@@ -220,10 +221,17 @@ export function ProductModal() {
                   {/* Seller */}
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-6">
                     <Avatar src={product.seller.avatar} alt={product.seller.name} size="md" isVerified={product.seller.isVerified} />
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-deep-ocean font-medium">{product.seller.name}</p>
                       <p className="text-gray-500 text-sm">Vendido e entregue por</p>
                     </div>
+                    <ReportButton
+                      type="product"
+                      id={product.id}
+                      label="Denunciar"
+                      iconClassName="w-4 h-4"
+                      className="flex items-center gap-1 text-gray-400 text-xs hover:text-coral-pink"
+                    />
                   </div>
 
                   {/* Color variants */}

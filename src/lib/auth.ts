@@ -1,5 +1,6 @@
 import 'server-only'
 import { betterAuth } from 'better-auth'
+import { APIError } from 'better-auth/api'
 import { nextCookies } from 'better-auth/next-js'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { headers } from 'next/headers'
@@ -74,6 +75,16 @@ function createAuth(env: CloudflareEnv) {
       fields: { expiresAt: 'expires_at', ...timestamps },
     },
     databaseHooks: {
+      session: {
+        create: {
+          // Banned accounts can't sign in by any method (lib/moderation.ts)
+          before: async session => {
+            const user = await env.DB.prepare('SELECT banned_at FROM users WHERE id = ?').bind(session.userId).first<{ banned_at: string | null }>()
+            if (user?.banned_at) throw new APIError('FORBIDDEN', { message: 'Conta suspensa', code: 'ACCOUNT_BANNED' })
+            return { data: session }
+          },
+        },
+      },
       user: {
         create: {
           // users.username is required and unique; derive one from the email

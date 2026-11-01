@@ -5,6 +5,7 @@
 import { DurableObject } from 'cloudflare:workers'
 import { CHAT_MAX_LENGTH, REACTION_EMOJIS, type ClientMessage, type RoomCommand, type ServerMessage } from './protocol'
 import { verifyTicket } from './ticket'
+import { chatRefusal } from './chat-filter'
 import type { ChatMessage, User } from '@/types'
 
 interface Viewer {
@@ -93,6 +94,8 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
       if (!viewer.user) return this.send(ws, { t: 'error', message: 'Entre na sua conta para participar do chat' })
       const text = typeof msg.text === 'string' ? msg.text.trim().slice(0, CHAT_MAX_LENGTH) : ''
       if (!text) return
+      const refusal = chatRefusal(text, { host: viewer.host })
+      if (refusal) return this.send(ws, { t: 'error', message: refusal })
       viewer.chatTimes = within(viewer.chatTimes, CHAT_LIMIT.perMs, now)
       if (viewer.chatTimes.length >= CHAT_LIMIT.count) {
         return this.send(ws, { t: 'error', message: 'Calma! Espere alguns segundos para mandar outra mensagem.' })
@@ -108,14 +111,15 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
         type: 'text',
       }
       const streamId = await this.streamId()
-      // Not once the live has ended
+      // Not once the live has ended, or from an account banned while connected
       const saved = await this.env.DB.prepare(
         `INSERT INTO chat_messages (id, stream_id, user_id, message, type, created_at)
-         SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM streams WHERE id = ?2 AND status != 'ended')`
+         SELECT ?, ?, ?, ?, ?, ? WHERE EXISTS (SELECT 1 FROM streams WHERE id = ?2 AND status != 'ended')
+           AND NOT EXISTS (SELECT 1 FROM users WHERE id = ?3 AND banned_at IS NOT NULL)`
       )
         .bind(message.id, streamId, viewer.user.id, text, 'text', message.timestamp)
         .run()
-      if (saved.meta.changes === 0) return this.send(ws, { t: 'error', message: 'A live terminou' })
+      if (saved.meta.changes === 0) return this.send(ws, { t: 'error', message: 'Não foi possível enviar: a live terminou ou sua conta foi suspensa.' })
       this.broadcast({ t: 'chat', message })
       return
     }
@@ -313,7 +317,7 @@ export class LiveRoom extends DurableObject<CloudflareEnv> {
          SELECT m.id, m.message, m.type, m.is_pinned, m.created_at,
                 u.id AS user_id, u.name, u.username, u.avatar, u.is_verified
          FROM chat_messages m JOIN users u ON u.id = m.user_id
-         WHERE m.stream_id = ? ORDER BY m.created_at DESC LIMIT 50
+         WHERE m.stream_id = ? AND u.banned_at IS NULL ORDER BY m.created_at DESC LIMIT 50
        ) ORDER BY created_at`
     )
       .bind(streamId)

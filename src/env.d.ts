@@ -27,4 +27,6 @@ interface CloudflareEnv {
   BREVO_API_KEY?: string
   EMAIL_FROM?: string
   BREVO_API_URL?: string
+  // Accounts with access to /admin: comma-separated e-mails
+  ADMIN_EMAILS?: string
 }

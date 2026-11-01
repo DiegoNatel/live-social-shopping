@@ -51,7 +51,11 @@ export function ProductRow({ product }: { product: Product }) {
         <div className="flex-1 min-w-0">
           <p className="text-gray-900 font-medium truncate">
             {product.name}
-            {paused && <span className="ml-2 text-xs font-normal bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">Pausado</span>}
+            {paused && (
+              <span className="ml-2 text-xs font-normal bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
+                {product.isBlocked ? 'Removido pela moderação' : 'Pausado'}
+              </span>
+            )}
           </p>
           <p className="text-gray-900 font-bold">
             {formatCurrency(product.price)}
@@ -90,9 +94,11 @@ export function ProductRow({ product }: { product: Product }) {
           )}
           {error && <p className="text-coral-pink text-sm">{error}</p>}
           <div className="flex flex-wrap justify-between gap-2">
-            <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => update({ isActive: paused })}>
-              {paused ? 'Reativar produto' : 'Pausar vendas'}
-            </Button>
+            {!product.isBlocked && (
+              <Button variant="ghost" size="sm" disabled={isSaving} onClick={() => update({ isActive: paused })}>
+                {paused ? 'Reativar produto' : 'Pausar vendas'}
+              </Button>
+            )}
             <div className="flex gap-2">
               <Button variant="ghost" size="sm" onClick={() => setIsEditing(false)}>
                 Cancelar

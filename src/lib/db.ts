@@ -51,6 +51,7 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
     tags: parseList(row.tags),
     itemType: 'product',
     isActive: row.is_active === undefined ? undefined : !!row.is_active,
+    isBlocked: !!row.blocked_at,
   }
 }
 
@@ -271,7 +272,7 @@ export async function getStreams({
     .prepare(
       `SELECT s.*, ${userCols('u', 'host_')}
        FROM streams s JOIN users u ON u.id = s.host_id
-       WHERE s.status ${ended ? "= 'ended'" : live ? "= 'live'" : "= 'scheduled'"} ${filters}
+       WHERE s.status ${ended ? "= 'ended'" : live ? "= 'live'" : "= 'scheduled'"} AND s.blocked_at IS NULL ${filters}
        ORDER BY ${ended ? 's.ended_at DESC LIMIT 20' : live ? 's.viewer_count DESC' : 's.scheduled_at'}`
     )
     .bind(...[hostId, id, category].filter((v): v is string => !!v))
