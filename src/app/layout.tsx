@@ -7,22 +7,22 @@ import { LiveAlerts } from '@/components/layout/LiveAlerts'
 import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
-  title: 'VivoBuy - Live Social Shopping | Compras ao Vivo',
+  title: 'Luma - Live Social Shopping | Compras ao Vivo',
   description: 'A plataforma de live shopping que transforma suas compras em entretenimento. Assista, interaja e compre ao vivo com seus influenciadores favoritos.',
   keywords: ['live shopping', 'compras ao vivo', 'e-commerce', 'brasil', 'influenciadores', 'pix'],
-  authors: [{ name: 'VivoBuy' }],
-  creator: 'VivoBuy',
+  authors: [{ name: 'Luma' }],
+  creator: 'Luma',
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
     url: 'https://vivobuy.com.br',
-    title: 'VivoBuy - Live Social Shopping',
+    title: 'Luma - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
-    siteName: 'VivoBuy',
+    siteName: 'Luma',
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'VivoBuy - Live Social Shopping',
+    title: 'Luma - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
   },
   // Icons and the manifest come from app/icon.png, apple-icon.png, favicon.ico and manifest.ts

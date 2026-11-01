@@ -15,7 +15,7 @@ export default function Error({ error, reset }: { error: Error & { digest?: stri
     if (!reloadForNewVersion()) setGaveUp(true)
   }, [error])
 
-  if (stale) return <p className="p-8 text-center text-gray-500 text-sm">Atualizando o VivoBuy…</p>
+  if (stale) return <p className="p-8 text-center text-gray-500 text-sm">Atualizando a Luma…</p>
   return (
     <div className="max-w-md mx-auto px-4 py-16 text-center">
       <h1 className="text-gray-900 text-xl font-semibold mb-2">Algo deu errado</h1>

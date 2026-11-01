@@ -110,7 +110,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
                 Bem-vindo de volta!
               </h1>
               <p className="text-gray-500">
-                Entre na sua conta VivoBuy
+                Entre na sua conta Luma
               </p>
             </div>
 

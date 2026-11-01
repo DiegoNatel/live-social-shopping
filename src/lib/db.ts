@@ -444,7 +444,7 @@ export async function getSellerDashboard(sellerId: string) {
         .bind(sellerId)
         .all<Row>(),
       // Paid orders only. Each seller's and host's part is what the payment split gave them
-      // (after VivoBuy's fee and discounts; see lib/payments.ts), kept in orders.payment_split,
+      // (after Luma's fee and discounts; see lib/payments.ts), kept in orders.payment_split,
       // without the shipping sellers receive to buy labels
       db
         .prepare(

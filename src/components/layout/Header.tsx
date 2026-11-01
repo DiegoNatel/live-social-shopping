@@ -88,7 +88,7 @@ export function Header({
                 </div>
                 {/* In seller mode the phone header needs the room for the seller menu */}
                 <span className={cn('font-semibold text-lg text-gray-900', seller && 'hidden sm:inline')}>
-                  VivoBuy
+                  Luma
                 </span>
                 {seller && (
                   <span className="px-2 py-0.5 rounded-full bg-primary/10 text-primary text-xs font-semibold">Vendedor</span>

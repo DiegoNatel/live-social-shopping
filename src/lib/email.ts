@@ -8,7 +8,7 @@ import { getDb } from './db'
 // BREVO_API_KEY plus EMAIL_FROM, a sender confirmed in Brevo. Without them nothing is sent and
 // the site hides password recovery.
 
-const SENDER_NAME = 'VivoBuy'
+const SENDER_NAME = 'Luma'
 // Each send is a subrequest, and a Worker invocation only gets so many
 const SEND_PER_RUN = 30
 // Don't send old news (e.g. a backlog from before e-mail was set up)
@@ -60,7 +60,7 @@ async function send(to: { email: string; name?: string }, subject: string, text:
 export async function sendPasswordResetEmail(user: { email: string; name: string }, url: string) {
   await send(
     { email: user.email, name: user.name },
-    'Redefina sua senha da VivoBuy',
+    'Redefina sua senha da Luma',
     'Recebemos um pedido para redefinir sua senha. O link vale por 1 hora. Se não foi você, ignore este e-mail.',
     { label: 'Criar nova senha', url }
   )

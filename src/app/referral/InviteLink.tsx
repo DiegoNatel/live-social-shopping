@@ -11,7 +11,7 @@ export function InviteLink({ username }: { username: string }) {
   const [copied, setCopied] = useState(false)
   useEffect(() => setLink(`${window.location.origin}/signup${username ? `?ref=${encodeURIComponent(username)}` : ''}`), [username])
 
-  const message = `Vem comprar ao vivo comigo no VivoBuy! ${link}`
+  const message = `Vem comprar ao vivo comigo na Luma! ${link}`
 
   const copy = async () => {
     await navigator.clipboard.writeText(link)
@@ -21,7 +21,7 @@ export function InviteLink({ username }: { username: string }) {
 
   const share = async () => {
     if (navigator.share) {
-      await navigator.share({ title: 'VivoBuy', text: message, url: link }).catch(() => {})
+      await navigator.share({ title: 'Luma', text: message, url: link }).catch(() => {})
     } else {
       window.open(`https://wa.me/?text=${encodeURIComponent(message)}`, '_blank', 'noopener')
     }

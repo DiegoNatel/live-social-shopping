@@ -1,4 +1,4 @@
-// VivoBuy's cut of each sale, in percent (shown to sellers; charged by lib/payments.ts)
+// Luma's cut of each sale, in percent (shown to sellers; charged by lib/payments.ts)
 export const PLATFORM_FEE_PERCENT = 10
 
 // Unpaid orders are cancelled after this long, so abandoned checkouts don't hold stock

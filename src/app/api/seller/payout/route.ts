@@ -13,10 +13,10 @@ export async function PUT(request: Request) {
   if (raw !== null && !(walletId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(walletId))) {
     return Response.json({ message: 'ID da carteira inválido. Ele tem o formato 00000000-0000-0000-0000-000000000000.' }, { status: 400 })
   }
-  // VivoBuy's own wallet would make every charge with this seller's products fail
+  // Luma's own wallet would make every charge with this seller's products fail
   if (walletId && asaasEnabled() && walletId === (await getOwnWalletId().catch(() => null))) {
     return Response.json(
-      { message: 'Esse é o ID da carteira da própria VivoBuy. Suas vendas já ficam nessa conta; não precisa cadastrar.' },
+      { message: 'Esse é o ID da carteira da própria Luma. Suas vendas já ficam nessa conta; não precisa cadastrar.' },
       { status: 400 }
     )
   }

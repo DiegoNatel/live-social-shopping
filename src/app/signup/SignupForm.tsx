@@ -155,7 +155,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
                     Crie sua conta
                   </h1>
                   <p className="text-gray-500">
-                    Junte-se a milhões de compradores no VivoBuy
+                    Junte-se a milhões de compradores na Luma
                   </p>
                 </div>
 

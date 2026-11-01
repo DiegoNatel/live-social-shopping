@@ -1,8 +1,8 @@
-# VivoBuy - Live Social Shopping Platform 🇧🇷
+# Luma - Live Social Shopping Platform 🇧🇷
 
 A next-generation live social shopping platform for the Brazilian market, combining real-time streaming, social interaction, and seamless commerce.
 
-![VivoBuy Banner](https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200)
+![Luma Banner](https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200)
 
 ## 🚀 Features
 
@@ -118,7 +118,7 @@ Without these the live page shows the stream's cover image, as before.
 
 Buyers pay by Pix (QR code on the site), card or boleto (Asaas's payment page). Each payment is
 split: sellers and live hosts get their part in their own Asaas wallet (sellers paste their wallet
-id in the dashboard), minus VivoBuy's fee (`src/lib/fees.ts`); the rest stays in VivoBuy's account.
+id in the dashboard), minus Luma's fee (`src/lib/fees.ts`); the rest stays in Luma's account.
 
 1. Create an account at [sandbox.asaas.com](https://sandbox.asaas.com) (test money) and copy the API key
    (Integrações → Chave de API).
@@ -140,7 +140,7 @@ during a refund or dispute. The API key needs the `PAYMENT_REFUND:WRITE` permiss
 
 Checkout quotes the real freight by CEP (Correios, Jadlog and others) and offers "Econômico" and
 "Expresso". Each seller ships their own items from the CEP they set in the dashboard, receives the
-shipping in the payment split (no VivoBuy fee on it), buys the label themselves and adds the tracking
+shipping in the payment split (na Luma fee on it), buys the label themselves and adds the tracking
 code to the order. Products can carry their package weight and size; otherwise a small parcel is assumed.
 
 1. Create an account at [sandbox.melhorenvio.com.br](https://sandbox.melhorenvio.com.br) and generate a
@@ -274,5 +274,5 @@ This project is licensed under the MIT License.
 
 Built with ❤️ for the Brazilian market
 
-**VivoBuy** - Compras ao vivo, direto do coração do Brasil! 🇧🇷
+**Luma** - Compras ao vivo, direto do coração do Brasil! 🇧🇷
 

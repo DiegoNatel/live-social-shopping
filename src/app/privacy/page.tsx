@@ -7,7 +7,7 @@ export default function PrivacyPage() {
   return (
     <TextPage title="Política de privacidade" subtitle={`Última atualização: ${COMPANY.lastUpdated}`}>
       <p>
-        Esta Política explica como {COMPANY.legalName} (CNPJ {COMPANY.cnpj}), responsável pelo {COMPANY.brand}, trata seus dados
+        Esta Política explica como {COMPANY.legalName} (CNPJ {COMPANY.cnpj}), responsável pela {COMPANY.brand}, trata seus dados
         pessoais, em conformidade com a Lei Geral de Proteção de Dados (LGPD).
       </p>
 

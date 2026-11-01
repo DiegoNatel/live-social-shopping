@@ -9,7 +9,7 @@ import { REFUND_WINDOW_DAYS } from './fees'
 // - shipped: the buyer asks, and it's refunded once every seller who shipped confirms the
 //   product came back
 // Asaas tells us when the money was returned (PAYMENT_REFUNDED), which also covers refunds
-// made in its panel and lost chargebacks. Asaas's fee on the charge isn't returned to VivoBuy.
+// made in its panel and lost chargebacks. Asaas's fee on the charge isn't returned to Luma.
 
 export type RefundStatus = 'requested' | 'processing' | 'failed' | 'chargeback' | 'refunded'
 
