@@ -15,10 +15,12 @@ interface ReportButtonProps {
   iconClassName?: string
   // Text beside the flag; icon only without it
   label?: string
+  // What to do with a signed-out visitor; the login page by default
+  onAskLogin?: () => void
 }
 
-// Flag that opens the report dialog; signed-out visitors are sent to log in
-export function ReportButton({ type, id, className, iconClassName = 'w-5 h-5', label }: ReportButtonProps) {
+// Flag that opens the report dialog; signed-out visitors are asked to log in first
+export function ReportButton({ type, id, className, iconClassName = 'w-5 h-5', label, onAskLogin }: ReportButtonProps) {
   const router = useRouter()
   const isAuthenticated = useUserStore(s => s.isAuthenticated)
   const [open, setOpen] = useState(false)
@@ -53,6 +55,7 @@ export function ReportButton({ type, id, className, iconClassName = 'w-5 h-5', l
         onClick={e => {
           e.stopPropagation()
           if (isAuthenticated) setOpen(true)
+          else if (onAskLogin) onAskLogin()
           else router.push('/login')
         }}
       >

@@ -99,6 +99,13 @@ npm run deploy              # creates the LiveRoom Durable Object on first deplo
 
 The "Continuar com Google" button only appears once both are set.
 
+### Signed-out viewers
+
+Anyone can watch a live without an account, and every interaction (chat, hearts, follows, bids, polls, reports,
+products) asks them to log in, returning to the same live afterwards. They're also asked after 10 minutes watching,
+then every 5, counted in the browser (`src/hooks/useGuestWatchTime.ts`). Their video leaves the LiveKit room after
+30 seconds in a hidden tab and rejoins when they come back, so forgotten tabs don't use paid minutes.
+
 ### Live video (optional)
 
 Video runs on [LiveKit Cloud](https://cloud.livekit.io): the host broadcasts camera and microphone from the

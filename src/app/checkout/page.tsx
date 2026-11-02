@@ -92,7 +92,7 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (sessionPending) return
     if (!session) {
-      router.push('/login')
+      router.push('/login?next=/checkout')
       return
     }
     fetch('/api/me/payment')

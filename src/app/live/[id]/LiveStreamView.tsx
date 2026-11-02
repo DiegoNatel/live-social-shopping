@@ -10,6 +10,8 @@ import { LiveBadge, ViewersBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { ProductCarousel } from '@/components/stream/ProductCarousel'
 import { LiveChat } from '@/components/stream/LiveChat'
+import { LoginPrompt, type LoginAsk } from '@/components/stream/LoginPrompt'
+import { useGuestWatchTime } from '@/hooks/useGuestWatchTime'
 import { ReportButton } from '@/components/moderation/ReportButton'
 import { FloatingReactions, useFloatingReactions } from '@/components/stream/FloatingReactions'
 import { PollWidget } from '@/components/stream/PollWidget'
@@ -48,6 +50,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const router = useRouter()
   const { isFollowing, followHost, unfollowHost, isAuthenticated } = useUserStore()
   const { openProductModal } = useUIStore()
+  const [loginAsk, setLoginAsk] = useState<LoginAsk | null>(null)
+  const askLogin = (title: string) => setLoginAsk({ title })
+  useGuestWatchTime(!isAuthenticated, () => setLoginAsk(ask => ask ?? { title: 'Está gostando da live?' }))
   
   const [isMuted, setIsMuted] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
@@ -263,9 +268,16 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
   const isUserFollowing = isFollowing(stream.host.id)
 
+  // Products insist on an account too, but "Agora não" still goes ahead
+  const askBeforeShopping = (action: () => void) => {
+    if (isAuthenticated) action()
+    else setLoginAsk({ title: 'Entre para comprar nesta live', onSkip: action })
+  }
+  const openProduct = (product: Product) => askBeforeShopping(() => openProductModal(product))
+
   const placeBid = async (auctionId: string, amount: number) => {
     if (!isAuthenticated) {
-      router.push('/login')
+      askLogin('Entre para dar seu lance')
       return
     }
     setBidMessage('')
@@ -290,7 +302,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
   const sendHeart = () => {
     if (!isAuthenticated) {
-      router.push('/login')
+      askLogin('Entre para curtir esta live')
       return
     }
     if (room.sendReaction('❤️')) {
@@ -317,12 +329,14 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       onSend={room.sendChat}
       onDelete={room.deleteMessage}
       onClearError={room.clearError}
+      signedIn={isAuthenticated}
+      onAskLogin={askLogin}
     />
   )
 
   const votePoll = async (optionId: string) => {
     if (!isAuthenticated || !poll) {
-      router.push('/login')
+      askLogin('Entre para votar')
       return false
     }
     const res = await fetch(`/api/polls/${poll.id}/vote`, {
@@ -335,7 +349,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
   const toggleFollow = () => {
     if (!isAuthenticated) {
-      router.push('/login')
+      askLogin(`Entre para seguir ${stream.host.name}`)
       return
     }
     if (isUserFollowing) unfollowHost(stream.host.id)
@@ -344,6 +358,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
   return (
     <div className="min-h-screen bg-black flex flex-col lg:flex-row">
+      <LoginPrompt ask={loginAsk} onClose={() => setLoginAsk(null)} />
       {/* Video Section */}
       <div 
         ref={videoRef}
@@ -359,6 +374,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             title={stream.title}
             recordingUrl={stream.videoUrl}
             muted={isMuted}
+            guest={!isAuthenticated}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 pointer-events-none" />
         </div>
@@ -394,6 +410,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               <ReportButton
                 type="stream"
                 id={stream.id}
+                onAskLogin={() => askLogin('Entre para denunciar')}
                 className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white"
               />
             </div>
@@ -470,7 +487,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
             {pinnedProduct && (
               <div className="px-3 pb-2">
-                <PinnedProduct product={pinnedProduct} onOpen={() => openProductModal(pinnedProduct)} />
+                <PinnedProduct product={pinnedProduct} onOpen={() => openProduct(pinnedProduct)} />
               </div>
             )}
 
@@ -478,7 +495,8 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             <div className={cn('pb-2', isChatOpen && chatHeight === 75 && 'hidden')}>
               <ProductCarousel 
                 products={products}
-                onProductClick={(product) => openProductModal(product)}
+                onProductClick={openProduct}
+                onBeforeAdd={askBeforeShopping}
               />
             </div>
 
@@ -531,7 +549,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               {activeFlash && (
                 <motion.button
                   className="flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-full bg-gradient-to-r from-coral-pink to-sunset-gold text-white text-xs font-semibold"
-                  onClick={(e) => { e.stopPropagation(); openProductModal(activeFlash.product); }}
+                  onClick={(e) => { e.stopPropagation(); openProduct(activeFlash.product); }}
                   whileTap={{ scale: 0.95 }}
                 >
                   <span>⚡</span>
@@ -576,6 +594,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   <ReportButton
                     type="stream"
                     id={stream.id}
+                    onAskLogin={() => askLogin('Entre para denunciar')}
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
                   />
                   <button
@@ -680,7 +699,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
         {pinnedProduct && (
           <div className="p-4 border-b border-white/10">
-            <PinnedProduct product={pinnedProduct} onOpen={() => openProductModal(pinnedProduct)} />
+            <PinnedProduct product={pinnedProduct} onOpen={() => openProduct(pinnedProduct)} />
           </div>
         )}
 
@@ -692,7 +711,8 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           </h3>
           <ProductCarousel 
             products={products}
-            onProductClick={(product) => openProductModal(product)}
+            onProductClick={openProduct}
+            onBeforeAdd={askBeforeShopping}
             variant="vertical"
           />
         </div>

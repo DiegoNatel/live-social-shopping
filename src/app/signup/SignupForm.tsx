@@ -16,7 +16,7 @@ import { ChevronLeft, Eye, EyeOff, Check, Mail, Lock, User, Phone } from 'lucide
 
 type Step = 'form' | 'interests'
 
-export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
+export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; next: string }) {
   const router = useRouter()
   
   
@@ -110,7 +110,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
     ])
 
     await loadSession()
-    router.push('/')
+    router.push(next)
     router.refresh()
   }
 
@@ -161,7 +161,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
 
                 {googleEnabled && (
                   <>
-                    <GoogleButton label="Criar conta com Google" />
+                    <GoogleButton label="Criar conta com Google" next={next} />
                     <OrDivider />
                   </>
                 )}
@@ -288,7 +288,7 @@ export function SignupForm({ googleEnabled }: { googleEnabled: boolean }) {
                 {/* Login Link */}
                 <p className="text-center text-gray-500 mt-6">
                   Já tem uma conta?{' '}
-                  <Link href="/login" className="text-sky-blue font-medium hover:underline">
+                  <Link href={next === '/' ? '/login' : `/login?next=${encodeURIComponent(next)}`} className="text-sky-blue font-medium hover:underline">
                     Entrar
                   </Link>
                 </p>

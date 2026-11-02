@@ -14,10 +14,12 @@ import { cn } from '@/lib/utils'
 interface ProductCarouselProps {
   products: Product[]
   onProductClick?: (product: Product) => void
+  // Runs before the quick add button acts, and decides when it does
+  onBeforeAdd?: (add: () => void) => void
   variant?: 'horizontal' | 'vertical'
 }
 
-export function ProductCarousel({ products, onProductClick, variant = 'horizontal' }: ProductCarouselProps) {
+export function ProductCarousel({ products, onProductClick, onBeforeAdd, variant = 'horizontal' }: ProductCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const { addItem } = useCartStore()
   const openProductModal = useUIStore(s => s.openProductModal)
@@ -32,8 +34,9 @@ export function ProductCarousel({ products, onProductClick, variant = 'horizonta
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation()
     // Size/color has to be chosen in the product modal first
-    if (product.variants?.length) openProductModal(product)
-    else addItem(product)
+    const add = () => (product.variants?.length ? openProductModal(product) : addItem(product))
+    if (onBeforeAdd) onBeforeAdd(add)
+    else add()
   }
 
   if (variant === 'vertical') {
