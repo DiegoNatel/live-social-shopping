@@ -16,14 +16,14 @@ function GoogleLogo() {
 
 // Redirects to Google; Better Auth creates the account on first login
 // and links it to an existing account with the same e-mail.
-export function GoogleButton({ label = 'Continuar com Google' }: { label?: string }) {
+export function GoogleButton({ label = 'Continuar com Google', next = '/' }: { label?: string; next?: string }) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
 
   const handleClick = async () => {
     setIsLoading(true)
     setError('')
-    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: '/' })
+    const { error } = await authClient.signIn.social({ provider: 'google', callbackURL: next })
     if (error) {
       setError('Não foi possível entrar com o Google. Tente novamente.')
       setIsLoading(false)

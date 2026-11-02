@@ -23,18 +23,43 @@ interface LiveVideoProps {
   // A finished live's recording
   recordingUrl?: string
   muted: boolean
+  // Signed-out viewer: leaves the video room while the tab is hidden
+  guest: boolean
 }
 
 type Access = { url: string; token: string; canPublish: boolean }
 
+// Long enough that a quick look at another tab doesn't interrupt the video
+const HIDDEN_DISCONNECT_MS = 30_000
+
 // The live's video: the host's camera (broadcast to viewers) or what viewers watch.
 // Falls back to the cover image when video isn't set up, the live hasn't started, or
 // the host isn't sending video yet. A finished live plays its recording, if there is one.
-export function LiveVideo({ streamId, isLive, thumbnail, title, recordingUrl, muted }: LiveVideoProps) {
+export function LiveVideo({ streamId, isLive, thumbnail, title, recordingUrl, muted, guest }: LiveVideoProps) {
   const [access, setAccess] = useState<Access | null>(null)
+  // Viewing minutes cost money, so nobody is connected to a tab no one is looking at.
+  // The browser says when the tab is hidden: another tab, minimized, or a locked phone.
+  const [away, setAway] = useState(false)
 
   useEffect(() => {
-    if (!isLive) return setAccess(null)
+    if (!guest) return setAway(false)
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const update = () => {
+      clearTimeout(timer)
+      if (document.visibilityState === 'visible') setAway(false)
+      else timer = setTimeout(() => setAway(true), HIDDEN_DISCONNECT_MS)
+    }
+    update()
+    document.addEventListener('visibilitychange', update)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('visibilitychange', update)
+    }
+  }, [guest])
+
+  // Leaving the room when away; coming back asks for a new token and rejoins
+  useEffect(() => {
+    if (!isLive || away) return setAccess(null)
     let cancelled = false
     fetch(`/api/live/${encodeURIComponent(streamId)}/video`, { cache: 'no-store' })
       .then(r => (r.ok ? (r.json() as Promise<Partial<Access>>) : {}))
@@ -45,7 +70,7 @@ export function LiveVideo({ streamId, isLive, thumbnail, title, recordingUrl, mu
     return () => {
       cancelled = true
     }
-  }, [streamId, isLive])
+  }, [streamId, isLive, away])
 
   const cover = (
     <>

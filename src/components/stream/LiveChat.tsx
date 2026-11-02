@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
-import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { ReportButton } from '@/components/moderation/ReportButton'
@@ -24,11 +23,15 @@ interface LiveChatProps {
   onSend: (text: string) => boolean
   onDelete: (id: string) => void
   onClearError: () => void
+  // Signed in but the chat hasn't connected yet, so there's no need to ask for a login
+  signedIn: boolean
+  // A signed-out viewer tried to take part
+  onAskLogin: (title: string) => void
 }
 
 const quickEmojis = ['❤️', '🔥', '😍', '👏', '😂', '🎉', '💯', '✨']
 
-export function LiveChat({ messages, status, canChat, ended, isHost, hostId, error, onSend, onDelete, onClearError }: LiveChatProps) {
+export function LiveChat({ messages, status, canChat, ended, isHost, hostId, error, onSend, onDelete, onClearError, signedIn, onAskLogin }: LiveChatProps) {
   const [inputValue, setInputValue] = useState('')
   const [showEmojis, setShowEmojis] = useState(false)
   const listRef = useRef<HTMLDivElement>(null)
@@ -88,6 +91,7 @@ export function LiveChat({ messages, status, canChat, ended, isHost, hostId, err
               isFromHost={message.user.id === hostId}
               onDelete={isHost ? () => onDelete(message.id) : undefined}
               canReport={!isHost}
+              onAskLogin={onAskLogin}
             />
           ))}
         </AnimatePresence>
@@ -163,13 +167,15 @@ export function LiveChat({ messages, status, canChat, ended, isHost, hostId, err
               <Send className="w-5 h-5" />
             </Button>
           </div>
+        ) : signedIn ? (
+          <p className="h-10 leading-10 text-center text-white/50 text-sm">Conectando ao chat…</p>
         ) : (
-          <Link
-            href="/login"
+          <button
+            onClick={() => onAskLogin('Entre para participar do chat')}
             className="block w-full h-10 leading-10 rounded-full bg-white/10 text-white/70 text-sm text-center hover:bg-white/15"
           >
             Entre para participar do chat
-          </Link>
+          </button>
         )}
       </div>
     </div>
@@ -181,11 +187,13 @@ function ChatMessageItem({
   isFromHost,
   onDelete,
   canReport,
+  onAskLogin,
 }: {
   message: ChatMessage
   isFromHost: boolean
   onDelete?: () => void
   canReport: boolean
+  onAskLogin: (title: string) => void
 }) {
   const { user, message: text, type, isPinned } = message
 
@@ -234,6 +242,7 @@ function ChatMessageItem({
         <ReportButton
           type="message"
           id={message.id}
+          onAskLogin={() => onAskLogin('Entre para denunciar')}
           iconClassName="w-3.5 h-3.5"
           className="lg:opacity-0 lg:group-hover:opacity-100 focus:opacity-100 w-6 h-6 flex items-center justify-center text-white/40 hover:text-coral-pink"
         />

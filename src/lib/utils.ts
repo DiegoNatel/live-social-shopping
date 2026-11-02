@@ -2,6 +2,11 @@ import { clsx, type ClassValue } from 'clsx'
 import { twMerge } from 'tailwind-merge'
 import { maxInstallments } from './fees'
 
+// A path on this site to return to after logging in; anything else (like //evil.com) goes home
+export function safeNext(next: unknown) {
+  return typeof next === 'string' && /^\/(?![/\\])/.test(next) ? next : '/'
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
 }

@@ -1,8 +1,10 @@
 import { isGoogleEnabled } from '@/lib/auth'
+import { safeNext } from '@/lib/utils'
 import { SignupForm } from './SignupForm'
 
 export const dynamic = 'force-dynamic'
 
-export default function SignupPage() {
-  return <SignupForm googleEnabled={isGoogleEnabled()} />
+export default async function SignupPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
+  const { next } = await searchParams
+  return <SignupForm googleEnabled={isGoogleEnabled()} next={safeNext(next)} />
 }

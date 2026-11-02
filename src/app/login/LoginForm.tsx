@@ -19,7 +19,7 @@ import {
 } from 'lucide-react'
 
 
-export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled: boolean; canRecoverPassword: boolean }) {
+export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleEnabled: boolean; canRecoverPassword: boolean; next: string }) {
   const router = useRouter()
   
   
@@ -74,7 +74,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
     }
 
     await loadSession()
-    router.push('/')
+    router.push(next)
     router.refresh()
   }
 
@@ -121,7 +121,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
 
             {googleEnabled && (
               <>
-                <GoogleButton label="Continuar com Google" />
+                <GoogleButton label="Continuar com Google" next={next} />
                 <OrDivider />
               </>
             )}
@@ -190,7 +190,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword }: { googleEnabled
             {/* Register Link */}
             <p className="text-center text-gray-500 mt-6">
               Não tem uma conta?{' '}
-              <Link href="/signup" className="text-sky-blue font-medium hover:underline">
+              <Link href={next === '/' ? '/signup' : `/signup?next=${encodeURIComponent(next)}`} className="text-sky-blue font-medium hover:underline">
                 Criar conta
               </Link>
             </p>
