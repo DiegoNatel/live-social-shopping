@@ -1,5 +1,6 @@
 import 'server-only'
 import { getDb } from './db'
+import { logError } from './errors'
 import * as me from './melhor-envio'
 import { SHIPPING_CENTS } from './pricing'
 import { notify } from './orders'
@@ -119,7 +120,7 @@ export async function quoteShipping(toZipRaw: string, lines: ShippingLine[]): Pr
         services = await sellerServices(seller.ship_from_zip, toZip, lines.filter(l => l.sellerId === sellerId), sizeById)
       } catch (e) {
         if (!(e instanceof me.MelhorEnvioError)) throw e
-        console.error('Melhor Envio quote failed', sellerId, fromZipLog(seller.ship_from_zip), '->', toZip, e.message)
+        await logError('frete', `Melhor Envio: ${e.message} (${fromZipLog(seller.ship_from_zip)} para ${toZip})`, sellerId)
         throw new ShippingError(
           e.invalid
             ? 'Não conseguimos calcular o frete para esse CEP. Confira se ele está certo.'

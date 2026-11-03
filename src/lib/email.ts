@@ -1,6 +1,7 @@
 import 'server-only'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { getDb } from './db'
+import { logError } from './errors'
 
 // E-mail through Brevo's API (developers.brevo.com). Only this file talks to Brevo, so changing
 // provider later means replacing send().
@@ -95,7 +96,7 @@ export async function sendPendingEmails() {
       await mark(n.id, 'sent')
     } catch (e) {
       if (!(e instanceof EmailError)) throw e
-      console.error('E-mail failed', n.id, e.message)
+      await logError('email', e.message, n.id)
       if (!e.permanent) return
       await mark(n.id, 'failed')
     }

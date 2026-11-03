@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useUserStore, useNotificationStore } from '@/store'
+import { BR_TIME_ZONE } from '@/lib/utils'
 import type { User } from '@/types'
 
 type MeResponse =
@@ -18,12 +19,32 @@ export async function loadSession() {
   else useNotificationStore.getState().reset()
 }
 
+// Counts this browser once a day (and again if it signs in), for the founders' dashboard.
+// The id is random and identifies nobody; if storage is blocked the visit just isn't counted.
+function countVisit(signedIn: boolean) {
+  try {
+    const mark = `${new Date().toLocaleDateString('en-CA', { timeZone: BR_TIME_ZONE })}:${signedIn}`
+    if (localStorage.getItem('luma-visit') === mark) return
+    localStorage.setItem('luma-visit', mark)
+    const visitorId = localStorage.getItem('luma-visitor') ?? crypto.randomUUID()
+    localStorage.setItem('luma-visitor', visitorId)
+    fetch('/api/activity', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ visitorId }),
+    }).catch(() => {})
+  } catch {
+    // only a metric
+  }
+}
+
 export function SessionSync() {
   const { data: session, isPending } = authClient.useSession()
   const sessionId = session?.session.id
 
   useEffect(() => {
     if (isPending) return
+    countVisit(!!sessionId)
     if (sessionId) {
       loadSession()
     } else {

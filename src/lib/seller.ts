@@ -6,6 +6,7 @@ import { canSellInStream } from './guests'
 import { openVideoRoom, closeVideoRoom } from './video'
 import { END_STREAM_SQL } from './livekit'
 import { interestsForLive } from './interests'
+import { logError } from './errors'
 
 const newId = () => crypto.randomUUID()
 // Users told about a live because of their interests (followers are always told)
@@ -165,8 +166,8 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
 
   if (status === 'live') {
     // A video service outage shouldn't stop the live: chat, bids and sales still work
-    const room = await openVideoRoom(streamId).catch(e => {
-      console.error('Could not open the video room', streamId, e)
+    const room = await openVideoRoom(streamId).catch(async e => {
+      await logError('video', `Não foi possível abrir a sala de vídeo: ${e}`, streamId)
       return null
     })
     const { results: followers } = await db

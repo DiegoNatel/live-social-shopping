@@ -2,6 +2,7 @@ import { getCloudflareContext } from '@opennextjs/cloudflare'
 import { expireUnpaidOrders } from '@/lib/payments'
 import { retryFailedRefunds } from '@/lib/refunds'
 import { sendPendingEmails } from '@/lib/email'
+import { pruneErrorLog } from '@/lib/errors'
 
 // Called by the cron in worker.ts every 5 minutes, with the auth secret as a key
 export async function POST(request: Request) {
@@ -10,5 +11,6 @@ export async function POST(request: Request) {
   await retryFailedRefunds()
   const cancelled = await expireUnpaidOrders()
   await sendPendingEmails()
+  await pruneErrorLog()
   return Response.json({ cancelled })
 }

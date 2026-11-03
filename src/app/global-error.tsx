@@ -9,7 +9,15 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
   const [gaveUp, setGaveUp] = useState(false)
   const stale = isStaleBuildError(error) && !gaveUp
   useEffect(() => {
-    if (!isStaleBuildError(error)) return console.error(error)
+    if (!isStaleBuildError(error)) {
+      console.error(error)
+      fetch('/api/errors', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: error.digest ? `${error.message} (${error.digest})` : error.message, path: location.pathname }),
+      }).catch(() => {})
+      return
+    }
     if (!reloadForNewVersion()) setGaveUp(true)
   }, [error])
 
