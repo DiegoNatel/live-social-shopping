@@ -176,9 +176,21 @@ they wait for the next run. Anything older than a day is dropped.
 Without them nothing is sent and "Esqueci minha senha" doesn't appear. A sender on your own domain
 (authenticated in Brevo) lands in the inbox far more often than a Gmail address.
 
+### Founders' dashboard
+
+`/admin` shows the admins (`ADMIN_EMAILS`) the last 30 days against the 30 before, six months of sales, active
+users and sign-ups, the seller journey, what needs attention and recent errors (`src/lib/founders.ts`). Active
+users come from one anonymous visit record per browser per day (`visits`), and errors from `logError`
+(`src/lib/errors.ts`), kept for 30 days. Cloudflare's own 1102 errors can't be recorded this way.
+
+### Seller onboarding
+
+`/vender` is the link to share with sellers. New sellers publish a first product on one screen (photo, name, price,
+quantity, category, optional CEP) and can go live right after. Wallet and package details wait for the dashboard.
+
 ### Moderation
 
-Signed-in users report products, lives and chat messages with the flag icon. Admins decide at `/admin`:
+Signed-in users report products, lives and chat messages with the flag icon. Admins decide at `/admin/moderation`:
 dismiss, remove the content, or remove it and ban the account (no login, no chat, products and lives taken
 down; lifting the ban restores the products and recordings, but not lives the ban ended or cancelled). The same page lists orders that need a person: returns a seller
 never confirmed, refused refunds and a banned seller's unshipped orders. Removed content is hidden, not

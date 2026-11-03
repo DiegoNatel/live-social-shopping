@@ -27,12 +27,21 @@ import {
   Users,
   Award,
   Flame,
+  BarChart2,
 } from 'lucide-react'
 
 export default function ProfilePage() {
   const router = useRouter()
   const { user, followedHosts, setSession, isSeller } = useUserStore()
   const { mode, setMode } = useMode()
+  const [isAdmin, setIsAdmin] = useState(false)
+  useEffect(() => {
+    if (!user) return
+    fetch('/api/admin/access')
+      .then(r => (r.ok ? (r.json() as Promise<{ admin: boolean }>) : null))
+      .then(data => setIsAdmin(!!data?.admin))
+      .catch(() => {})
+  }, [user])
   const switchMode = () => {
     const next = mode === 'seller' ? 'buyer' : 'seller'
     setMode(next)
@@ -235,6 +244,13 @@ export default function ProfilePage() {
                 icon={<Award className="w-5 h-5" />}
                 label="Seja um Vendedor"
                 href="/seller/dashboard"
+              />
+            )}
+            {isAdmin && (
+              <MenuItem
+                icon={<BarChart2 className="w-5 h-5" />}
+                label="Painel da Luma"
+                href="/admin"
               />
             )}
             <MenuItem

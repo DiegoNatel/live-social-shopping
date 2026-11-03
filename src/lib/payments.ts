@@ -3,6 +3,7 @@ import { getDb } from './db'
 import { notify, cancelOrder } from './orders'
 import * as asaas from './payments/asaas'
 import { PAY_WITHIN_MINUTES, PLATFORM_FEE_PERCENT } from './fees'
+import { logError } from './errors'
 import { chargebackOpened, chargebackWon, finishRefund, refundDenied, refundOrder } from './refunds'
 
 // Charges orders through Asaas and splits each payment:
@@ -153,7 +154,7 @@ async function createSplitCharge(order: OrderRow, customer: string, parts: Split
     // Asaas names the wallet it refused; if it doesn't, none are sent this time
     const named = sent.filter(p => e.message.includes(p.walletId!))
     const rejected = new Set(named.length ? named : sent)
-    console.error('Asaas refused split wallets; keeping those parts', order.id, e.message)
+    await logError('pagamento', `Asaas recusou a carteira de um vendedor: ${e.message}`, order.id)
     const kept = parts.map(p => (rejected.has(p) ? { ...p, walletId: null, held: 'wallet_rejected' as const } : p))
     const result = { charge: await charge(kept.filter(p => p.walletId)), parts: kept }
     if (named.length) {
@@ -256,7 +257,7 @@ export async function chargeOrder(
     if (e instanceof asaas.AsaasError) {
       // Asaas's message is about Luma's account (e.g. "sua conta precisa estar aprovada"):
       // logged for us, not shown to buyers
-      console.error('Asaas error', orderId, e.message)
+      await logError('pagamento', `Asaas recusou a cobrança: ${e.message}`, orderId)
       throw new PaymentError(
         'PROVIDER',
         'Não foi possível gerar o pagamento agora. Tente de novo em alguns minutos, ou cancele o pedido em "Meus pedidos" e escolha outra forma de pagamento.'
@@ -333,7 +334,7 @@ export async function cancelUnpaidOrder(userId: string, orderId: string): Promis
 }
 
 const deleteChargeQuietly = (o: { payment_ref: string | null; payment_installment: string | null }) =>
-  removeCharge(o).catch(e => console.error('Could not delete Asaas charge', o.payment_ref, e))
+  removeCharge(o).catch(e => logError('pagamento', `Não foi possível apagar a cobrança: ${e}`, o.payment_ref))
 
 // Cancels Pix and card orders not paid within PAY_WITHIN_MINUTES (run by the cron in
 // worker.ts), then removes their charge so it can't be paid afterwards.

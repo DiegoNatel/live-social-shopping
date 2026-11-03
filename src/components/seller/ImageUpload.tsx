@@ -6,11 +6,32 @@ import { ImagePlus, Link as LinkIcon, Loader2, X } from 'lucide-react'
 import { inputClass } from './FormField'
 
 const MAX_BYTES = 5 * 1024 * 1024
+const MAX_SIDE = 1600
 
-async function upload(file: File): Promise<string> {
-  if (file.size > MAX_BYTES) throw new Error(`${file.name}: máximo 5 MB`)
+// Phone photos are often over the limit and far bigger than the site needs. Animated GIFs
+// stay as they are, and anything the browser can't read is sent unchanged.
+async function shrink(file: File): Promise<Blob> {
+  if (file.type === 'image/gif') return file
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    canvas.getContext('2d')!.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>(done => canvas.toBlob(done, 'image/jpeg', 0.85))
+    return blob && blob.size < file.size ? blob : file
+  } catch {
+    return file
+  }
+}
+
+export async function uploadImage(file: File): Promise<string> {
+  const image = await shrink(file)
+  if (image.size > MAX_BYTES) throw new Error(`${file.name}: máximo 5 MB`)
   const body = new FormData()
-  body.append('file', file)
+  body.append('file', image)
   const res = await fetch('/api/uploads', { method: 'POST', body })
   const data = (await res.json().catch(() => null)) as { url?: string; message?: string } | null
   if (!res.ok || !data?.url) throw new Error(data?.message ?? `Não foi possível enviar ${file.name}`)
@@ -41,7 +62,7 @@ export function ImageUpload({ value, onChange, max }: ImageUploadProps) {
     await Promise.all(
       picked.map(async file => {
         try {
-          const url = await upload(file)
+          const url = await uploadImage(file)
           onChange(urls => [...urls, url])
         } catch (e) {
           setError(e instanceof Error ? e.message : 'Falha no envio')
@@ -104,7 +125,7 @@ export function ImageUpload({ value, onChange, max }: ImageUploadProps) {
       <input
         ref={inputRef}
         type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
+        accept="image/*"
         multiple={max > 1}
         className="hidden"
         onChange={e => handleFiles(e.target.files)}
@@ -136,7 +157,7 @@ export function ImageUpload({ value, onChange, max }: ImageUploadProps) {
           </button>
         ))}
 
-      <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP ou GIF, até 5 MB{max > 1 ? ` · até ${max} imagens` : ''}</p>
+      <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP ou GIF{max > 1 ? ` · até ${max} imagens` : ''}</p>
       {error && <p className="text-coral-pink text-xs mt-1">{error}</p>}
     </div>
   )

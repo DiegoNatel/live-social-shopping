@@ -48,7 +48,8 @@ export default function PrivacyPage() {
 
       <h2>5. Cookies e armazenamento local</h2>
       <p>
-        Usamos cookies essenciais para manter você conectado e o armazenamento local do navegador para guardar o carrinho.
+        Usamos cookies essenciais para manter você conectado e o armazenamento local do navegador para guardar o carrinho e
+        contar visitas ao site, com um identificador aleatório.
         Não usamos cookies de publicidade.
       </p>
 

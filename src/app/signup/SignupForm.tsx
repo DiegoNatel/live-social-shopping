@@ -89,6 +89,13 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
       return
     }
 
+    // Sellers go straight to their first product
+    if (next === '/vender') {
+      await loadSession()
+      router.push(next)
+      router.refresh()
+      return
+    }
     setStep('interests')
   }
 

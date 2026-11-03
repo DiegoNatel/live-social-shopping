@@ -3,6 +3,7 @@ import { getDb } from './db'
 import { notify, releaseOrder } from './orders'
 import * as asaas from './payments/asaas'
 import { REFUND_WINDOW_DAYS } from './fees'
+import { logError } from './errors'
 
 // Refunds always return the whole order:
 // - nothing shipped yet: the buyer gets the money back right away
@@ -128,7 +129,7 @@ export async function refundOrder(orderId: string) {
     if (charge.status === 'REFUNDED') await finishRefund(order.payment_ref)
   } catch (e) {
     if (!(e instanceof asaas.AsaasError)) throw e
-    console.error('Refund failed', orderId, e.message)
+    await logError('reembolso', `Asaas recusou o estorno: ${e.message}`, orderId)
     await db.prepare(`UPDATE orders SET refund_status = 'failed' WHERE id = ? AND refund_status = 'processing'`).bind(orderId).run()
   }
 }
@@ -169,7 +170,7 @@ export async function refundDenied(chargeId: string) {
     .bind(chargeId)
     .first<{ id: string; user_id: string }>()
   if (!order) return
-  console.error('Refund denied by Asaas', order.id, chargeId)
+  await logError('reembolso', 'Asaas negou os dados do reembolso do boleto', order.id)
   await notify(order.user_id, 'order_update', 'Reembolso não aprovado', `O Asaas não aprovou os dados do reembolso do pedido ${order.id}. Confira e envie de novo pelo link em "Meus pedidos".`, '/orders').run()
 }
 
