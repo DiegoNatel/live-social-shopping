@@ -177,10 +177,12 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                     <BrandMark className="w-full h-full" />
                   </motion.div>
                   <h1 className="text-2xl font-semibold text-gray-900 mb-1">
-                    Crie sua conta
+                    {next === '/vender' ? 'Crie sua conta de vendedor' : 'Crie sua conta'}
                   </h1>
                   <p className="text-gray-500">
-                    Compre e venda ao vivo na Luma
+                    {next === '/vender'
+                      ? 'Depois é só cadastrar seu primeiro produto e entrar ao vivo.'
+                      : 'Compre e venda ao vivo na Luma'}
                   </p>
                 </div>
 

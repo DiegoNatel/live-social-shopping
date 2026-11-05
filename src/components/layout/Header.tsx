@@ -14,6 +14,7 @@ import { useMode } from './ModeProvider'
 const navItems = [
   { href: '/', label: 'Início', icon: Home },
   { href: '/discover', label: 'Explorar', icon: Search },
+  { href: '/para-vendedores', label: 'Vender', icon: Store },
 ]
 
 // Seller mode: the seller's own tools, plus a way to see the shop as buyers do

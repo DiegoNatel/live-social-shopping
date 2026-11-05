@@ -24,7 +24,7 @@ import { useLiveRoom } from '@/hooks/useLiveRoom'
 import type { ServerMessage } from '@/realtime/protocol'
 import type { Stream, Poll, FlashSale, Auction, Product } from '@/types'
 import { useUserStore, useUIStore } from '@/store'
-import { formatCurrency, formatViewerCount, formatTime, BR_TIME_ZONE } from '@/lib/utils'
+import { formatCurrency, formatViewerCount, formatTime, BR_TIME_ZONE, creatorPath } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   X,
@@ -427,7 +427,11 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                 isLive
               />
               <div className="flex-1 min-w-0">
-                <h3 className="text-white font-medium text-sm truncate">{stream.host.name}</h3>
+                <h3 className="text-white font-medium text-sm truncate">
+                  <Link href={creatorPath(stream.host.username)} onClick={e => e.stopPropagation()} className="hover:underline">
+                    {stream.host.name}
+                  </Link>
+                </h3>
                 <p className="text-white/60 text-xs">{formatViewerCount(stream.host.followers)} seguidores</p>
               </div>
               <Button
@@ -637,7 +641,11 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     isLive
                   />
                   <div>
-                    <h3 className="text-white font-semibold">{stream.host.name}</h3>
+                    <h3 className="text-white font-semibold">
+                      <Link href={creatorPath(stream.host.username)} className="hover:underline">
+                        {stream.host.name}
+                      </Link>
+                    </h3>
                     <p className="text-white/60 text-sm">{formatViewerCount(stream.host.followers)} seguidores</p>
                   </div>
                   <Button

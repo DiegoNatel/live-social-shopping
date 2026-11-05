@@ -160,11 +160,11 @@ export function HomeView({
                 Quer vender ao vivo?
               </h3>
               <p className="text-gray-500 text-sm">
-                Cadastre-se e comece a vender para milhares de pessoas!
+                Sem mensalidade: você só paga quando vende. Veja como funciona.
               </p>
               </div>
             <Link
-              href="/seller/dashboard"
+              href="/para-vendedores"
               className="relative z-10 inline-flex items-center gap-1 bg-primary text-white font-semibold text-sm px-5 py-2.5 rounded-md hover:bg-primary-600 transition-colors self-start md:self-auto"
             >
               Começar agora

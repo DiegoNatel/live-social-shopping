@@ -369,6 +369,98 @@ export async function getCategories(): Promise<Category[]> {
   return results.map(r => ({ id: r.id, name: r.name, icon: r.icon ?? '', slug: r.slug, color: r.color ?? '' }))
 }
 
+// ---------- Public pages: products and creators ----------
+
+export interface ProductReview {
+  rating: number
+  comment: string | null
+  createdAt: string
+  author: { name: string; avatar: string }
+}
+
+// Everything the product's own page shows besides the product itself
+export async function getProductPage(id: string) {
+  const [product] = await getProductsByIds([id])
+  if (!product) return null
+  const db = getDb()
+  const [{ results: reviewRows }, moreFromSeller, live, upcoming, category] = await Promise.all([
+    db
+      .prepare(
+        `SELECT r.rating, r.comment, r.created_at, u.name, u.avatar FROM reviews r JOIN users u ON u.id = r.user_id
+         WHERE r.product_id = ? ORDER BY (r.comment IS NOT NULL AND r.comment != '') DESC, r.created_at DESC LIMIT 10`
+      )
+      .bind(id)
+      .all<Row>(),
+    db
+      .prepare(`${PRODUCT_SELECT} AND p.seller_id = ? AND p.id != ? ORDER BY p.created_at DESC LIMIT 4`)
+      .bind(product.seller.id, id)
+      .all<Row>()
+      .then(r => hydrateProducts(r.results)),
+    getStreams({ live: true }),
+    getStreams({ live: false, upcoming: true }),
+    db.prepare('SELECT name, slug FROM categories WHERE slug = ?').bind(product.category).first<Row>(),
+  ])
+  return {
+    product,
+    category: category ? { name: category.name as string, slug: category.slug as string } : null,
+    reviews: reviewRows.map(
+      (r): ProductReview => ({
+        rating: r.rating,
+        comment: r.comment || null,
+        createdAt: r.created_at,
+        author: { name: r.name, avatar: r.avatar ?? '' },
+      })
+    ),
+    moreFromSeller,
+    // Lives on now or coming up that show this product
+    streams: [...live, ...upcoming].filter(s => s.products.some(p => p.id === id)).slice(0, 4),
+  }
+}
+
+// A seller's public page: who they are, their lives (now, next, recorded) and their products.
+// Only sellers and hosts have one; banned accounts don't.
+export async function getCreatorPage(username: string) {
+  const db = getDb()
+  const row = await db
+    .prepare(
+      `SELECT * FROM users WHERE username = ? AND banned_at IS NULL
+       AND (is_seller = 1 OR EXISTS (SELECT 1 FROM streams WHERE host_id = users.id))`
+    )
+    .bind(username)
+    .first<Row>()
+  if (!row) return null
+  const [{ results: productRows }, live, upcoming, recordings] = await Promise.all([
+    db.prepare(`${PRODUCT_SELECT} AND p.seller_id = ? ORDER BY p.created_at DESC LIMIT 60`).bind(row.id).all<Row>(),
+    getStreams({ live: true, hostId: row.id }),
+    getStreams({ live: false, upcoming: true, hostId: row.id }),
+    getStreams({ live: false, ended: true, recorded: true, hostId: row.id }),
+  ])
+  return {
+    creator: toUser(row),
+    products: await hydrateProducts(productRows),
+    live,
+    upcoming,
+    recordings,
+  }
+}
+
+// Usernames of sellers with a public page, for the sitemap
+export async function getCreatorUsernames(): Promise<string[]> {
+  const { results } = await getDb()
+    .prepare(
+      `SELECT username FROM users WHERE banned_at IS NULL AND username IS NOT NULL
+       AND (is_seller = 1 OR EXISTS (SELECT 1 FROM streams WHERE host_id = users.id)) LIMIT 1000`
+    )
+    .all<Row>()
+  return results.map(r => r.username)
+}
+
+// Ids of products on sale, for the sitemap
+export async function getProductIds(): Promise<string[]> {
+  const { results } = await getDb().prepare('SELECT id FROM products WHERE is_active = 1 LIMIT 5000').all<Row>()
+  return results.map(r => r.id)
+}
+
 // ---------- Users & follows ----------
 
 export async function getUser(id: string): Promise<{ user: User; interests: string[]; isSeller: boolean } | null> {
