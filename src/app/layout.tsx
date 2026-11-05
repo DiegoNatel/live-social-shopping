@@ -8,23 +8,23 @@ import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
   // Makes relative preview images (like a live's cover) absolute in shared links
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://vivobuy.diegonatel.workers.dev'),
-  // Pages set their own title; it shows as "Ofertas | Luma"
-  title: { default: 'Luma - Live Social Shopping | Compras ao Vivo', template: '%s | Luma' },
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://watchhaul.com'),
+  // Pages set their own title; it shows as "Ofertas | Watchhaul"
+  title: { default: 'Watchhaul - Live Social Shopping | Compras ao Vivo', template: '%s | Watchhaul' },
   description: 'A plataforma de live shopping que transforma suas compras em entretenimento. Assista, interaja e compre ao vivo com seus influenciadores favoritos.',
   keywords: ['live shopping', 'compras ao vivo', 'e-commerce', 'brasil', 'influenciadores', 'pix'],
-  authors: [{ name: 'Luma' }],
-  creator: 'Luma',
+  authors: [{ name: 'Watchhaul' }],
+  creator: 'Watchhaul',
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    title: 'Luma - Live Social Shopping',
+    title: 'Watchhaul - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
-    siteName: 'Luma',
+    siteName: 'Watchhaul',
   },
   twitter: {
     card: 'summary',
-    title: 'Luma - Live Social Shopping',
+    title: 'Watchhaul - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
   },
   // Icons and the manifest come from app/icon.png, apple-icon.png, favicon.ico and manifest.ts

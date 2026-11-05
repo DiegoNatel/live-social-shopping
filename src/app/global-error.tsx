@@ -25,7 +25,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
     <html lang="pt-BR">
       <body style={{ fontFamily: 'system-ui, sans-serif', textAlign: 'center', padding: '4rem 1rem', color: '#374151' }}>
         {stale ? (
-          <p>Atualizando a Luma…</p>
+          <p>Atualizando a Watchhaul…</p>
         ) : (
           <>
             <h1 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Algo deu errado</h1>

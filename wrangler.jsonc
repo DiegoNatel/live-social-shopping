@@ -2,7 +2,7 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   // worker.ts wraps the OpenNext worker and adds the LiveRoom Durable Object
   "main": "worker.ts",
-  "name": "vivobuy",
+  "name": "watchhaul",
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
   "assets": {
@@ -13,14 +13,14 @@
     {
       // Self-reference service binding; the service name must match the worker name
       "binding": "WORKER_SELF_REFERENCE",
-      "service": "vivobuy"
+      "service": "watchhaul"
     }
   ],
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "vivobuy",
-      "database_id": "f74b680d-639a-49bd-a9c6-054b52df5a9a",
+      "database_name": "watchhaul",
+      "database_id": "3553079a-813a-48f8-b04d-b7cf6d6b7c65",
       "migrations_dir": "migrations"
     }
   ],
@@ -32,15 +32,20 @@
   // Closes auctions nobody was watching when they ended (see scheduled() in worker.ts)
   "triggers": { "crons": ["*/5 * * * *"] },
   // Product photos and stream thumbnails uploaded by sellers (served by /images/[...key])
-  // Create once with: npx wrangler r2 bucket create vivobuy-images
+  // Create once with: npx wrangler r2 bucket create watchhaul-images
   "r2_buckets": [
     {
       "binding": "UPLOADS",
-      "bucket_name": "vivobuy-images"
+      "bucket_name": "watchhaul-images"
     }
   ],
+  // The site's address. www redirects to the bare domain (see worker.ts)
+  "routes": [
+    { "pattern": "watchhaul.com", "custom_domain": true },
+    { "pattern": "www.watchhaul.com", "custom_domain": true }
+  ],
   "vars": {
-    "BETTER_AUTH_URL": "https://vivobuy.diegonatel.workers.dev"
+    "BETTER_AUTH_URL": "https://watchhaul.com"
   },
   // BETTER_AUTH_SECRET is a secret: `wrangler secret put BETTER_AUTH_SECRET` (local: .dev.vars)
   "observability": {

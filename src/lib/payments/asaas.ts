@@ -26,7 +26,7 @@ async function call<T>(method: 'GET' | 'POST' | 'DELETE', path: string, body?: u
   // Network failures count as Asaas errors too, so callers handle them the same way
   const res = await fetch(`${c.base}${path}`, {
     method,
-    headers: { access_token: c.key, 'Content-Type': 'application/json', 'User-Agent': 'Luma' },
+    headers: { access_token: c.key, 'Content-Type': 'application/json', 'User-Agent': 'Watchhaul' },
     body: body === undefined ? undefined : JSON.stringify(body),
   }).catch((e: unknown) => {
     throw new AsaasError(`Asaas fora do ar: ${e instanceof Error ? e.message : String(e)}`)
@@ -65,7 +65,7 @@ export const createCharge = (c: {
   externalReference: string
   // Card only; above 1 the charge becomes a plan of this many installments, without interest
   installments: number
-  // Each part is a percentage of what's left after Asaas's fee; the rest stays with Luma
+  // Each part is a percentage of what's left after Asaas's fee; the rest stays with Watchhaul
   split: { walletId: string; percentualValue: number }[]
 }) => {
   const { installments, value, ...rest } = c
@@ -78,7 +78,7 @@ export const getCharge = (id: string) => call<Charge>('GET', `/payments/${encode
 export const getPixQrCode = (id: string) =>
   call<{ encodedImage: string; payload: string; expirationDate: string }>('GET', `/payments/${encodeURIComponent(id)}/pixQrCode`)
 
-// Luma's own wallet: splitting to it is refused by Asaas (it's already the one charging)
+// Watchhaul's own wallet: splitting to it is refused by Asaas (it's already the one charging)
 let ownWallet: Promise<string | null> | undefined
 export function getOwnWalletId() {
   ownWallet ??= call<{ data: { id: string }[] }>('GET', '/wallets')

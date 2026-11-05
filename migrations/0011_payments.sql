@@ -10,7 +10,7 @@ ALTER TABLE users ADD COLUMN asaas_wallet_id TEXT;
 -- Asaas page where the buyer pays by card or boleto
 ALTER TABLE orders ADD COLUMN payment_url TEXT;
 -- JSON: how the charge was split, e.g. [{"userId":"…","role":"seller","cents":1234,"walletId":"…"}].
--- Parts without a walletId stayed with VivoBuy and must be paid out by hand.
+-- Parts without a walletId stayed with Watchhaul and must be paid out by hand.
 ALTER TABLE orders ADD COLUMN payment_split TEXT;
 ALTER TABLE orders ADD COLUMN paid_at TEXT;
 CREATE UNIQUE INDEX idx_orders_payment_ref ON orders(payment_ref);

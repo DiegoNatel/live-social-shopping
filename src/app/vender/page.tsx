@@ -9,4 +9,4 @@ export default async function SellPage() {
   redirect((await getSession()) ? '/seller/dashboard' : '/signup?next=/vender')
 }
 
-export const metadata: Metadata = { title: 'Vender na Luma' }
+export const metadata: Metadata = { title: 'Vender na Watchhaul' }

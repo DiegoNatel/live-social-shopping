@@ -1,8 +1,8 @@
-# Luma - Live Social Shopping Platform 🇧🇷
+# Watchhaul - Live Social Shopping Platform 🇧🇷
 
 A next-generation live social shopping platform for the Brazilian market, combining real-time streaming, social interaction, and seamless commerce.
 
-![Luma Banner](https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200)
+![Watchhaul Banner](https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=1200)
 
 ## 🚀 Features
 
@@ -84,7 +84,7 @@ workflow creates the image bucket, applies migrations, builds and deploys. To de
 
 ```bash
 # One-time setup
-npx wrangler r2 bucket create vivobuy-images
+npx wrangler r2 bucket create watchhaul-images
 npx wrangler secret put BETTER_AUTH_SECRET
 
 npm run db:migrate:remote   # also after pulling new migrations
@@ -117,7 +117,7 @@ live page (phone or computer browser) and viewers watch with under a second of d
 
 To record each live and play it back after it ends, also set `RECORDINGS_S3_ENDPOINT`
 (`https://<account id>.r2.cloudflarestorage.com`), `RECORDINGS_S3_ACCESS_KEY` and `RECORDINGS_S3_SECRET` from an
-R2 API token with Object Read & Write on the `vivobuy-images` bucket (R2 → Manage API tokens).
+R2 API token with Object Read & Write on the `watchhaul-images` bucket (R2 → Manage API tokens).
 
 Without these the live page shows the stream's cover image, as before.
 
@@ -125,7 +125,7 @@ Without these the live page shows the stream's cover image, as before.
 
 Buyers pay by Pix (QR code on the site), card or boleto (Asaas's payment page). Each payment is
 split: sellers and live hosts get their part in their own Asaas wallet (sellers paste their wallet
-id in the dashboard), minus Luma's fee (`src/lib/fees.ts`); the rest stays in Luma's account.
+id in the dashboard), minus Watchhaul's fee (`src/lib/fees.ts`); the rest stays in Watchhaul's account.
 
 1. Create an account at [sandbox.asaas.com](https://sandbox.asaas.com) (test money) and copy the API key
    (Integrações → Chave de API).
@@ -152,7 +152,7 @@ during a refund or dispute. The API key needs the `PAYMENT_REFUND:WRITE` permiss
 
 Checkout quotes the real freight by CEP (Correios, Jadlog and others) and offers "Econômico" and
 "Expresso". Each seller ships their own items from the CEP they set in the dashboard, receives the
-shipping in the payment split (na Luma fee on it), buys the label themselves and adds the tracking
+shipping in the payment split (no Watchhaul fee on it), buys the label themselves and adds the tracking
 code to the order. Products can carry their package weight and size; otherwise a small parcel is assumed.
 
 1. Create an account at [sandbox.melhorenvio.com.br](https://sandbox.melhorenvio.com.br) and generate a
@@ -309,5 +309,5 @@ This project is licensed under the MIT License.
 
 Built with ❤️ for the Brazilian market
 
-**Luma** - Compras ao vivo, direto do coração do Brasil! 🇧🇷
+**Watchhaul** - Compras ao vivo, direto do coração do Brasil! 🇧🇷
 

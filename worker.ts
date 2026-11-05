@@ -55,6 +55,11 @@ async function endAbandonedLives(env: CloudflareEnv) {
 export default {
   async fetch(request: Request, env: CloudflareEnv, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url)
+    // One address for the site: login only works on BETTER_AUTH_URL (https://watchhaul.com)
+    if (url.hostname === 'www.watchhaul.com') {
+      url.hostname = 'watchhaul.com'
+      return Response.redirect(url.toString(), 301)
+    }
     const match = url.pathname.match(LIVE_WS)
     if (match) {
       const streamId = decodeURIComponent(match[1])
@@ -80,7 +85,7 @@ export default {
         .catch(() => {})
     }
     await endAbandonedLives(env).catch(e => report(`Encerrar lives abandonadas falhou: ${e}`))
-    const expire = new Request('https://vivobuy.internal/api/internal/expire-orders', {
+    const expire = new Request('https://watchhaul.internal/api/internal/expire-orders', {
       method: 'POST',
       headers: { 'x-cron-key': env.BETTER_AUTH_SECRET },
     })

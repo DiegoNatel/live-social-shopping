@@ -1,10 +1,10 @@
 import type { MetadataRoute } from 'next'
 
-// Lets phones add Luma to the home screen (served at /manifest.webmanifest)
+// Lets phones add Watchhaul to the home screen (served at /manifest.webmanifest)
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'Luma - Live Social Shopping',
-    short_name: 'Luma',
+    name: 'Watchhaul - Live Social Shopping',
+    short_name: 'Watchhaul',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
     start_url: '/',
     display: 'standalone',

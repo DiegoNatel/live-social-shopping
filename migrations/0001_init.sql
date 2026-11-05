@@ -1,4 +1,4 @@
--- VivoBuy initial schema (Cloudflare D1 / SQLite)
+-- Watchhaul initial schema (Cloudflare D1 / SQLite)
 -- Money is stored in centavos (INTEGER). Timestamps are ISO-8601 UTC text.
 -- Small lists (images, tags, benefits) are JSON text columns.
 -- D1 always enforces foreign keys, so no PRAGMA is needed.
