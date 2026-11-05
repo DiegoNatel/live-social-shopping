@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { AutoRefresh } from '@/components/layout/AutoRefresh'
 import { StreamCard } from '@/components/stream/StreamCard'
@@ -21,7 +22,7 @@ function dayLabel(date: Date) {
 }
 
 export default async function SchedulePage() {
-  const streams = await getStreams({ live: false })
+  const streams = await getStreams({ live: false, upcoming: true })
   const days = new Map<string, { label: string; streams: Stream[] }>()
   for (const stream of streams) {
     const date = new Date(stream.scheduledTime ?? stream.startTime)
@@ -50,3 +51,5 @@ export default async function SchedulePage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Agenda de lives' }

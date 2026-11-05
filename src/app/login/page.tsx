@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { isGoogleEnabled } from '@/lib/auth'
 import { emailEnabled } from '@/lib/email'
 import { safeNext } from '@/lib/utils'
@@ -9,3 +10,5 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
   const { next } = await searchParams
   return <LoginForm googleEnabled={isGoogleEnabled()} canRecoverPassword={emailEnabled()} next={safeNext(next)} />
 }
+
+export const metadata: Metadata = { title: 'Entrar' }

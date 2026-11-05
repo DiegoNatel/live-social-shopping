@@ -12,8 +12,9 @@ import { ProductModal } from '@/components/product/ProductModal'
 import { Avatar } from '@/components/ui/Avatar'
 import { FeaturedCreators } from '@/components/stream/FeaturedCreators'
 import type { Stream, Product } from '@/types'
-import { Clock, Radio, ShoppingBag, Sparkles, Users, X, Star, UserCircle } from 'lucide-react'
-import { cn, formatViewerCount } from '@/lib/utils'
+import { Clock, Radio, ShoppingBag, Sparkles, X, Star, UserCircle } from 'lucide-react'
+import { cn, formatViewerCount, formatNumber, loginHrefHere } from '@/lib/utils'
+import { useUserStore } from '@/store'
 import type { User } from '@/types'
 
 // Filter type kept for potential future use
@@ -30,6 +31,15 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
   const [selectedCreator, setSelectedCreator] = useState<string | null>(null)
   const [activeFilter, setActiveFilter] = useState<ContentFilter>('all')
+  const isAuthenticated = useUserStore(s => s.isAuthenticated)
+  const followedHosts = useUserStore(s => s.followedHosts)
+  const followHost = useUserStore(s => s.followHost)
+  const unfollowHost = useUserStore(s => s.unfollowHost)
+
+  // Same matching as /search: ignores case and accents ("tenis" finds "Tênis")
+  const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+  const query = fold(searchQuery.trim())
+  const matches = (...fields: (string | undefined)[]) => fold(fields.filter(Boolean).join(' ')).includes(query)
 
   // Get unique creators from streams with metadata
   const creators: CreatorWithMeta[] = useMemo(() => {
@@ -50,6 +60,12 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
         })
       }
     })
+    // Sellers without lives are creators too
+    products.forEach(product => {
+      if (!uniqueCreators.has(product.seller.id)) {
+        uniqueCreators.set(product.seller.id, { ...product.seller, isLive: false, streamCount: 0, totalViewers: 0 })
+      }
+    })
     
     // Sort by live status first, then by total viewers
     return Array.from(uniqueCreators.values()).sort((a, b) => {
@@ -57,7 +73,7 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
       if (!a.isLive && b.isLive) return 1
       return b.totalViewers - a.totalViewers
     })
-  }, [streams])
+  }, [streams, products])
 
   const liveStreams = streams.filter(s => s.isLive)
   const upcomingStreams = streams.filter(s => !s.isLive)
@@ -74,40 +90,19 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
 
   const filteredLiveStreams = filterByCreator(liveStreams).filter(stream => {
     if (selectedCategory && stream.category !== selectedCategory) return false
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        stream.title.toLowerCase().includes(query) ||
-        stream.host.name.toLowerCase().includes(query) ||
-        stream.tags.some(tag => tag.toLowerCase().includes(query))
-      )
-    }
+    if (query) return matches(stream.title, stream.host.name, ...stream.tags)
     return true
   })
 
   const filteredUpcomingStreams = filterByCreator(upcomingStreams).filter(stream => {
     if (selectedCategory && stream.category !== selectedCategory) return false
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        stream.title.toLowerCase().includes(query) ||
-        stream.host.name.toLowerCase().includes(query) ||
-        stream.tags.some(tag => tag.toLowerCase().includes(query))
-      )
-    }
+    if (query) return matches(stream.title, stream.host.name, ...stream.tags)
     return true
   })
 
   const filteredProducts = filterByCreator(products).filter(product => {
     if (selectedCategory && product.category !== selectedCategory) return false
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase()
-      return (
-        product.name.toLowerCase().includes(query) ||
-        product.description.toLowerCase().includes(query) ||
-        product.tags?.some(tag => tag.toLowerCase().includes(query))
-      )
-    }
+    if (query) return matches(product.name, product.description, ...(product.tags ?? []))
     return true
   })
 
@@ -132,13 +127,17 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
 
   // Category data with images and colors
   const categoryCards = [
-    { id: 'fashion', name: 'Moda', icon: '👗', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300', color: 'from-pink-500 to-rose-500', viewers: '12.4K' },
-    { id: 'beauty', name: 'Beleza', icon: '💄', image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300', color: 'from-purple-500 to-pink-500', viewers: '8.2K' },
-    { id: 'electronics', name: 'Tech', icon: '📱', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300', color: 'from-blue-500 to-cyan-500', viewers: '15.8K' },
-    { id: 'sports', name: 'Esportes', icon: '⚽', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300', color: 'from-green-500 to-emerald-500', viewers: '6.1K' },
-    { id: 'home', name: 'Casa', icon: '🏠', image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=300', color: 'from-amber-500 to-orange-500', viewers: '4.3K' },
-    { id: 'food', name: 'Food', icon: '🍕', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=300', color: 'from-red-500 to-orange-500', viewers: '3.7K' },
+    { id: 'fashion', name: 'Moda', icon: '👗', image: 'https://images.unsplash.com/photo-1558618666-fcd25c85cd64?w=300', color: 'from-pink-500 to-rose-500' },
+    { id: 'beauty', name: 'Beleza', icon: '💄', image: 'https://images.unsplash.com/photo-1596755094514-f87e34085b2c?w=300', color: 'from-purple-500 to-pink-500' },
+    { id: 'electronics', name: 'Eletrônicos', icon: '📱', image: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=300', color: 'from-blue-500 to-cyan-500' },
+    { id: 'sports', name: 'Esportes', icon: '⚽', image: 'https://images.unsplash.com/photo-1571019614242-c5c5dee9f50b?w=300', color: 'from-green-500 to-emerald-500' },
+    { id: 'home', name: 'Casa', icon: '🏠', image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=300', color: 'from-amber-500 to-orange-500' },
+    { id: 'food', name: 'Alimentos', icon: '🍕', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=300', color: 'from-red-500 to-orange-500' },
   ]
+
+  // Real numbers per category: lives and products listed here (the old figures were made up)
+  const categoryCount = (id: string) =>
+    streams.filter(s => s.category === id).length + products.filter(p => p.category === id).length
 
   return (
     <MainLayout headerProps={{ showSearch: false }}>
@@ -262,7 +261,7 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                   {/* Stats Row - Compact */}
                   <div className="flex items-center gap-4 text-xs text-gray-500 mt-0.5">
                     <span>{formatViewerCount(selectedCreatorData.followers)} seguidores</span>
-                    <span>{selectedCreatorData.streamCount} lives</span>
+                    <span>{selectedCreatorData.streamCount} {selectedCreatorData.streamCount === 1 ? 'live' : 'lives'}</span>
                     {selectedCreatorData.isLive && (
                       <span className="text-coral-pink">{formatViewerCount(selectedCreatorData.totalViewers)} assistindo</span>
                     )}
@@ -270,9 +269,25 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                 </div>
                 
                 {/* Follow Button */}
-                <button className="flex-shrink-0 px-4 py-1.5 bg-primary text-white text-sm font-medium rounded-full hover:bg-primary/90 transition-colors">
-                  Seguir
-                </button>
+                {(() => {
+                  const following = followedHosts.includes(selectedCreatorData.id)
+                  return (
+                    <button
+                      onClick={() => {
+                        if (!isAuthenticated) window.location.href = loginHrefHere()
+                        else if (following) unfollowHost(selectedCreatorData.id)
+                        else followHost(selectedCreatorData.id)
+                      }}
+                      aria-pressed={following}
+                      className={cn(
+                        'flex-shrink-0 px-4 py-1.5 text-sm font-medium rounded-full transition-colors',
+                        following ? 'bg-gray-100 text-gray-700 hover:bg-gray-200' : 'bg-primary text-white hover:bg-primary/90'
+                      )}
+                    >
+                      {following ? 'Seguindo' : 'Seguir'}
+                    </button>
+                  )
+                })()}
               </div>
             </motion.section>
           )}
@@ -422,10 +437,9 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                       <div className="absolute inset-0 flex flex-col items-center justify-center p-2">
                         <span className="text-3xl mb-1">{category.icon}</span>
                         <span className="text-white font-bold text-sm text-center">{category.name}</span>
-                        <div className="flex items-center gap-1 mt-1 text-white/80 text-xs">
-                          <Users className="w-3 h-3" />
-                          <span>{category.viewers}</span>
-                        </div>
+                        <span className="mt-1 text-white/80 text-xs">
+                          {categoryCount(category.id) ? `${formatNumber(categoryCount(category.id))} itens` : 'Em breve'}
+                        </span>
                       </div>
 
                       {/* Selected Indicator */}
@@ -459,8 +473,16 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
               {/* All Content */}
               {activeFilter === 'all' && (
                 <>
+                  {filteredLiveStreams.length === 0 && filteredUpcomingStreams.length === 0 && filteredProducts.length === 0 && (
+                    <div className="text-center py-12">
+                      <ShoppingBag className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                      <p className="text-gray-500">
+                        {query ? `Nada encontrado para “${searchQuery.trim()}”` : 'Nada por aqui ainda. Tente outra categoria.'}
+                      </p>
+                    </div>
+                  )}
                   {/* More Lives - Using creator-first variant */}
-                  {filteredLiveStreams.length > 1 && (
+                  {filteredLiveStreams.length > 0 && (
                     <section className="mb-8">
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="text-gray-900 font-bold text-lg flex items-center gap-2">
@@ -472,7 +494,7 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                         </h2>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {filteredLiveStreams.slice(selectedCreator ? 0 : 1, selectedCreator ? 6 : 4).map((stream, index) => (
+                        {filteredLiveStreams.slice(0, 6).map((stream, index) => (
                           <StreamCard 
                             key={stream.id} 
                             stream={stream} 

@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function ReviewsPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/reviews')
   const items = await getReviewItems(session.user.id)
 
   return (
@@ -29,3 +30,5 @@ export default async function ReviewsPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Avaliações' }

@@ -129,3 +129,20 @@ export function installmentOffer(price: number) {
   return count > 1 ? `${count}x de ${formatCurrency(price / count)} sem juros` : null
 }
 
+
+// The login page, set to come back to `next` (a path on this site) afterwards
+export function loginHref(next?: string) {
+  return next && next !== '/' ? `/login?next=${encodeURIComponent(next)}` : '/login'
+}
+
+// The login page, set to come back to the page the browser is on now (path and query)
+export function loginHrefHere() {
+  if (typeof window === 'undefined') return '/login'
+  return loginHref(window.location.pathname + window.location.search)
+}
+
+// A star rating in pt-BR ("4,8"); null when there are no reviews yet
+export function formatRating(rating: number, reviews: number) {
+  if (!reviews) return null
+  return rating.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+}

@@ -110,11 +110,13 @@ function Recording({ url, thumbnail, cover, muted }: { url: string; thumbnail: s
       src={url}
       poster={thumbnail || undefined}
       autoPlay
-      loop
       playsInline
+      // A replay can be paused and scrubbed; the whole frame shows (letterboxed), not a crop
+      controls
       muted={muted}
       onError={() => setFailed(true)}
-      className="absolute inset-0 w-full h-full object-cover"
+      onClick={e => e.stopPropagation()}
+      className="absolute inset-0 w-full h-full object-contain bg-black"
     />
   )
 }

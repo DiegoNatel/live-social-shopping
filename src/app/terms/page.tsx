@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { TextPage } from '@/components/layout/TextPage'
 import { COMPANY } from '@/lib/company'
@@ -86,3 +87,5 @@ export default function TermsPage() {
     </TextPage>
   )
 }
+
+export const metadata: Metadata = { title: 'Termos de uso' }

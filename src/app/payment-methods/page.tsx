@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { CreditCard, FileText } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { PixIcon } from '@/components/ui/Icons'
@@ -43,3 +44,5 @@ export default function PaymentMethodsPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Formas de pagamento' }

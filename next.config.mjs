@@ -3,6 +3,27 @@ import { initOpenNextCloudflareForDev } from '@opennextjs/cloudflare'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // Don't announce the framework (X-Powered-By: Next.js)
+  poweredByHeader: false,
+  // Standard security headers on every response. No full Content-Security-Policy yet: LiveKit,
+  // Asaas and remote product images need an allowlist that should be tested first.
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Nobody can frame the site (stops clickjacking on login and checkout)
+          { key: 'Content-Security-Policy', value: "frame-ancestors 'none'" },
+          { key: 'X-Frame-Options', value: 'DENY' },
+          { key: 'Strict-Transport-Security', value: 'max-age=31536000; includeSubDomains' },
+          { key: 'X-Content-Type-Options', value: 'nosniff' },
+          { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+          // Camera and microphone stay available to this site for sellers going live
+          { key: 'Permissions-Policy', value: 'camera=(self), microphone=(self), geolocation=(), payment=()' },
+        ],
+      },
+    ]
+  },
   images: {
     // Remote images already carry size params (?w=400); skip Next's optimizer,
     // which would need the Cloudflare Images binding on Workers.

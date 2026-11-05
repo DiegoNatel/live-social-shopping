@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -44,7 +45,7 @@ const PAYMENT_LABELS: Record<PaymentMethod, string> = {
 
 export default async function OrdersPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/orders')
   const orders = await getOrders(session.user.id)
   const canPay = paymentsEnabled()
 
@@ -148,3 +149,5 @@ export default async function OrdersPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Meus pedidos' }

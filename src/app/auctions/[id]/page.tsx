@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic'
 export default async function AuctionClaimPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect(`/login?next=/auctions/${encodeURIComponent(id)}`)
 
   const db = getDb()
   const auction = await db

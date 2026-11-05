@@ -176,7 +176,13 @@ export async function getProducts({
     )
     .bind(...(category ? [category] : []), limit)
     .all<Row>()
-  return hydrateProducts(results)
+  const products = await hydrateProducts(results)
+  // Flash sales lower the price after the query, so sort again by the discount the buyer sees
+  if (sort === 'discount') {
+    const off = (p: Product) => (p.originalPrice ? (p.originalPrice - p.price) / p.originalPrice : 0)
+    products.sort((a, b) => off(b) - off(a))
+  }
+  return products
 }
 
 export async function getFavoriteProducts(userId: string): Promise<Product[]> {
@@ -192,42 +198,66 @@ export async function getFavoriteProducts(userId: string): Promise<Product[]> {
 
 // ---------- Search ----------
 
-// LIKE pattern with the user's %, _ and \ escaped
-const likePattern = (q: string) => `%${q.replace(/[\\%_]/g, c => `\\${c}`)}%`
+// Lowercase without accents: "TÊNIS" and "tenis" both become "tenis"
+const fold = (text: string) => text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+
+// The search words without accents, and without a plural "s" ("vestidos" finds "vestido")
+function searchWords(q: string) {
+  return fold(q.replace(/^#+/, ''))
+    .split(/\s+/)
+    .filter(Boolean)
+    .map(w => (w.length > 3 && w.endsWith('s') ? w.slice(0, -1) : w))
+}
+
+// SQLite's LIKE ignores case only for A–Z, and never accents. Each letter that can carry an accent
+// becomes the one-character wildcard, so "t_n_" finds "tênis"; matches are then checked exactly in JS.
+// The user's %, _ and \ are escaped.
+const likePattern = (word: string) =>
+  `%${word.replace(/[\\%_]/g, c => `\\${c}`).replace(/[aeiouc]/g, '_')}%`
+
+const matchesAll = (words: string[], ...fields: (string | null | undefined)[]) => {
+  const text = fold(fields.filter(Boolean).join(' '))
+  return words.every(w => text.includes(w))
+}
 
 export async function search(q: string) {
   const db = getDb()
-  // "#vestidos" searches the word itself in products and sellers (lives also match the hashtag)
-  const pattern = likePattern(q.replace(/^#+/, ''))
+  const words = searchWords(q)
+  if (words.length === 0) return { products: [], sellers: [], streams: [] }
+  // Every word has to appear somewhere in the product (name, description, tags or category)
+  const productWhere = words
+    .map((_, i) => `(p.name LIKE ?${i + 1} ESCAPE '\\' OR p.description LIKE ?${i + 1} ESCAPE '\\' OR p.tags LIKE ?${i + 1} ESCAPE '\\' OR p.category_slug LIKE ?${i + 1} ESCAPE '\\')`)
+    .join(' AND ')
+  const sellerWhere = words
+    .map((_, i) => `(name LIKE ?${i + 1} ESCAPE '\\' OR username LIKE ?${i + 1} ESCAPE '\\')`)
+    .join(' AND ')
+  const patterns = words.map(likePattern)
   const [{ results: productRows }, { results: sellerRows }, streams] = await Promise.all([
     db
-      .prepare(
-        `${PRODUCT_SELECT} AND (p.name LIKE ?1 ESCAPE '\\' OR p.description LIKE ?1 ESCAPE '\\' OR p.tags LIKE ?1 ESCAPE '\\')
-         ORDER BY p.name LIKE ?1 ESCAPE '\\' DESC, p.reviews_count DESC LIMIT 40`
-      )
-      .bind(pattern)
+      .prepare(`${PRODUCT_SELECT} AND ${productWhere} ORDER BY p.reviews_count DESC LIMIT 80`)
+      .bind(...patterns)
       .all<Row>(),
     db
-      .prepare(
-        `SELECT * FROM users WHERE is_seller = 1 AND (name LIKE ?1 ESCAPE '\\' OR username LIKE ?1 ESCAPE '\\')
-         ORDER BY followers_count DESC LIMIT 10`
-      )
-      .bind(pattern)
+      .prepare(`SELECT * FROM users WHERE is_seller = 1 AND ${sellerWhere} ORDER BY followers_count DESC LIMIT 20`)
+      .bind(...patterns)
       .all<Row>(),
-    Promise.all([getStreams({ live: true }), getStreams({ live: false })]),
+    // Live now, scheduled, and recordings
+    Promise.all([getStreams({ live: true }), getStreams({ live: false, upcoming: true }), getStreams({ live: false, ended: true, recorded: true })]),
   ])
-  const needle = q.toLowerCase()
+  const matchedProducts = productRows
+    .filter(r => matchesAll(words, r.name as string, r.description as string, r.tags as string, r.category_slug as string))
+    // Name matches first
+    .sort((a, b) => Number(matchesAll(words, b.name as string)) - Number(matchesAll(words, a.name as string)))
+    .slice(0, 40)
   return {
-    products: await hydrateProducts(productRows),
-    sellers: sellerRows.map(r => toUser(r)),
+    products: await hydrateProducts(matchedProducts),
+    sellers: sellerRows
+      .filter(r => matchesAll(words, r.name as string, r.username as string))
+      .slice(0, 10)
+      .map(r => toUser(r)),
     streams: streams
       .flat()
-      .filter(
-        s =>
-          s.title.toLowerCase().includes(needle) ||
-          s.host.name.toLowerCase().includes(needle) ||
-          s.tags.some(t => normalizeTag(t) === normalizeTag(needle))
-      )
+      .filter(s => matchesAll(words, s.title, s.host.name, s.category, s.tags.map(normalizeTag).join(' ')))
       .slice(0, 12),
   }
 }
@@ -253,8 +283,11 @@ export async function getStreams({
   hostId,
   id,
   category,
+  upcoming,
 }: {
   live: boolean
+  // Scheduled lives whose time hasn't passed (an hour of grace for a late start)
+  upcoming?: boolean
   ended?: boolean
   recorded?: boolean
   hostId?: string
@@ -267,6 +300,7 @@ export async function getStreams({
     id ? 'AND s.id = ?' : '',
     recorded ? 'AND s.video_url IS NOT NULL' : '',
     category ? 'AND s.category_slug = ?' : '',
+    upcoming ? "AND (s.scheduled_at IS NULL OR s.scheduled_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-1 hour'))" : '',
   ].join(' ')
   const { results: rows } = await db
     .prepare(

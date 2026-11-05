@@ -2,7 +2,7 @@
 
 import { motion } from 'framer-motion'
 import Image from 'next/image'
-import { formatCurrency, calculateDiscount, installmentOffer } from '@/lib/utils'
+import { formatCurrency, calculateDiscount, installmentOffer, loginHrefHere, formatRating } from '@/lib/utils'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { useCartStore, useUIStore, useUserStore } from '@/store'
@@ -44,7 +44,7 @@ export function ProductCard({
   const handleLike = (e: React.MouseEvent) => {
     e.stopPropagation()
     if (!isAuthenticated) {
-      window.location.href = '/login'
+      window.location.href = loginHrefHere()
       return
     }
     toggleFavorite(product.id)
@@ -53,6 +53,21 @@ export function ProductCard({
   const handleClick = () => {
     openProductModal(product)
   }
+
+  // Cards open the product from the keyboard too
+  const cardA11y = {
+    role: 'button',
+    tabIndex: 0,
+    'aria-label': product.name,
+    onKeyDown: (e: React.KeyboardEvent) => {
+      if (e.target !== e.currentTarget) return
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        handleClick()
+      }
+    },
+  } as const
+  const rating = formatRating(product.rating, product.reviews)
 
   if (variant === 'compact') {
     return (
@@ -63,6 +78,7 @@ export function ProductCard({
         transition={{ delay: index * 0.05 }}
         onClick={handleClick}
         whileTap={{ scale: 0.98 }}
+        {...cardA11y}
       >
         <div className="relative w-16 h-16 rounded-lg overflow-hidden flex-shrink-0">
           <Image
@@ -93,6 +109,7 @@ export function ProductCard({
           size="icon"
           onClick={handleAddToCart}
           className="flex-shrink-0"
+          aria-label="Adicionar à sacola"
         >
           <ShoppingBag className="w-4 h-4" />
         </Button>
@@ -109,6 +126,7 @@ export function ProductCard({
         transition={{ delay: index * 0.1 }}
         onClick={handleClick}
         whileTap={{ scale: 0.98 }}
+        {...cardA11y}
       >
         <div className="relative w-28 aspect-square rounded-lg overflow-hidden flex-shrink-0">
           <Image
@@ -124,9 +142,15 @@ export function ProductCard({
         <div className="flex-1 min-w-0 py-1">
           <h4 className="text-gray-900 font-medium line-clamp-2 mb-1">{product.name}</h4>
           <div className="flex items-center gap-1 text-gray-500 text-sm mb-2">
-            <Star className="w-3 h-3 fill-current" />
-            <span>{product.rating}</span>
-            <span className="text-gray-400">({product.reviews})</span>
+            {rating ? (
+              <>
+                <Star className="w-3 h-3 fill-current" />
+                <span>{rating}</span>
+                <span className="text-gray-400">({product.reviews})</span>
+              </>
+            ) : (
+              <span className="text-gray-400">Sem avaliações</span>
+            )}
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-gray-900 font-normal text-lg">
@@ -149,8 +173,9 @@ export function ProductCard({
   // Default card
   return (
     <div
-      className="relative bg-white rounded-md overflow-hidden cursor-pointer group shadow-card hover:shadow-card-hover transition-shadow duration-200"
+      className="relative bg-white rounded-md overflow-hidden cursor-pointer group shadow-card hover:shadow-card-hover transition-shadow duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-blue"
       onClick={handleClick}
+      {...cardA11y}
     >
       {/* Image */}
       <div className="relative aspect-square overflow-hidden border-b border-gray-100">
@@ -163,8 +188,9 @@ export function ProductCard({
 
         {/* Like button */}
         <motion.button
-          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity z-20"
+          className="absolute top-2 right-2 w-8 h-8 rounded-full bg-white/90 flex items-center justify-center md:opacity-0 md:group-hover:opacity-100 md:focus-visible:opacity-100 transition-opacity z-20"
           onClick={handleLike}
+          aria-label={isLiked ? 'Remover dos favoritos' : 'Favoritar'}
           whileTap={{ scale: 0.9 }}
         >
           <Heart
@@ -227,9 +253,15 @@ export function ProductCard({
 
         {/* Rating */}
         <div className="flex items-center gap-1 text-gray-500 text-xs mt-2">
-          <Star className="w-3 h-3 fill-sky-blue text-sky-blue" />
-          <span>{product.rating}</span>
-          <span className="text-gray-400">({product.reviews})</span>
+          {rating ? (
+            <>
+              <Star className="w-3 h-3 fill-sky-blue text-sky-blue" />
+              <span>{rating}</span>
+              <span className="text-gray-400">({product.reviews})</span>
+            </>
+          ) : (
+            <span className="text-gray-400">Sem avaliações</span>
+          )}
         </div>
       </div>
     </div>

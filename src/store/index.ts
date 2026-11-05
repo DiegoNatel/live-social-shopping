@@ -3,6 +3,10 @@ import { persist } from 'zustand/middleware'
 import type { User, CartItem, Product, Notification } from '@/types'
 import { availableStock, unitPrice, type AppliedCoupon } from '@/lib/pricing'
 
+// The same choice of variants gives the same key, whether it was saved as undefined, {} or in another key order
+const variantKey = (variants?: Record<string, string>) =>
+  JSON.stringify(Object.entries(variants ?? {}).filter(([, v]) => v).sort(([a], [b]) => a.localeCompare(b)))
+
 // Cart Store
 interface CartState {
   items: CartItem[]
@@ -30,8 +34,7 @@ export const useCartStore = create<CartState>()(
       addItem: (product, quantity = 1, variants) => {
         const items = get().items
         const existingItem = items.find(item => 
-          item.product.id === product.id && 
-          JSON.stringify(item.selectedVariants) === JSON.stringify(variants)
+          item.product.id === product.id && variantKey(item.selectedVariants) === variantKey(variants)
         )
         
         const max = availableStock(product, variants)
@@ -48,7 +51,7 @@ export const useCartStore = create<CartState>()(
             items: [
               ...items,
               {
-                id: `cart-${Date.now()}`,
+                id: `cart-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
                 product,
                 quantity: Math.min(max, quantity),
                 selectedVariants: variants,
@@ -121,9 +124,29 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: 'vivobuy-cart',
+      // Lines saved before variant keys were normalized can be the same product twice: merge them
+      merge: (persisted, current) => {
+        const saved = (persisted ?? {}) as Partial<CartState>
+        const merged: CartItem[] = []
+        for (const item of saved.items ?? []) {
+          const twin = merged.find(
+            m => m.product.id === item.product.id && variantKey(m.selectedVariants) === variantKey(item.selectedVariants)
+          )
+          if (twin) twin.quantity = Math.min(availableStock(twin.product, twin.selectedVariants), twin.quantity + item.quantity)
+          else merged.push({ ...item })
+        }
+        return { ...current, ...saved, items: merged }
+      },
     }
   )
 )
+
+// Another tab changed the cart: reload it here, so this tab doesn't write stale lines back
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', e => {
+    if (e.key === 'vivobuy-cart') useCartStore.persist.rehydrate()
+  })
+}
 
 // User Store — mirrors the server session (filled by SessionSync from /api/me)
 interface UserState {

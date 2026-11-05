@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { TextPage } from '@/components/layout/TextPage'
 import { COMPANY } from '@/lib/company'
@@ -49,7 +50,7 @@ const FAQ: { q: string; a: React.ReactNode }[] = [
   },
   {
     q: 'Esqueci minha senha',
-    a: `Escreva para ${COMPANY.supportEmail} a partir do e-mail da sua conta. Se você entrou com o Google, use o botão "Continuar com Google".`,
+    a: 'Na tela de entrar, toque em "Esqueci minha senha" e enviamos um link para o e-mail da sua conta. Se você criou a conta com o Google, entre pelo botão do Google.',
   },
 ]
 
@@ -75,3 +76,5 @@ export default function HelpPage() {
     </TextPage>
   )
 }
+
+export const metadata: Metadata = { title: 'Ajuda' }

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import * as Dialog from '@radix-ui/react-dialog'
@@ -9,15 +10,19 @@ import { Avatar } from '@/components/ui/Avatar'
 import { DiscountBadge } from '@/components/ui/Badge'
 import { ReportButton } from '@/components/moderation/ReportButton'
 import { useUIStore, useCartStore, useUserStore } from '@/store'
-import { formatCurrency, calculateDiscount, installmentOffer } from '@/lib/utils'
+import { formatCurrency, calculateDiscount, installmentOffer, loginHrefHere, formatRating, formatTime, BR_TIME_ZONE } from '@/lib/utils'
 import { availableStock, missingVariantTypes, unitPrice, VARIANT_LABELS } from '@/lib/pricing'
 import { X, Heart, Share2, Star, Minus, Plus, ShoppingBag, Check, Truck, Shield, Zap } from 'lucide-react'
 import { PixIcon } from '@/components/ui/Icons'
 import { cn } from '@/lib/utils'
 
 export function ProductModal() {
-  const { isProductModalOpen, selectedProduct, closeProductModal, openCheckout } = useUIStore()
+  const router = useRouter()
+  const { isProductModalOpen, selectedProduct, closeProductModal } = useUIStore()
   const { addItem } = useCartStore()
+  const [shared, setShared] = useState(false)
+  // What "Adicionar" last put in the sacola (variants and quantity), until the modal closes
+  const [lastAdded, setLastAdded] = useState<string | null>(null)
   const [selectedImage, setSelectedImage] = useState(0)
   const [quantity, setQuantity] = useState(1)
   const [selectedVariants, setSelectedVariants] = useState<Record<string, string>>({})
@@ -39,6 +44,14 @@ export function ProductModal() {
   const installments = installmentOffer(price * quantity)
   const pixPrice = price * quantity * 0.95
 
+  // When the flash sale ends, e.g. "hoje às 21:00" or "05/11 às 21:00"
+  const flashEnds = (() => {
+    const end = product.flashSale?.endsAt ? new Date(product.flashSale.endsAt) : null
+    if (!end || isNaN(end.getTime())) return null
+    const day = (d: Date) => d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: BR_TIME_ZONE })
+    return `${day(end) === day(new Date()) ? 'hoje' : day(end)} às ${formatTime(end)}`
+  })()
+
   const sizeVariants = product.variants?.filter(v => v.type === 'size') || []
   const colorVariants = product.variants?.filter(v => v.type === 'color') || []
 
@@ -51,14 +64,33 @@ export function ProductModal() {
 
   const handleAddToCart = () => {
     addItem(product, quantity, selectedVariants)
+    setLastAdded(JSON.stringify([selectedVariants, quantity]))
     setIsAdded(true)
     setTimeout(() => setIsAdded(false), 2000)
   }
 
+  // Goes to checkout (which sends guests to log in first). Right after "Adicionar" the item is
+  // already in the sacola, so it isn't added a second time.
   const handleBuyNow = () => {
-    addItem(product, quantity, selectedVariants)
+    if (lastAdded !== JSON.stringify([selectedVariants, quantity])) addItem(product, quantity, selectedVariants)
     closeProductModal()
-    openCheckout()
+    resetModal()
+    router.push('/checkout')
+  }
+
+  // Shares the page the product was opened on (products have no page of their own yet)
+  const handleShare = async () => {
+    const url = window.location.href
+    try {
+      if (navigator.share) await navigator.share({ title: product.name, url })
+      else {
+        await navigator.clipboard.writeText(url)
+        setShared(true)
+        setTimeout(() => setShared(false), 2000)
+      }
+    } catch {
+      // The share sheet was closed
+    }
   }
 
   const resetModal = () => {
@@ -66,6 +98,7 @@ export function ProductModal() {
     setQuantity(1)
     setSelectedVariants({})
     setIsAdded(false)
+    setLastAdded(null)
   }
 
   return (
@@ -84,7 +117,7 @@ export function ProductModal() {
             exit={{ opacity: 0 }}
           />
         </Dialog.Overlay>
-        <Dialog.Content asChild>
+        <Dialog.Content asChild aria-describedby={undefined}>
           <motion.div
             className="fixed inset-x-0 bottom-0 md:inset-0 md:m-auto md:h-fit z-50 w-full md:max-w-2xl md:max-h-[90vh] bg-white md:rounded-2xl overflow-hidden"
             initial={{ y: '100%', opacity: 0 }}
@@ -99,7 +132,7 @@ export function ProductModal() {
 
             {/* Close button */}
             <Dialog.Close asChild>
-              <button className="absolute top-4 right-4 z-10 w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/40 transition-colors">
+              <button aria-label="Fechar" className="absolute top-3 right-3 md:top-2 md:right-2 z-10 w-8 h-8 rounded-full bg-black/20 backdrop-blur-sm flex items-center justify-center text-white hover:bg-black/40 transition-colors">
                 <X className="w-5 h-5" />
               </button>
             </Dialog.Close>
@@ -164,21 +197,29 @@ export function ProductModal() {
                       <div className="flex items-center gap-2 mt-2">
                         <div className="flex items-center gap-1 text-sunset-gold">
                           <Star className="w-4 h-4 fill-current" />
-                          <span className="font-medium">{product.rating}</span>
+                          <span className="font-medium">{formatRating(product.rating, product.reviews) ?? '–'}</span>
                         </div>
-                        <span className="text-gray-400 text-sm">({product.reviews} avaliações)</span>
+                        <span className="text-gray-400 text-sm">
+                          {product.reviews ? `(${product.reviews} ${product.reviews === 1 ? 'avaliação' : 'avaliações'})` : 'Sem avaliações'}
+                        </span>
                       </div>
                     </div>
                     
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 md:mr-8">
                       <button
-                        onClick={() => (isAuthenticated ? toggleFavorite(product.id) : (window.location.href = '/login'))}
+                        aria-label={isLiked ? 'Remover dos favoritos' : 'Favoritar'}
+                        onClick={() => (isAuthenticated ? toggleFavorite(product.id) : (window.location.href = loginHrefHere()))}
                         className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
                       >
                         <Heart className={cn('w-5 h-5', isLiked ? 'fill-coral-pink text-coral-pink' : 'text-gray-400')} />
                       </button>
-                      <button className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors">
-                        <Share2 className="w-5 h-5 text-gray-400" />
+                      <button
+                        aria-label={shared ? 'Link copiado' : 'Compartilhar'}
+                        title={shared ? 'Link copiado' : 'Compartilhar'}
+                        onClick={handleShare}
+                        className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                      >
+                        {shared ? <Check className="w-5 h-5 text-tropical-green" /> : <Share2 className="w-5 h-5 text-gray-400" />}
                       </button>
                     </div>
                   </div>
@@ -199,7 +240,9 @@ export function ProductModal() {
                     {product.flashSale && (
                       <p className="flex items-center gap-1 mt-1 text-coral-pink text-sm font-medium">
                         <Zap className="w-4 h-4 fill-current" />
-                        Oferta relâmpago: -{product.flashSale.discountPercent}% · restam {product.flashSale.remaining}
+                        {/* No separate percentage: the card's "% OFF" already compares with the struck-through price */}
+                        Oferta relâmpago · restam {product.flashSale.remaining}
+                        {flashEnds && ` · termina ${flashEnds}`}
                       </p>
                     )}
 
@@ -224,8 +267,8 @@ export function ProductModal() {
                   <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl mb-6">
                     <Avatar src={product.seller.avatar} alt={product.seller.name} size="md" isVerified={product.seller.isVerified} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-deep-ocean font-medium">{product.seller.name}</p>
                       <p className="text-gray-500 text-sm">Vendido e entregue por</p>
+                      <p className="text-deep-ocean font-medium">{product.seller.name}</p>
                     </div>
                     <ReportButton
                       type="product"
@@ -257,6 +300,7 @@ export function ProductModal() {
                                 : 'border-gray-200 hover:border-gray-300'
                             )}
                             style={{ backgroundColor: variant.value }}
+                            aria-label={variant.name}
                             title={`${variant.name}${variant.priceModifier ? ` (+${formatCurrency(variant.priceModifier)})` : ''}${variant.stock === 0 ? ' — esgotado' : ''}`}
                           />
                         ))}
@@ -300,6 +344,7 @@ export function ProductModal() {
                     <label className="text-deep-ocean font-medium text-sm mb-2 block">Quantidade</label>
                     <div className="flex items-center gap-3">
                       <button
+                        aria-label="Diminuir quantidade"
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
                         className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={quantity <= 1}
@@ -308,6 +353,7 @@ export function ProductModal() {
                       </button>
                       <span className="w-12 text-center font-semibold text-deep-ocean">{quantity}</span>
                       <button
+                        aria-label="Aumentar quantidade"
                         onClick={() => setQuantity(Math.min(stock, quantity + 1))}
                         className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={quantity >= stock}
@@ -322,7 +368,7 @@ export function ProductModal() {
                   <div className="space-y-2 mb-6">
                     <div className="flex items-center gap-2 text-gray-600 text-sm">
                       <Truck className="w-4 h-4 text-tropical-green" />
-                      <span>Frete grátis acima de R$ 199</span>
+                      <span>Frete calculado pelo seu CEP no checkout</span>
                     </div>
                     <div className="flex items-center gap-2 text-gray-600 text-sm">
                       <Shield className="w-4 h-4 text-tropical-green" />

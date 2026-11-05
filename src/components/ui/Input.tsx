@@ -1,6 +1,6 @@
 'use client'
 
-import { forwardRef, useState } from 'react'
+import { forwardRef, useId, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Eye, EyeOff, Search, X } from 'lucide-react'
 
@@ -24,10 +24,13 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
       leftIcon,
       rightIcon,
       variant = 'default',
+      id,
       ...props
     },
     ref
   ) => {
+    const autoId = useId()
+    const inputId = id ?? autoId
     const [showPassword, setShowPassword] = useState(false)
     const isPassword = type === 'password'
     const inputType = isPassword ? (showPassword ? 'text' : 'password') : type
@@ -53,23 +56,26 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
     return (
       <div className="w-full">
         {label && (
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label htmlFor={inputId} className="block text-sm font-medium text-gray-700 mb-1.5">
             {label}
           </label>
         )}
         <div className="relative">
           {leftIcon && (
-            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+            <div className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none">
               {leftIcon}
             </div>
           )}
           <input
+            id={inputId}
             type={inputType}
+            aria-invalid={error ? true : undefined}
             className={cn(
               'w-full h-11 rounded-md outline-none transition-all duration-200',
               variants[variant],
-              leftIcon ? 'pl-10' : 'px-4',
-              rightIcon || isPassword ? 'pr-10' : 'px-4',
+              // Separate sides: a px-4 here used to override pl-10, so the text ran under the icon
+              leftIcon ? 'pl-10' : 'pl-4',
+              rightIcon || isPassword ? 'pr-10' : 'pr-4',
               error && 'border-coral-pink focus:border-coral-pink focus:ring-coral-pink/20',
               className
             )}
@@ -80,6 +86,7 @@ const Input = forwardRef<HTMLInputElement, InputProps>(
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
+              aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
               className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
             >
               {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
@@ -124,6 +131,7 @@ const SearchInput = forwardRef<HTMLInputElement, SearchInputProps>(
             <button
               type="button"
               onClick={onClear}
+              aria-label="Limpar busca"
               className="hover:text-gray-600 transition-colors"
             >
               <X className="h-5 w-5" />

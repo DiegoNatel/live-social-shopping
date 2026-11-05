@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { EmptyState } from '@/components/ui/EmptyState'
@@ -20,3 +21,5 @@ export default async function TrendingPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Em alta' }

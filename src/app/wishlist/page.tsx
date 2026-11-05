@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ProductGrid } from '@/components/product/ProductGrid'
@@ -9,7 +10,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function WishlistPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/wishlist')
   const products = await getFavoriteProducts(session.user.id)
 
   return (
@@ -29,3 +30,5 @@ export default async function WishlistPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Favoritos' }

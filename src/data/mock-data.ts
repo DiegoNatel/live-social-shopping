@@ -172,7 +172,7 @@ export const mockProducts: Product[] = [
     originalPrice: 2499.00,
     images: [
       'https://images.unsplash.com/photo-1606220945770-b5b6c2c55bf1?w=400',
-      'https://images.unsplash.com/photo-1588423771073-b8903fba77ac?w=400',
+      'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?w=400',
     ],
     category: 'electronics',
     stock: 30,
@@ -189,7 +189,7 @@ export const mockProducts: Product[] = [
     originalPrice: 149.90,
     images: [
       'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400',
-      'https://images.unsplash.com/photo-1583241800698-e8ab01c85dfc?w=400',
+      'https://images.unsplash.com/photo-1512496015851-a90fb38ba796?w=400',
     ],
     category: 'beauty',
     stock: 100,

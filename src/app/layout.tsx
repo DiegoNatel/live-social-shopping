@@ -7,7 +7,10 @@ import { LiveAlerts } from '@/components/layout/LiveAlerts'
 import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
-  title: 'Luma - Live Social Shopping | Compras ao Vivo',
+  // Makes relative preview images (like a live's cover) absolute in shared links
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'https://vivobuy.diegonatel.workers.dev'),
+  // Pages set their own title; it shows as "Ofertas | Luma"
+  title: { default: 'Luma - Live Social Shopping | Compras ao Vivo', template: '%s | Luma' },
   description: 'A plataforma de live shopping que transforma suas compras em entretenimento. Assista, interaja e compre ao vivo com seus influenciadores favoritos.',
   keywords: ['live shopping', 'compras ao vivo', 'e-commerce', 'brasil', 'influenciadores', 'pix'],
   authors: [{ name: 'Luma' }],
@@ -15,13 +18,12 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'pt_BR',
-    url: 'https://vivobuy.com.br',
     title: 'Luma - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
     siteName: 'Luma',
   },
   twitter: {
-    card: 'summary_large_image',
+    card: 'summary',
     title: 'Luma - Live Social Shopping',
     description: 'A plataforma de live shopping que transforma suas compras em entretenimento.',
   },
@@ -31,8 +33,6 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
   themeColor: '#0A1628',
 }
 

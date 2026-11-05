@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function NewProductPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/seller/products/new')
   const profile = await getUser(session.user.id)
   if (!profile?.isSeller) redirect('/seller/dashboard')
   return <ProductForm categories={await getCategories()} />

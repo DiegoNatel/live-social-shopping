@@ -8,7 +8,7 @@ import { Bell, ShoppingCart, Search, Home, LayoutDashboard, PackagePlus, Radio, 
 import { Avatar } from '@/components/ui/Avatar'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { useCartStore, useNotificationStore, useUserStore } from '@/store'
-import { cn } from '@/lib/utils'
+import { cn, loginHref } from '@/lib/utils'
 import { useMode } from './ModeProvider'
 
 const navItems = [
@@ -190,7 +190,7 @@ export function Header({
 
             {showAvatar && !user && (
               <Link
-                href="/login"
+                href={loginHref(pathname)}
                 className="ml-1 px-3 py-1.5 rounded-md text-sm font-medium text-sky-blue hover:bg-sky-blue-50 transition-colors"
               >
                 Entrar

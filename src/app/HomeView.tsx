@@ -96,7 +96,11 @@ export function HomeView({
           <SectionHeader
             title="Ofertas Relâmpago"
             href="/deals"
-            badge="Até 60% OFF"
+            // The real biggest discount shown below, not a fixed figure
+            badge={(() => {
+              const best = Math.max(0, ...flashDeals.map(p => (p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : 0)))
+              return best > 0 ? `Até ${best}% OFF` : undefined
+            })()}
           />
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 px-4">
             {flashDeals.map((product, index) => (
