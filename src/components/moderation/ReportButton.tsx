@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store'
 import { REPORT_REASONS, type ReportReason, type ReportTarget } from '@/lib/report-reasons'
 import { Flag } from 'lucide-react'
+import { loginHrefHere } from '@/lib/utils'
 
 interface ReportButtonProps {
   type: ReportTarget
@@ -56,7 +57,7 @@ export function ReportButton({ type, id, className, iconClassName = 'w-5 h-5', l
           e.stopPropagation()
           if (isAuthenticated) setOpen(true)
           else if (onAskLogin) onAskLogin()
-          else router.push('/login')
+          else router.push(loginHrefHere())
         }}
       >
         <Flag className={iconClassName} />

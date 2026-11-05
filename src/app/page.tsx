@@ -14,10 +14,11 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
 
   const [liveStreams, upcomingStreams, recordedStreams, trendingProducts, flashDeals, profile] = await Promise.all([
     getStreams({ live: true, category }),
-    getStreams({ live: false, category }),
+    getStreams({ live: false, upcoming: true, category }),
     getStreams({ live: false, ended: true, recorded: true, category }),
-    getProducts({ limit: 4, category }),
-    getProducts({ onSale: true, limit: 4, category }),
+    // Same order as the "Ver tudo" pages (/trending and /deals), so each section previews its page
+    getProducts({ sort: 'trending', inStock: true, limit: 4, category }),
+    getProducts({ onSale: true, inStock: true, sort: 'discount', limit: 4, category }),
     session ? getUser(session.user.id) : null,
   ])
 

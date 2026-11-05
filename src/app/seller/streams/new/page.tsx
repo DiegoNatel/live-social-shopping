@@ -7,7 +7,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function NewStreamPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/seller/streams/new')
   const profile = await getUser(session.user.id)
   if (!profile?.isSeller) redirect('/seller/dashboard')
 

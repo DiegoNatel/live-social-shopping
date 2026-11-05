@@ -75,7 +75,7 @@ export default function ProfilePage() {
           <p className="text-gray-500 mb-6">
             Entre para aproveitar todas as funcionalidades
           </p>
-          <Link href="/login">
+          <Link href="/login?next=/profile">
             <Button>Entrar</Button>
           </Link>
         </div>

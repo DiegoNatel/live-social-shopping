@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { Search } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
@@ -69,7 +70,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
 
         {!q && (
           <p className="text-gray-500 text-sm">
-            Ou veja as <Link href="/deals" className="text-sky-blue hover:underline">ofertas</Link> e o que está{' '}
+            Veja também as <Link href="/deals" className="text-sky-blue hover:underline">ofertas</Link> e o que está{' '}
             <Link href="/trending" className="text-sky-blue hover:underline">em alta</Link>.
           </p>
         )}
@@ -77,3 +78,5 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Buscar' }

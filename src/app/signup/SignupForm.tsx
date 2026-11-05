@@ -34,6 +34,21 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
   
   const [errors, setErrors] = useState<Record<string, string>>({})
 
+  // Typing in a field clears its error, so fixed fields don't keep saying "é obrigatório"
+  const update = (field: keyof typeof formData, value: string) => {
+    setFormData(f => ({ ...f, [field]: value }))
+    if (errors[field] || errors.form) setErrors(({ [field]: _, form: __, ...rest }) => rest)
+  }
+
+  // (11) 99999-9999 as the person types; only digits are kept
+  const maskPhone = (value: string) => {
+    const d = value.replace(/\D/g, '').slice(0, 11)
+    if (d.length <= 2) return d.length ? `(${d}` : ''
+    if (d.length <= 6) return `(${d.slice(0, 2)}) ${d.slice(2)}`
+    if (d.length <= 10) return `(${d.slice(0, 2)}) ${d.slice(2, 6)}-${d.slice(6)}`
+    return `(${d.slice(0, 2)}) ${d.slice(2, 7)}-${d.slice(7)}`
+  }
+
   const validateForm = () => {
     const newErrors: Record<string, string> = {}
     
@@ -47,8 +62,11 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
       newErrors.email = 'E-mail inválido'
     }
     
-    if (!formData.phone.trim()) {
+    const phoneDigits = formData.phone.replace(/\D/g, '')
+    if (!phoneDigits) {
       newErrors.phone = 'Telefone é obrigatório'
+    } else if (phoneDigits.length < 10) {
+      newErrors.phone = 'Telefone incompleto: inclua o DDD'
     }
     
     if (!formData.password) {
@@ -76,7 +94,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
       name: formData.name.trim(),
       email: formData.email.trim(),
       password: formData.password,
-      phone: formData.phone.trim(),
+      phone: formData.phone.replace(/\D/g, ''),
     })
     setIsLoading(false)
 
@@ -162,7 +180,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                     Crie sua conta
                   </h1>
                   <p className="text-gray-500">
-                    Junte-se a milhões de compradores na Luma
+                    Compre e venda ao vivo na Luma
                   </p>
                 </div>
 
@@ -174,15 +192,18 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                 )}
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-4">
+                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
                   <div>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
+                        name="name"
+                        autoComplete="name"
+                        aria-label="Nome completo"
                         placeholder="Nome completo"
                         value={formData.name}
-                        onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                        onChange={(e) => update('name', e.target.value)}
                         className={cn(
                           'w-full h-12 pl-10 pr-4 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                           errors.name ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -197,9 +218,12 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="email"
+                        name="email"
+                        autoComplete="email"
+                        aria-label="E-mail"
                         placeholder="E-mail"
                         value={formData.email}
-                        onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                        onChange={(e) => update('email', e.target.value)}
                         className={cn(
                           'w-full h-12 pl-10 pr-4 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                           errors.email ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -214,9 +238,13 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="tel"
+                        name="phone"
+                        autoComplete="tel-national"
+                        inputMode="numeric"
+                        aria-label="Telefone (WhatsApp)"
                         placeholder="Telefone (WhatsApp)"
                         value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                        onChange={(e) => update('phone', maskPhone(e.target.value))}
                         className={cn(
                           'w-full h-12 pl-10 pr-4 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                           errors.phone ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -231,9 +259,13 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                       <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type={showPassword ? 'text' : 'password'}
+                        name="password"
+                        autoComplete="new-password"
+                        aria-label="Senha"
+                        aria-describedby="password-rule"
                         placeholder="Senha"
                         value={formData.password}
-                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        onChange={(e) => update('password', e.target.value)}
                         className={cn(
                           'w-full h-12 pl-10 pr-12 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                           errors.password ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -242,19 +274,32 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                       <button
                         type="button"
                         onClick={() => setShowPassword(!showPassword)}
+                        aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 transition-colors"
                       >
                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                       </button>
                     </div>
-                    {errors.password && <p className="text-coral-pink text-sm mt-1">{errors.password}</p>}
+                    {errors.password ? (
+                      <p id="password-rule" className="text-coral-pink text-sm mt-1">{errors.password}</p>
+                    ) : (
+                      <p id="password-rule" className={cn('text-sm mt-1', formData.password.length >= 8 ? 'text-tropical-green' : 'text-gray-400')}>
+                        Pelo menos 8 caracteres
+                      </p>
+                    )}
                   </div>
 
                   {/* Terms Checkbox */}
                   <div className="flex items-start gap-3">
                     <button
                       type="button"
-                      onClick={() => setAgreed(!agreed)}
+                      role="checkbox"
+                      aria-checked={agreed}
+                      aria-label="Concordo com os Termos de Uso e a Política de Privacidade"
+                      onClick={() => {
+                        setAgreed(!agreed)
+                        if (errors.agreed) setErrors(({ agreed: _, ...rest }) => rest)
+                      }}
                       className={cn(
                         'w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 mt-0.5 transition-colors',
                         agreed 
@@ -278,6 +323,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                     </p>
                   </div>
 
+                  {errors.agreed && <p className="text-coral-pink text-sm">{errors.agreed}</p>}
                   {errors.form && <p className="text-coral-pink text-sm">{errors.form}</p>}
 
                   {/* Submit Button */}

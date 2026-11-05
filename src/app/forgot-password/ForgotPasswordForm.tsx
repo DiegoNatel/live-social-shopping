@@ -14,6 +14,9 @@ export function ForgotPasswordForm() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    // The app's own messages, not the browser's
+    if (!email.trim()) return setError('E-mail é obrigatório')
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) return setError('E-mail inválido')
     setIsLoading(true)
     setError('')
     const { error } = await authClient.requestPasswordReset({ email: email.trim(), redirectTo: '/reset-password' })
@@ -34,12 +37,14 @@ export function ForgotPasswordForm() {
         ) : (
           <>
             <p className="text-gray-500 mb-6">Enviaremos um link para o seu e-mail.</p>
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
                   type="email"
-                  required
+                  name="email"
+                  autoComplete="email"
+                  aria-label="E-mail"
                   placeholder="E-mail"
                   value={email}
                   onChange={e => setEmail(e.target.value)}

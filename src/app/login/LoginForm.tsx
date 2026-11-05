@@ -127,15 +127,21 @@ export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleE
             )}
 
             {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div>
                 <div className="relative">
                   <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type="email"
+                    name="email"
+                    autoComplete="username"
+                    aria-label="E-mail"
                     placeholder="E-mail"
                     value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, email: e.target.value })
+                      if (errors.email) setErrors(({ email: _, ...rest }) => rest)
+                    }}
                     className={cn(
                       'w-full h-12 pl-10 pr-4 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                       errors.email ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -150,9 +156,15 @@ export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleE
                   <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                   <input
                     type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    autoComplete="current-password"
+                    aria-label="Senha"
                     placeholder="Senha"
                     value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                    onChange={(e) => {
+                      setFormData({ ...formData, password: e.target.value })
+                      if (errors.password) setErrors(({ password: _, ...rest }) => rest)
+                    }}
                     className={cn(
                       'w-full h-12 pl-10 pr-12 rounded-xl bg-white border text-gray-900 placeholder:text-gray-400 outline-none transition-colors',
                       errors.password ? 'border-coral-pink' : 'border-gray-300 focus:border-sky-blue'
@@ -161,6 +173,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleE
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Esconder senha' : 'Mostrar senha'}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-500 transition-colors"
                   >
                     {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}

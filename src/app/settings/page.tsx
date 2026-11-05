@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { getSession } from '@/lib/auth'
@@ -8,7 +9,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function SettingsPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/settings')
   const db = getDb()
   const [profile, credential] = await Promise.all([
     db.prepare('SELECT name, phone, bio FROM users WHERE id = ?').bind(session.user.id).first<Record<string, string | null>>(),
@@ -31,3 +32,5 @@ export default async function SettingsPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Configurações' }

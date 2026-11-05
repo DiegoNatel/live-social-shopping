@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
-import { useNotificationStore } from '@/store'
+import { useNotificationStore, useUserStore } from '@/store'
 import { formatRelativeTime, cn } from '@/lib/utils'
 import {
   Bell,
@@ -47,6 +47,23 @@ const notificationVariants = {
 
 export default function NotificationsPage() {
   const { notifications, markAsRead, markAllAsRead, clearNotifications } = useNotificationStore()
+  const { isAuthenticated, sessionLoaded } = useUserStore()
+
+  // Guests have no notifications: ask them to log in, as /profile does
+  if (sessionLoaded && !isAuthenticated) {
+    return (
+      <MainLayout headerProps={{ title: 'Notificações' }}>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
+          <Bell className="w-12 h-12 text-gray-300 mb-4" />
+          <h2 className="text-gray-900 text-xl font-semibold mb-2">Faça login</h2>
+          <p className="text-gray-500 mb-6">Entre para ver avisos de lives, pedidos e ofertas.</p>
+          <Link href="/login?next=/notifications">
+            <Button>Entrar</Button>
+          </Link>
+        </div>
+      </MainLayout>
+    )
+  }
 
   const getIcon = (type: string) => {
     switch (type) {

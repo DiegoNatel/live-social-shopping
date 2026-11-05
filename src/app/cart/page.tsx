@@ -1,6 +1,7 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import type { CartItem } from '@/types'
 import { motion, AnimatePresence } from 'framer-motion'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -22,6 +23,36 @@ export default function CartPage() {
   const cartChanged = useFreshCart()
   const [couponError, setCouponError] = useState('')
   const [isCheckingCoupon, setIsCheckingCoupon] = useState(false)
+  // The saved cart loads after the first render: don't flash "Sua sacola está vazia" before it
+  const [hydrated, setHydrated] = useState(false)
+  useEffect(() => {
+    if (useCartStore.persist.hasHydrated()) setHydrated(true)
+    return useCartStore.persist.onFinishHydration(() => setHydrated(true))
+  }, [])
+  // The line just removed, so it can be put back
+  const [removed, setRemoved] = useState<CartItem | null>(null)
+  useEffect(() => {
+    if (!removed) return
+    const t = setTimeout(() => setRemoved(null), 6000)
+    return () => clearTimeout(t)
+  }, [removed])
+  const removeLine = (item: CartItem) => {
+    removeItem(item.id)
+    setRemoved(item)
+  }
+  const undoRemove = () => {
+    if (!removed) return
+    useCartStore.getState().addItem(removed.product, removed.quantity, removed.selectedVariants)
+    setRemoved(null)
+  }
+  const undoBar = removed && (
+    <div role="status" className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-40 flex items-center gap-4 px-4 py-3 rounded-md bg-gray-900 text-white text-sm shadow-lg">
+      <span className="truncate max-w-[60vw]">{removed.product.name} removido</span>
+      <button onClick={undoRemove} className="font-semibold text-sky-blue hover:underline">
+        Desfazer
+      </button>
+    </div>
+  )
 
   // Same rules the order API uses (src/lib/pricing.ts)
   const card = computeTotals(toCents(getTotal()), { coupon: appliedCoupon, pix: false })
@@ -59,9 +90,18 @@ export default function CartPage() {
     setCouponError('')
   }
 
+  if (!hydrated) {
+    return (
+      <MainLayout headerProps={{ title: 'Minha Sacola' }}>
+        <div className="min-h-[60vh]" aria-busy="true" />
+      </MainLayout>
+    )
+  }
+
   if (items.length === 0) {
     return (
       <MainLayout headerProps={{ title: 'Minha Sacola' }}>
+        {undoBar}
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-4 text-center">
           <div className="w-24 h-24 rounded-full bg-gray-100 flex items-center justify-center mb-6">
             <ShoppingBag className="w-12 h-12 text-gray-400" />
@@ -80,6 +120,7 @@ export default function CartPage() {
 
   return (
     <MainLayout headerProps={{ title: 'Minha Sacola', showCart: false }}>
+      {undoBar}
       <div className="px-4 py-4 max-w-2xl mx-auto">
         {cartChanged && (
           <p className="mb-3 p-3 rounded-md bg-amber-50 text-amber-700 text-sm">
@@ -136,6 +177,7 @@ export default function CartPage() {
                     <div className="flex items-center gap-1">
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                        aria-label="Diminuir quantidade"
                         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={item.quantity <= 1}
                       >
@@ -146,6 +188,7 @@ export default function CartPage() {
                       </span>
                       <button
                         onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                        aria-label="Aumentar quantidade"
                         className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200 transition-colors disabled:opacity-50"
                         disabled={item.quantity >= availableStock(item.product, item.selectedVariants)}
                       >
@@ -154,7 +197,8 @@ export default function CartPage() {
                     </div>
 
                     <button
-                      onClick={() => removeItem(item.id)}
+                      onClick={() => removeLine(item)}
+                      aria-label={`Remover ${item.product.name}`}
                       className="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
@@ -176,10 +220,12 @@ export default function CartPage() {
                 value={couponCode}
                 onChange={(e) => setCouponCode(e.target.value)}
                 placeholder="Código do cupom"
+                aria-label="Código do cupom"
+                onKeyDown={(e) => e.key === 'Enter' && handleApplyCoupon()}
                 className="w-full h-12 pl-10 pr-4 rounded-xl bg-white border border-gray-200 text-gray-900 placeholder:text-gray-400 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
               />
             </div>
-            <Button variant="secondary" onClick={handleApplyCoupon} isLoading={isCheckingCoupon}>
+            <Button variant="secondary" onClick={handleApplyCoupon} isLoading={isCheckingCoupon} disabled={!couponCode.trim()}>
               Aplicar
             </Button>
           </div>

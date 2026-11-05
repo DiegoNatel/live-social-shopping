@@ -21,3 +21,5 @@ export default function NotFound() {
     </MainLayout>
   )
 }
+
+export const metadata = { title: 'Página não encontrada' }

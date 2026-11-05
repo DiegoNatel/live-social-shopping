@@ -24,7 +24,7 @@ import { useLiveRoom } from '@/hooks/useLiveRoom'
 import type { ServerMessage } from '@/realtime/protocol'
 import type { Stream, Poll, FlashSale, Auction, Product } from '@/types'
 import { useUserStore, useUIStore } from '@/store'
-import { formatCurrency, formatViewerCount } from '@/lib/utils'
+import { formatCurrency, formatViewerCount, formatTime, BR_TIME_ZONE } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
   X,
@@ -389,7 +389,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           <div className="flex items-center justify-between p-3 z-20">
             <div className="flex items-center gap-2">
               <LeaveLiveButton />
-              <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
+              <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} scheduledTime={stream.scheduledTime} />
               <ViewersBadge count={viewerCount} />
             </div>
 
@@ -573,13 +573,23 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               >
                 <div className="flex items-center gap-3">
                   <LeaveLiveButton />
-                  <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} />
+                  <StatusBadge isLive={stream.isLive} hasEnded={hasEnded || !!stream.hasEnded} scheduledTime={stream.scheduledTime} />
                   <ViewersBadge count={viewerCount} />
                 </div>
 
                 <div className="flex items-center gap-2">
+                  {/* Likes on desktop too (the mobile action bar is hidden here) */}
+                  <button
+                    onClick={sendHeart}
+                    aria-label="Curtir"
+                    className="h-10 px-3 rounded-full bg-black/40 backdrop-blur-sm flex items-center gap-1.5 text-white"
+                  >
+                    <Heart className="w-5 h-5" />
+                    <span className="text-sm font-medium">{formatViewerCount(likes)}</span>
+                  </button>
                   <button 
                     onClick={() => setIsMuted(!isMuted)}
+                    aria-label={isMuted ? 'Ativar som' : 'Desativar som'}
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
                   >
                     {isMuted ? <VolumeX className="w-5 h-5" /> : <Volume2 className="w-5 h-5" />}
@@ -599,6 +609,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   />
                   <button
                     onClick={toggleFullscreen}
+                    aria-label="Tela cheia"
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
                   >
                     <Maximize className="w-5 h-5" />
@@ -867,11 +878,16 @@ function ActionButton({ icon, label, onClick, active }: ActionButtonProps) {
   )
 }
 
-function StatusBadge({ isLive, hasEnded }: { isLive: boolean; hasEnded: boolean }) {
+function StatusBadge({ isLive, hasEnded, scheduledTime }: { isLive: boolean; hasEnded: boolean; scheduledTime?: Date | string }) {
   if (isLive && !hasEnded) return <LiveBadge />
+  // A scheduled live says when it starts: "Agendada · 05/11 às 20:00"
+  const when = !hasEnded && scheduledTime ? new Date(scheduledTime) : null
+  const label = when && !isNaN(when.getTime())
+    ? `Agendada · ${when.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', timeZone: BR_TIME_ZONE })} às ${formatTime(when)}`
+    : hasEnded ? 'Encerrada' : 'Agendada'
   return (
-    <span className="px-2 py-0.5 rounded bg-black/50 text-white/80 text-xs font-medium">
-      {hasEnded ? 'Encerrada' : 'Agendada'}
+    <span className="px-2 py-0.5 rounded bg-black/50 text-white/80 text-xs font-medium" suppressHydrationWarning>
+      {label}
     </span>
   )
 }

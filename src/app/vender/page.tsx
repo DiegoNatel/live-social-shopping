@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/auth'
 
@@ -7,3 +8,5 @@ export const dynamic = 'force-dynamic'
 export default async function SellPage() {
   redirect((await getSession()) ? '/seller/dashboard' : '/signup?next=/vender')
 }
+
+export const metadata: Metadata = { title: 'Vender na Luma' }

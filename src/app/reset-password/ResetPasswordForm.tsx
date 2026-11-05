@@ -8,7 +8,7 @@ import { Lock } from 'lucide-react'
 
 const MIN_PASSWORD_LENGTH = 8
 
-export function ResetPasswordForm({ token }: { token: string | null }) {
+export function ResetPasswordForm({ token, problem }: { token: string | null; problem?: 'missing' | 'expired' }) {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [done, setDone] = useState(false)
@@ -42,7 +42,11 @@ export function ResetPasswordForm({ token }: { token: string | null }) {
           </>
         ) : expired ? (
           <>
-            <p className="text-gray-500 mt-3 mb-6">Este link expirou ou já foi usado.</p>
+            <p className="text-gray-500 mt-3 mb-6">
+              {problem === 'missing'
+                ? 'Para criar uma nova senha, abra o link que enviamos para o seu e-mail.'
+                : 'Este link expirou ou já foi usado.'}
+            </p>
             <Link href="/forgot-password" className="text-sky-blue font-medium hover:underline">
               Pedir outro link
             </Link>

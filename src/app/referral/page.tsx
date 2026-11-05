@@ -1,3 +1,4 @@
+import type { Metadata } from 'next'
 import { redirect } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { getSession } from '@/lib/auth'
@@ -7,7 +8,7 @@ export const dynamic = 'force-dynamic'
 
 export default async function ReferralPage() {
   const session = await getSession()
-  if (!session) redirect('/login')
+  if (!session) redirect('/login?next=/referral')
   const username = (session.user as { username?: string | null }).username ?? ''
 
   return (
@@ -26,3 +27,5 @@ export default async function ReferralPage() {
     </MainLayout>
   )
 }
+
+export const metadata: Metadata = { title: 'Indique e ganhe' }

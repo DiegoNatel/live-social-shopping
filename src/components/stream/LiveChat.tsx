@@ -80,7 +80,7 @@ export function LiveChat({ messages, status, canChat, ended, isHost, hostId, err
             {status === 'connecting' ? 'Conectando ao chat…' : 'Chat indisponível. Tentando reconectar…'}
           </p>
         )}
-        {status === 'open' && messages.length === 0 && (
+        {status === 'open' && !ended && messages.length === 0 && (
           <p className="text-white/40 text-sm text-center py-4">Seja o primeiro a comentar!</p>
         )}
         <AnimatePresence initial={false}>
