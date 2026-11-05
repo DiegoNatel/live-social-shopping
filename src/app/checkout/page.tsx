@@ -210,6 +210,7 @@ export default function CheckoutPage() {
 
   return (
     <MainLayout
+      showFooter={false}
       showNav={false}
       headerProps={{
         title: 'Checkout',

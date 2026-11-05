@@ -25,6 +25,7 @@ import type { ServerMessage } from '@/realtime/protocol'
 import type { Stream, Poll, FlashSale, Auction, Product } from '@/types'
 import { useUserStore, useUIStore } from '@/store'
 import { formatCurrency, formatViewerCount, formatTime, BR_TIME_ZONE, creatorPath } from '@/lib/utils'
+import { ReminderButton } from '@/components/stream/ReminderButton'
 import { cn } from '@/lib/utils'
 import {
   X,
@@ -378,6 +379,36 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-black/60 pointer-events-none" />
         </div>
+
+        {/* Scheduled: when it starts, and a reminder for then */}
+        {!stream.isLive && !hasEnded && !stream.hasEnded && (
+          <div className="absolute inset-x-4 top-1/3 z-20 flex justify-center pointer-events-none">
+            <div
+              className="pointer-events-auto bg-black/60 backdrop-blur-sm rounded-md px-5 py-4 text-center max-w-xs"
+              onClick={e => e.stopPropagation()}
+            >
+              <p className="text-white/70 text-sm">Esta live ainda não começou</p>
+              {stream.scheduledTime && (
+                <p className="text-white font-semibold mt-1" suppressHydrationWarning>
+                  {new Date(stream.scheduledTime).toLocaleDateString('pt-BR', {
+                    weekday: 'long',
+                    day: '2-digit',
+                    month: '2-digit',
+                    timeZone: BR_TIME_ZONE,
+                  })}{' '}
+                  às {formatTime(new Date(stream.scheduledTime))}
+                </p>
+              )}
+              <ReminderButton
+                streamId={stream.id}
+                size="large"
+                onAskLogin={() => askLogin('Entre para receber o lembrete')}
+                className="mt-3 w-full"
+              />
+              <p className="text-white/50 text-xs mt-2">Avisamos por notificação e e-mail quando começar.</p>
+            </div>
+          </div>
+        )}
 
         {/* === MOBILE LAYOUT === */}
         {/* Leaves room for the chat panel so the products and action bar stay above it */}

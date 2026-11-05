@@ -1,6 +1,7 @@
 'use client'
 
 import { Header } from './Header'
+import { Footer } from './Footer'
 import { cn } from '@/lib/utils'
 
 interface MainLayoutProps {
@@ -10,6 +11,8 @@ interface MainLayoutProps {
   headerProps?: Parameters<typeof Header>[0]
   className?: string
   fullHeight?: boolean
+  // Links to help, terms and selling at the bottom (off on full-screen pages and checkout)
+  showFooter?: boolean
 }
 
 export function MainLayout({
@@ -19,6 +22,7 @@ export function MainLayout({
   headerProps,
   className,
   fullHeight = false,
+  showFooter = true,
 }: MainLayoutProps) {
   return (
     <div className={cn(
@@ -34,6 +38,7 @@ export function MainLayout({
       >
         {children}
       </main>
+      {showFooter && !fullHeight && <Footer />}
     </div>
   )
 }

@@ -158,7 +158,14 @@ interface UserState {
   sessionLoaded: boolean
   interests: string[]
   setSession: (
-    session: { user: User; interests: string[]; isSeller?: boolean; followedHosts: string[]; favoriteIds: string[] } | null
+    session: {
+      user: User
+      interests: string[]
+      isSeller?: boolean
+      followedHosts: string[]
+      favoriteIds: string[]
+      reminderStreamIds?: string[]
+    } | null
   ) => void
   setInterests: (interests: string[]) => void
   followedHosts: string[]
@@ -167,6 +174,9 @@ interface UserState {
   isFollowing: (hostId: string) => boolean
   favoriteIds: string[]
   toggleFavorite: (productId: string) => void
+  // Scheduled lives with "Lembrar-me" on
+  reminderStreamIds: string[]
+  toggleReminder: (streamId: string) => Promise<boolean>
 }
 
 async function send(url: string, method: 'POST' | 'DELETE', body: object) {
@@ -188,6 +198,7 @@ export const useUserStore = create<UserState>()((set, get) => ({
   interests: [],
   followedHosts: [],
   favoriteIds: [],
+  reminderStreamIds: [],
 
   setSession: (session) =>
     set(
@@ -200,8 +211,18 @@ export const useUserStore = create<UserState>()((set, get) => ({
             interests: session.interests,
             followedHosts: session.followedHosts,
             favoriteIds: session.favoriteIds,
+            reminderStreamIds: session.reminderStreamIds ?? [],
           }
-        : { user: null, isAuthenticated: false, isSeller: false, sessionLoaded: true, interests: [], followedHosts: [], favoriteIds: [] }
+        : {
+            user: null,
+            isAuthenticated: false,
+            isSeller: false,
+            sessionLoaded: true,
+            interests: [],
+            followedHosts: [],
+            favoriteIds: [],
+            reminderStreamIds: [],
+          }
     ),
 
   // Optimistic, rolled back if the request fails
@@ -215,6 +236,21 @@ export const useUserStore = create<UserState>()((set, get) => ({
     )
   },
   setInterests: (interests) => set({ interests }),
+
+  // Optimistic; returns false (and rolls back) if the server refused, e.g. the live already started
+  toggleReminder: async (streamId) => {
+    if (!get().isAuthenticated) return false
+    const on = get().reminderStreamIds.includes(streamId)
+    const without = () => get().reminderStreamIds.filter(id => id !== streamId)
+    set({ reminderStreamIds: on ? without() : [...get().reminderStreamIds, streamId] })
+    try {
+      await send('/api/reminders', on ? 'DELETE' : 'POST', { streamId })
+      return true
+    } catch {
+      set({ reminderStreamIds: on ? [...get().reminderStreamIds, streamId] : without() })
+      return false
+    }
+  },
 
   // Optimistic update, rolled back if the request fails
   followHost: (hostId) => {

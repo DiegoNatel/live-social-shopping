@@ -170,10 +170,17 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
       await logError('video', `Não foi possível abrir a sala de vídeo: ${e}`, streamId)
       return null
     })
-    const { results: followers } = await db
+    // Asked with "Lembrar-me": a notification and an e-mail. They don't get the follower notice too.
+    const { results: reminded } = await db
+      .prepare('SELECT user_id FROM stream_reminders WHERE stream_id = ?')
+      .bind(streamId)
+      .all<{ user_id: string }>()
+    const remindedIds = new Set(reminded.map(r => r.user_id))
+    const { results: allFollowers } = await db
       .prepare('SELECT follower_id FROM follows WHERE followee_id = ?')
       .bind(sellerId)
       .all<{ follower_id: string }>()
+    const followers = allFollowers.filter(f => !remindedIds.has(f.follower_id))
     const interests = interestsForLive(stream.category_slug ?? '', JSON.parse(stream.tags ?? '[]') as string[])
     const { results: interested } = interests.length
       ? await db
@@ -195,10 +202,21 @@ export async function setStreamStatus(sellerId: string, streamId: string, status
            WHERE id = ?`
         )
         .bind(room?.recordingKey ?? null, room ? 1 : 0, streamId),
+      ...reminded.map(r =>
+        notify(
+          r.user_id,
+          'stream_live',
+          `Começou: ${stream.host_name} está ao vivo!`,
+          `A live que você pediu para lembrar começou: ${stream.title}`,
+          `/live/${streamId}`,
+          stream.host_avatar ?? undefined,
+          true
+        )
+      ),
       ...followers.map(f =>
         notify(f.follower_id, 'stream_live', `${stream.host_name} está ao vivo!`, stream.title, `/live/${streamId}`, stream.host_avatar ?? undefined)
       ),
-      ...interested.map(u =>
+      ...interested.filter(u => !remindedIds.has(u.id)).map(u =>
         notify(u.id, 'stream_live', `Ao vivo agora, do seu interesse`, `${stream.host_name}: ${stream.title}`, `/live/${streamId}`, stream.host_avatar ?? undefined)
       ),
     ])

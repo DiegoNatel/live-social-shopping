@@ -7,7 +7,7 @@ import { BR_TIME_ZONE } from '@/lib/utils'
 import type { User } from '@/types'
 
 type MeResponse =
-  | { user: User; interests: string[]; isSeller: boolean; followedHosts: string[]; favoriteIds: string[] }
+  | { user: User; interests: string[]; isSeller: boolean; followedHosts: string[]; favoriteIds: string[]; reminderStreamIds: string[] }
   | { user: null }
 
 // Loads the signed-in user's profile and notifications into the stores whenever the session changes

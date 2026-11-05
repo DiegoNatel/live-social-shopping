@@ -5,9 +5,10 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Avatar } from '@/components/ui/Avatar'
 import { LiveBadge, ViewersBadge } from '@/components/ui/Badge'
-import { formatViewerCount, formatRelativeTime, cn } from '@/lib/utils'
+import { formatViewerCount, formatRelativeTime, cn, formatTime, BR_TIME_ZONE } from '@/lib/utils'
 import type { Stream } from '@/types'
 import { Clock, Users, Play } from 'lucide-react'
+import { ReminderButton } from './ReminderButton'
 
 interface StreamCardProps {
   stream: Stream
@@ -61,6 +62,14 @@ const liveLiftVariants = {
   }
 }
 
+// "sáb., 08/11 às 20:00" in Brasília time
+function formatSchedule(date: Date | string) {
+  const d = new Date(date)
+  if (isNaN(d.getTime())) return ''
+  const day = d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit', timeZone: BR_TIME_ZONE })
+  return `${day} às ${formatTime(d)}`
+}
+
 export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCardProps) {
   const { id, title, host, thumbnail, isLive, hasEnded, viewerCount, scheduledTime, category } = stream
 
@@ -107,10 +116,15 @@ export function StreamCard({ stream, variant = 'default', index = 0 }: StreamCar
               </div>
             ) : hasEnded ? (
               <div className="text-gray-400 text-xs mt-1">Gravação</div>
-            ) : scheduledTime && (
-              <div className="text-gray-400 text-xs mt-1">
-                {formatRelativeTime(scheduledTime)}
-              </div>
+            ) : (
+              <>
+                {scheduledTime && (
+                  <div className="text-gray-500 text-xs mt-1" suppressHydrationWarning>
+                    {formatSchedule(scheduledTime)} · {formatRelativeTime(scheduledTime)}
+                  </div>
+                )}
+                <ReminderButton streamId={id} className="mt-2" />
+              </>
             )}
           </div>
         </motion.div>
