@@ -146,3 +146,6 @@ export function formatRating(rating: number, reviews: number) {
   if (!reviews) return null
   return rating.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })
 }
+
+// A seller's public page
+export const creatorPath = (username: string) => `/creator/${encodeURIComponent(username)}`

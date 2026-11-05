@@ -13,7 +13,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { FeaturedCreators } from '@/components/stream/FeaturedCreators'
 import type { Stream, Product } from '@/types'
 import { Clock, Radio, ShoppingBag, Sparkles, X, Star, UserCircle } from 'lucide-react'
-import { cn, formatViewerCount, formatNumber, loginHrefHere } from '@/lib/utils'
+import { cn, formatViewerCount, formatNumber, loginHrefHere, creatorPath } from '@/lib/utils'
+import Link from 'next/link'
 import { useUserStore } from '@/store'
 import type { User } from '@/types'
 
@@ -250,7 +251,9 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                 {/* Creator Info */}
                 <div className="flex-1 min-w-0">
                   <h3 className="text-gray-900 font-semibold flex items-center gap-1.5">
-                    {selectedCreatorData.name}
+                    <Link href={creatorPath(selectedCreatorData.username)} className="hover:underline">
+                      {selectedCreatorData.name}
+                    </Link>
                     {selectedCreatorData.isVerified && (
                       <svg className="w-4 h-4 text-primary flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -265,6 +268,9 @@ export function DiscoverView({ streams, products }: { streams: Stream[]; product
                     {selectedCreatorData.isLive && (
                       <span className="text-coral-pink">{formatViewerCount(selectedCreatorData.totalViewers)} assistindo</span>
                     )}
+                    <Link href={creatorPath(selectedCreatorData.username)} className="text-sky-blue hover:underline">
+                      Ver perfil
+                    </Link>
                   </div>
                 </div>
                 

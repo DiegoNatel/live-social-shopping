@@ -7,6 +7,7 @@ import { StreamCard } from '@/components/stream/StreamCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { search } from '@/lib/db'
+import { creatorPath } from '@/lib/utils'
 
 export const dynamic = 'force-dynamic'
 
@@ -40,11 +41,11 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             <h2 className="text-gray-900 font-semibold mb-3">Vendedores</h2>
             <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
               {results.sellers.map(seller => (
-                <div key={seller.id} className="flex-shrink-0 w-24 text-center">
+                <Link key={seller.id} href={creatorPath(seller.username)} className="flex-shrink-0 w-24 text-center group">
                   <Avatar src={seller.avatar} alt={seller.name} size="lg" isVerified={seller.isVerified} className="mx-auto" />
-                  <p className="text-gray-900 text-sm mt-1 truncate">{seller.name}</p>
+                  <p className="text-gray-900 text-sm mt-1 truncate group-hover:underline">{seller.name}</p>
                   <p className="text-gray-400 text-xs truncate">@{seller.username}</p>
-                </div>
+                </Link>
               ))}
             </div>
           </section>
