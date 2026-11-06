@@ -4,11 +4,11 @@ import { useEffect, useState } from 'react'
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ShoppingCart, Search, Home, LayoutDashboard, PackagePlus, Radio, Store } from 'lucide-react'
+import { Bell, ShoppingCart, Search, Home, LayoutDashboard, PackagePlus, Store } from 'lucide-react'
 import { Avatar } from '@/components/ui/Avatar'
 import { BrandMark } from '@/components/ui/BrandMark'
 import { useCartStore, useNotificationStore, useUserStore } from '@/store'
-import { cn, loginHref } from '@/lib/utils'
+import { cn, creatorPath, loginHref } from '@/lib/utils'
 import { useMode } from './ModeProvider'
 
 const navItems = [
@@ -17,12 +17,13 @@ const navItems = [
   { href: '/para-vendedores', label: 'Vender', icon: Store },
 ]
 
-// Seller mode: the seller's own tools, plus a way to see the shop as buyers do
+// Seller mode: the seller's own tools, plus their own shop page as buyers see it
+// (MY_SHOP is replaced by the seller's page address)
+const MY_SHOP = '#minha-loja'
 const sellerNavItems = [
   { href: '/seller/dashboard', label: 'Painel', icon: LayoutDashboard },
   { href: '/seller/products/new', label: 'Novo produto', icon: PackagePlus },
-  { href: '/seller/streams/new', label: 'Nova live', icon: Radio },
-  { href: '/', label: 'Ver loja', icon: Store },
+  { href: MY_SHOP, label: 'Minha loja', icon: Store },
 ]
 
 interface HeaderProps {
@@ -52,8 +53,10 @@ export function Header({
   const { mode } = useMode()
   const seller = mode === 'seller'
   const home = seller ? '/seller/dashboard' : '/'
-  const items = seller ? sellerNavItems : navItems
   const { user } = useUserStore()
+  const items = seller
+    ? sellerNavItems.map(item => (item.href === MY_SHOP ? { ...item, href: user ? creatorPath(user.username) : '/' } : item))
+    : navItems
   const { getItemCount } = useCartStore()
   const { unreadCount } = useNotificationStore()
   // The saved cart only exists in the browser; render the count after mount so the

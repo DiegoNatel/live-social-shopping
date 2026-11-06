@@ -368,6 +368,10 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
 
         {/* Actions */}
         <div className={cn('p-4 border-t border-gray-100 bg-white', !inModal && 'sticky bottom-0 md:static md:border-0 md:px-0')}>
+          {product.sellerReady === false ? (
+            <NotSellableYet productId={product.id} />
+          ) : (
+          <>
           {(missing.length > 0 || stock === 0) && (
             <p className="text-gray-500 text-sm mb-2 text-center">
               {stock === 0
@@ -398,8 +402,32 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
               Comprar Agora
             </Button>
           </div>
+          </>
+          )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// The seller is still setting up their shop (where they receive, where they ship from): the
+// product can't be bought yet. "Quero comprar" tells the seller someone wants it.
+function NotSellableYet({ productId }: { productId: string }) {
+  const [sent, setSent] = useState(false)
+  const want = () => {
+    setSent(true)
+    fetch(`/api/products/${encodeURIComponent(productId)}/want`, { method: 'POST' }).catch(() => {})
+  }
+  return (
+    <div className="text-center">
+      <p className="text-gray-600 text-sm mb-3">
+        {sent
+          ? 'Avisamos o vendedor que você quer comprar. Salve o produto no coração para achar depois.'
+          : 'Este vendedor ainda está configurando a loja. Em breve você vai poder comprar.'}
+      </p>
+      <Button variant={sent ? 'secondary' : 'primary'} fullWidth onClick={want} disabled={sent} leftIcon={sent ? <Check className="w-5 h-5" /> : undefined}>
+        {sent ? 'Vendedor avisado' : 'Quero comprar'}
+      </Button>
     </div>
   )
 }

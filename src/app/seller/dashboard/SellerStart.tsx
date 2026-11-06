@@ -12,6 +12,8 @@ import { inputClass } from '@/components/seller/FormField'
 import { uploadImage } from '@/components/seller/ImageUpload'
 import { cn } from '@/lib/utils'
 import type { Category } from '@/types'
+import { setupComplete, type SetupState } from './SetupChecklist'
+import { SetupGate } from './SetupGate'
 
 const toAmount = (text: string) => text.trim().replace(/\./g, '').replace(',', '.')
 
@@ -21,11 +23,13 @@ interface SellerStartProps {
   // Their first time: the account becomes a seller's as soon as they start
   isSeller: boolean
   shipFromZip: string | null
+  // Online payments are on and there's no Asaas wallet yet
+  needsWallet: boolean
 }
 
 // A seller's first minute: one screen for the first product, then straight to a live.
 // Everything else (variations, package size, how they get paid) waits for the dashboard.
-export function SellerStart({ categories, sellerName, isSeller, shipFromZip }: SellerStartProps) {
+export function SellerStart({ categories, sellerName, isSeller, shipFromZip, needsWallet }: SellerStartProps) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
   const activated = useRef(isSeller)
@@ -40,6 +44,11 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip }: S
   const [startingLive, setStartingLive] = useState(false)
   const [error, setError] = useState('')
   const [productId, setProductId] = useState<string | null>(null)
+  const [zipSaved, setZipSaved] = useState(!!shipFromZip)
+  const [gateOpen, setGateOpen] = useState(false)
+  // Buyers can only buy once the shop is set up (see SetupChecklist)
+  const setup: SetupState = { wallet: needsWallet ? false : null, zip: zipSaved }
+  const canSell = setupComplete(setup)
 
   const activate = async () => {
     if (activated.current) return true
@@ -80,17 +89,22 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip }: S
       return setError(data?.message ?? 'Não foi possível publicar. Tente novamente.')
     }
     if (cep) {
-      await fetch('/api/seller/shipping', {
+      const saved = await fetch('/api/seller/shipping', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ fromZip: cep }),
       })
+      if (saved.ok) setZipSaved(true)
     }
     setSaving(false)
     setProductId(data.id)
   }
 
-  const goLive = async () => {
+  // Going live is fine before the shop is set up, but the seller is told buyers can't buy yet
+  const goLive = () => (canSell ? goLiveNow() : setGateOpen(true))
+
+  const goLiveNow = async () => {
+    setGateOpen(false)
     setStartingLive(true)
     setError('')
     const created = await fetch('/api/seller/streams', {
@@ -128,11 +142,36 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip }: S
           </div>
           <h1 className="text-gray-900 font-semibold text-xl mb-1">Produto publicado!</h1>
           <p className="text-gray-500 text-sm mb-6">Agora é só abrir a câmera e mostrar para os compradores.</p>
+          {!canSell && (
+            <div className="text-left rounded-md bg-white shadow-card border-l-4 border-sunset-gold p-4 mb-6">
+              <p className="text-gray-900 font-medium">Antes da primeira venda</p>
+              <p className="text-gray-500 text-sm mt-1">
+                Seu produto já aparece na loja, mas os compradores só conseguem comprar depois que você cadastrar{' '}
+                {[setup.wallet === false && 'onde receber suas vendas', !setup.zip && 'o CEP de onde envia'].filter(Boolean).join(' e ')}.
+              </p>
+              <Link
+                href={`/seller/settings?focus=${setup.wallet === false ? 'wallet' : 'zip'}`}
+                className="inline-flex items-center gap-0.5 mt-2 text-sm font-semibold text-primary hover:underline"
+              >
+                Resolver agora
+              </Link>
+            </div>
+          )}
           <Button fullWidth size="lg" isLoading={startingLive} onClick={goLive}>
             <Radio className="w-5 h-5 mr-2" />
             Entrar ao vivo agora
           </Button>
           {error && <p className="text-coral-pink text-sm mt-3">{error}</p>}
+          {gateOpen && (
+            <SetupGate
+              setup={setup}
+              title="Seus compradores ainda não podem comprar"
+              text="Você pode entrar ao vivo, mas ninguém vai conseguir comprar seus produtos até você completar:"
+              onClose={() => setGateOpen(false)}
+              onContinue={goLiveNow}
+              continueLabel="Entrar ao vivo mesmo assim"
+            />
+          )}
           <div className="flex flex-col gap-3 mt-5 text-sm">
             <Link href="/seller/streams/new" className="text-sky-blue font-medium hover:underline">
               Agendar para depois

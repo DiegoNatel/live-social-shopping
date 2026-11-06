@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
@@ -9,8 +10,9 @@ import { inputClass } from '@/components/seller/FormField'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Product } from '@/types'
 
-// A seller's product with inline editing of price and stock, and pause/reactivate
-export function ProductRow({ product }: { product: Product }) {
+// A seller's product with inline editing of price and stock, and pause/reactivate.
+// notSellable: the shop isn't set up yet, so buyers can't buy it (tag links to the fix).
+export function ProductRow({ product, notSellable = false }: { product: Product; notSellable?: boolean }) {
   const router = useRouter()
   const paused = product.isActive === false
   const basePrice = product.flashSale?.regularPrice ?? product.price
@@ -55,6 +57,15 @@ export function ProductRow({ product }: { product: Product }) {
               <span className="ml-2 text-xs font-normal bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">
                 {product.isBlocked ? 'Removido pela moderação' : 'Pausado'}
               </span>
+            )}
+            {!paused && notSellable && (
+              <Link
+                href="/seller/settings"
+                className="ml-2 text-xs font-medium bg-sunset-gold/15 text-gray-700 px-1.5 py-0.5 rounded hover:underline"
+                title="Complete recebimento e envio para os compradores poderem comprar"
+              >
+                Ainda não vendável
+              </Link>
             )}
           </p>
           <p className="text-gray-900 font-bold">
