@@ -18,7 +18,7 @@ export function CreatorActions({ creatorId, name }: { creatorId: string; name: s
   const share = async () => {
     const url = window.location.href
     try {
-      if (navigator.share) await navigator.share({ title: `${name} na Luma`, url })
+      if (navigator.share) await navigator.share({ title: `${name} na Watchhaul`, url })
       else {
         await navigator.clipboard.writeText(url)
         setCopied(true)

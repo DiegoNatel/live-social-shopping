@@ -24,10 +24,10 @@ export async function loadSession() {
 function countVisit(signedIn: boolean) {
   try {
     const mark = `${new Date().toLocaleDateString('en-CA', { timeZone: BR_TIME_ZONE })}:${signedIn}`
-    if (localStorage.getItem('luma-visit') === mark) return
-    localStorage.setItem('luma-visit', mark)
-    const visitorId = localStorage.getItem('luma-visitor') ?? crypto.randomUUID()
-    localStorage.setItem('luma-visitor', visitorId)
+    if (localStorage.getItem('watchhaul-visit') === mark) return
+    localStorage.setItem('watchhaul-visit', mark)
+    const visitorId = localStorage.getItem('watchhaul-visitor') ?? crypto.randomUUID()
+    localStorage.setItem('watchhaul-visitor', visitorId)
     fetch('/api/activity', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

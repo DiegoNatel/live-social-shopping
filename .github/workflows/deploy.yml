@@ -1,4 +1,4 @@
-# Deploys Luma to Cloudflare Workers on every push to master.
+# Deploys Watchhaul to Cloudflare Workers on every push to master.
 #
 # One-time setup (GitHub → Settings → Secrets and variables → Actions → New repository secret):
 #   CLOUDFLARE_API_TOKEN   API token with: Workers Scripts Edit, D1 Edit, Workers R2 Storage Edit
@@ -8,7 +8,7 @@
 # Optional: GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET turn on "Continuar com Google".
 # Optional: LIVEKIT_URL, LIVEKIT_API_KEY and LIVEKIT_API_SECRET (LiveKit Cloud → Settings → Keys)
 #   turn on live video. RECORDINGS_S3_ENDPOINT, RECORDINGS_S3_ACCESS_KEY and RECORDINGS_S3_SECRET
-#   (R2 → Manage API tokens, Object Read & Write on vivobuy-images) also record each live.
+#   (R2 → Manage API tokens, Object Read & Write on watchhaul-images) also record each live.
 #   ASAAS_API_KEY and ASAAS_WEBHOOK_TOKEN turn on payments (ASAAS_ENV=production to charge for real).
 #   MELHOR_ENVIO_TOKEN turns on real freight quotes (MELHOR_ENVIO_ENV=production for real prices).
 #   BREVO_API_KEY and EMAIL_FROM turn on e-mail (password recovery and order news).
@@ -62,20 +62,20 @@ jobs:
         if: steps.secrets.outputs.ready == 'true'
         run: npm ci
 
-      # Needs R2 permission on the token; if it fails, create the bucket "vivobuy-images" in the
+      # Needs R2 permission on the token; if it fails, create the bucket "watchhaul-images" in the
       # dashboard (R2 Object Storage → Create bucket) and the deploy goes on
       - name: Create the image bucket (first deploy only)
         if: steps.secrets.outputs.ready == 'true'
         continue-on-error: true
-        run: npx wrangler r2 bucket list | grep -q 'vivobuy-images' || npx wrangler r2 bucket create vivobuy-images
+        run: npx wrangler r2 bucket list | grep -q 'watchhaul-images' || npx wrangler r2 bucket create watchhaul-images
 
       - name: Apply database migrations
         if: steps.secrets.outputs.ready == 'true'
-        run: npx wrangler d1 migrations apply vivobuy --remote
+        run: npx wrangler d1 migrations apply watchhaul --remote
 
       - name: Load sample data
         if: steps.secrets.outputs.ready == 'true' && inputs.seed
-        run: npx wrangler d1 execute vivobuy --remote --file db/seed.sql
+        run: npx wrangler d1 execute watchhaul --remote --file db/seed.sql
 
       - name: Build and deploy
         if: steps.secrets.outputs.ready == 'true'

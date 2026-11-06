@@ -182,7 +182,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                   <p className="text-gray-500">
                     {next === '/vender'
                       ? 'Depois é só cadastrar seu primeiro produto e entrar ao vivo.'
-                      : 'Compre e venda ao vivo na Luma'}
+                      : 'Compre e venda ao vivo na Watchhaul'}
                   </p>
                 </div>
 
@@ -355,7 +355,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                     onClick={() => {
                       setFormData({
                         name: 'Admin User',
-                        email: 'admin@vivobuy.com',
+                        email: 'admin@watchhaul.com',
                         phone: '11999999999',
                         password: '123456',
                       })

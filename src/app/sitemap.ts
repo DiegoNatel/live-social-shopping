@@ -2,7 +2,7 @@ import type { MetadataRoute } from 'next'
 import { getCreatorUsernames, getProductIds, getStreams } from '@/lib/db'
 import { creatorPath } from '@/lib/utils'
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://vivobuy.diegonatel.workers.dev'
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://watchhaul.com'
 
 export const dynamic = 'force-dynamic'
 

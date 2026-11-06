@@ -4,7 +4,7 @@
 
 export type AppMode = 'buyer' | 'seller'
 
-export const MODE_COOKIE = 'vivobuy-mode'
+export const MODE_COOKIE = 'watchhaul-mode'
 
 export const parseMode = (value: string | null | undefined): AppMode => (value === 'seller' ? 'seller' : 'buyer')
 

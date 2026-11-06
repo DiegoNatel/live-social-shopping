@@ -21,7 +21,7 @@ function config() {
   const base =
     env.MELHOR_ENVIO_URL ||
     (env.MELHOR_ENVIO_ENV === 'production' ? 'https://melhorenvio.com.br' : 'https://sandbox.melhorenvio.com.br')
-  return { token: env.MELHOR_ENVIO_TOKEN, base, contact: env.MELHOR_ENVIO_CONTACT || 'contato@vivobuy.com.br' }
+  return { token: env.MELHOR_ENVIO_TOKEN, base, contact: env.MELHOR_ENVIO_CONTACT || 'contato@watchhaul.com' }
 }
 
 export const melhorEnvioEnabled = () => config() !== null
@@ -59,7 +59,7 @@ export async function calculate(fromZip: string, toZip: string, products: QuoteP
       Accept: 'application/json',
       'Content-Type': 'application/json',
       // Required by Melhor Envio: app name and a contact email
-      'User-Agent': `Luma (${c.contact})`,
+      'User-Agent': `Watchhaul (${c.contact})`,
     },
     body: JSON.stringify({ from: { postal_code: fromZip }, to: { postal_code: toZip }, products }),
   }).catch((e: unknown) => {

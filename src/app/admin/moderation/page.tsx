@@ -14,7 +14,7 @@ export default async function ModerationPage() {
   if (!(await isAdmin(session.user.id))) notFound()
   const [reports, orders, banned] = await Promise.all([getOpenReports(), getOrdersNeedingAction(), getBannedUsers()])
   return (
-    <MainLayout headerProps={{ title: 'Painel da Luma' }}>
+    <MainLayout headerProps={{ title: 'Painel da Watchhaul' }}>
       <div className="max-w-3xl mx-auto px-4 pt-6">
         <AdminTabs active="/admin/moderation" />
       </div>

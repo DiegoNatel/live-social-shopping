@@ -38,7 +38,7 @@ const STEPS = [
   {
     icon: Wallet,
     title: 'Venda e receba',
-    text: 'O comprador paga na hora pela Luma. Você envia o pedido e recebe sua parte.',
+    text: 'O comprador paga na hora pela Watchhaul. Você envia o pedido e recebe sua parte.',
   },
 ]
 
@@ -56,7 +56,7 @@ const TOOLS = [
 const FAQ = [
   {
     q: 'Quanto custa?',
-    a: `Não há mensalidade nem taxa de cadastro. A Luma fica com ${PLATFORM_FEE_PERCENT}% de cada venda, e a taxa do meio de pagamento é descontada do valor recebido.`,
+    a: `Não há mensalidade nem taxa de cadastro. A Watchhaul fica com ${PLATFORM_FEE_PERCENT}% de cada venda, e a taxa do meio de pagamento é descontada do valor recebido.`,
   },
   {
     q: 'Como recebo o dinheiro?',
@@ -208,5 +208,5 @@ export default async function SellersPage() {
 
 export const metadata: Metadata = {
   title: 'Venda ao vivo',
-  description: `Venda ao vivo na Luma: sem mensalidade, ${PLATFORM_FEE_PERCENT}% por venda, Pix, cartão e boleto.`,
+  description: `Venda ao vivo na Watchhaul: sem mensalidade, ${PLATFORM_FEE_PERCENT}% por venda, Pix, cartão e boleto.`,
 }

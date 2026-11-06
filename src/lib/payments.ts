@@ -7,12 +7,12 @@ import { logError } from './errors'
 import { chargebackOpened, chargebackWon, finishRefund, refundDenied, refundOrder } from './refunds'
 
 // Charges orders through Asaas and splits each payment:
-// - the seller gets their items minus the host's share (guest sales) and Luma's fee
-// - a live's host gets their share of guest sales, minus Luma's fee
+// - the seller gets their items minus the host's share (guest sales) and Watchhaul's fee
+// - a live's host gets their share of guest sales, minus Watchhaul's fee
 // - each seller also gets the shipping for their items (no fee): they buy the label
-// - Luma keeps the rest: its fee, and parts it couldn't send: sellers with no
+// - Watchhaul keeps the rest: its fee, and parts it couldn't send: sellers with no
 //   Asaas wallet yet, or whose wallet Asaas refused (recorded in orders.payment_split with
-//   `held`, to pay out by hand). A seller using Luma's own wallet just keeps it there.
+//   `held`, to pay out by hand). A seller using Watchhaul's own wallet just keeps it there.
 // Discounts (coupons, Pix) and Asaas's own fee reduce every part in proportion.
 
 const PLATFORM_FEE = PLATFORM_FEE_PERCENT / 100
@@ -78,7 +78,7 @@ export type SplitPart = {
   // Of `cents`, the shipping the seller receives to buy the label (not revenue)
   shippingCents?: number
   walletId: string | null
-  // Why Luma kept this part instead of sending it
+  // Why Watchhaul kept this part instead of sending it
   held?: 'no_wallet' | 'own_account' | 'wallet_rejected'
 }
 
@@ -98,7 +98,7 @@ async function splitParts(order: OrderRow): Promise<SplitPart[]> {
 
   const subtotal = results.reduce((sum, r) => sum + r.line_cents, 0)
   if (subtotal === 0) return []
-  // What the buyer paid for the items (after discounts), less Luma's fee
+  // What the buyer paid for the items (after discounts), less Watchhaul's fee
   const scale = ((order.total_cents - order.shipping_cents) / subtotal) * (1 - PLATFORM_FEE)
 
   const parts = new Map<string, SplitPart>()
@@ -131,7 +131,7 @@ async function splitParts(order: OrderRow): Promise<SplitPart[]> {
 }
 
 // Creates the charge, sending each part to its wallet. If Asaas refuses a wallet (a typo in
-// the seller's id), the charge is created anyway with that part kept by Luma, and the
+// the seller's id), the charge is created anyway with that part kept by Watchhaul, and the
 // seller is told to check their wallet id: one bad wallet doesn't block the buyer.
 async function createSplitCharge(order: OrderRow, customer: string, parts: SplitPart[]) {
   const charge = (sent: SplitPart[]) =>
@@ -140,7 +140,7 @@ async function createSplitCharge(order: OrderRow, customer: string, parts: Split
       billingType: BILLING[order.payment_method],
       value: order.total_cents / 100,
       dueDate: brDate(DAYS_TO_PAY[order.payment_method]),
-      description: `Pedido ${order.id} na Luma`,
+      description: `Pedido ${order.id} na Watchhaul`,
       externalReference: order.id,
       installments: order.installments,
       // Percent of the charge's value (Asaas takes its fee from each part in proportion)
@@ -162,7 +162,7 @@ async function createSplitCharge(order: OrderRow, customer: string, parts: Split
         named.map(p =>
           notify(
             p.userId, 'order_update', 'Confira sua carteira Asaas',
-            `O Asaas recusou o ID da carteira cadastrado no seu painel. Sua parte do pedido ${order.id} ficou com a Luma e será repassada; corrija o ID para receber as próximas vendas direto.`,
+            `O Asaas recusou o ID da carteira cadastrado no seu painel. Sua parte do pedido ${order.id} ficou com a Watchhaul e será repassada; corrija o ID para receber as próximas vendas direto.`,
             '/seller/dashboard'
           )
         )
@@ -255,7 +255,7 @@ export async function chargeOrder(
     return { ...info, pix: { image: qr.encodedImage, code: qr.payload, expiresAt: qr.expirationDate } }
   } catch (e) {
     if (e instanceof asaas.AsaasError) {
-      // Asaas's message is about Luma's account (e.g. "sua conta precisa estar aprovada"):
+      // Asaas's message is about Watchhaul's account (e.g. "sua conta precisa estar aprovada"):
       // logged for us, not shown to buyers
       await logError('pagamento', `Asaas recusou a cobrança: ${e.message}`, orderId)
       throw new PaymentError(

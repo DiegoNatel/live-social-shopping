@@ -1,4 +1,4 @@
-// Luma's mark: a yellow four-point star. Goes on a black tile.
+// Watchhaul's mark: a yellow four-point star. Goes on a black tile.
 export function BrandMark({ className }: { className?: string }) {
   return (
     <svg viewBox="-256 -256 512 512" aria-hidden="true" className={className}>

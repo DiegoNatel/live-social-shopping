@@ -66,7 +66,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleE
           error.status === 401
             ? 'E-mail ou senha incorretos'
             : error.status === 403
-              ? 'Esta conta foi suspensa por violar as regras da Luma.'
+              ? 'Esta conta foi suspensa por violar as regras da Watchhaul.'
               : 'Não foi possível entrar. Tente novamente.',
       })
       setIsLoading(false)
@@ -115,7 +115,7 @@ export function LoginForm({ googleEnabled, canRecoverPassword, next }: { googleE
                 Bem-vindo de volta!
               </h1>
               <p className="text-gray-500">
-                Entre na sua conta Luma
+                Entre na sua conta Watchhaul
               </p>
             </div>
 

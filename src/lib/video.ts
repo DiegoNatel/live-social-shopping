@@ -15,10 +15,10 @@ import { deleteRoom, liveKitConfig, roomService } from './livekit'
 // Without the LIVEKIT_* secrets the app works as before and shows the stream's cover image.
 //
 // Recording is optional: with the RECORDINGS_S3_* secrets (an R2 API token for the
-// vivobuy-images bucket), LiveKit records each live to recordings/<streamId>/<time>.mp4,
+// watchhaul-images bucket), LiveKit records each live to recordings/<streamId>/<time>.mp4,
 // served at the same path by app/recordings/[...key].
 
-const RECORDING_BUCKET = 'vivobuy-images'
+const RECORDING_BUCKET = 'watchhaul-images'
 // Only needed to join; once connected, LiveKit keeps refreshing the token itself
 const TOKEN_TTL = '6h'
 // Going live doesn't wait longer than this for LiveKit

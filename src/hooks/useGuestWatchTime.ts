@@ -3,8 +3,8 @@ import { useEffect, useRef } from 'react'
 const FIRST_PROMPT_MS = 10 * 60_000
 const REPEAT_PROMPT_MS = 5 * 60_000
 const TICK_MS = 5_000
-const WATCHED_KEY = 'luma-guest-watched-ms'
-const NEXT_KEY = 'luma-guest-prompt-at-ms'
+const WATCHED_KEY = 'watchhaul-guest-watched-ms'
+const NEXT_KEY = 'watchhaul-guest-prompt-at-ms'
 
 // Kept in the browser so reloading or changing lives doesn't start the count over. Storage
 // can be blocked (private windows): the count then just lasts as long as the page.

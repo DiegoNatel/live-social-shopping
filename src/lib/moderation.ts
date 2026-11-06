@@ -131,7 +131,7 @@ async function removeProduct(productId: string) {
     .prepare(`UPDATE products SET is_active = 0, blocked_at = ${NOW} WHERE id = ? AND blocked_at IS NULL RETURNING seller_id, name`)
     .bind(productId)
     .first<{ seller_id: string; name: string }>()
-  if (product) await notify(product.seller_id, 'message', 'Produto removido', `"${product.name}" foi removido por violar as regras da Luma.`, '/seller/dashboard').run()
+  if (product) await notify(product.seller_id, 'message', 'Produto removido', `"${product.name}" foi removido por violar as regras da Watchhaul.`, '/seller/dashboard').run()
 }
 
 // Ends the live for everyone and takes it (and its recording) off the site
@@ -149,7 +149,7 @@ async function removeStream(streamId: string) {
     .first<{ host_id: string; title: string }>()
   if (!stream) return
   await endStream(streamId)
-  await notify(stream.host_id, 'message', 'Live removida', `A live "${stream.title}" foi removida por violar as regras da Luma.`, '/seller/dashboard').run()
+  await notify(stream.host_id, 'message', 'Live removida', `A live "${stream.title}" foi removida por violar as regras da Watchhaul.`, '/seller/dashboard').run()
 }
 
 async function removeMessage(messageId: string) {

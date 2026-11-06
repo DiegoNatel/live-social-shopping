@@ -2,7 +2,7 @@
 // that no longer exist. Reloading once picks up the new version. The time guard stops a
 // reload loop if the error keeps happening for another reason.
 
-const KEY = 'vivobuy-reloaded-at'
+const KEY = 'watchhaul-reloaded-at'
 
 export const isStaleBuildError = (error: unknown) => {
   const text = error instanceof Error ? `${error.name} ${error.message}` : String(error)

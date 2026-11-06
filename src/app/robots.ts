@@ -1,6 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://vivobuy.diegonatel.workers.dev'
+const SITE = process.env.NEXT_PUBLIC_SITE_URL || 'https://watchhaul.com'
 
 // Search engines may read the shop, not accounts, checkout, the seller area or the API
 export default function robots(): MetadataRoute.Robots {

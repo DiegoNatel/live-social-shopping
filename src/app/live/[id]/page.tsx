@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   const stream = await loadStream((await params).id)
   if (!stream) return { title: 'Live não encontrada' }
   const title = `${stream.title} · ${stream.host.name}`
-  const description = stream.description || `Assista e compre ao vivo com ${stream.host.name} na Luma.`
+  const description = stream.description || `Assista e compre ao vivo com ${stream.host.name} na Watchhaul.`
   const images = stream.thumbnail ? [stream.thumbnail] : undefined
   return {
     title,

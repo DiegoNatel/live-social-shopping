@@ -123,7 +123,7 @@ export const useCartStore = create<CartState>()(
       },
     }),
     {
-      name: 'vivobuy-cart',
+      name: 'watchhaul-cart',
       // Lines saved before variant keys were normalized can be the same product twice: merge them
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<CartState>
@@ -144,7 +144,7 @@ export const useCartStore = create<CartState>()(
 // Another tab changed the cart: reload it here, so this tab doesn't write stale lines back
 if (typeof window !== 'undefined') {
   window.addEventListener('storage', e => {
-    if (e.key === 'vivobuy-cart') useCartStore.persist.rehydrate()
+    if (e.key === 'watchhaul-cart') useCartStore.persist.rehydrate()
   })
 }
 

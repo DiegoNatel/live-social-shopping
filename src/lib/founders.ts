@@ -89,7 +89,7 @@ const toMetrics = (now: Period, before: Period): Metric[] => {
     { label: 'Visitantes', value: now.visitors, previous: before.visitors, format: 'number', hint: 'Com ou sem conta' },
     { label: 'Novos cadastros', value: now.signups, previous: before.signups, format: 'number' },
     { label: 'Vendas', value: now.salesCents / 100, previous: before.salesCents / 100, format: 'money', hint: 'Total pago pelos compradores' },
-    { label: 'Receita da Luma', value: fee(now), previous: fee(before), format: 'money', hint: `Estimativa: ${PLATFORM_FEE_PERCENT}% sem frete, antes da taxa do Asaas` },
+    { label: 'Receita da Watchhaul', value: fee(now), previous: fee(before), format: 'money', hint: `Estimativa: ${PLATFORM_FEE_PERCENT}% sem frete, antes da taxa do Asaas` },
     { label: 'Pedidos pagos', value: now.orders, previous: before.orders, format: 'number' },
     { label: 'Ticket médio', value: ticket(now), previous: ticket(before), format: 'money' },
     { label: 'Conversão', value: conversion(now), previous: conversion(before), format: 'percent', hint: 'Pedidos pagos por visitante' },

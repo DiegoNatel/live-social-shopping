@@ -16,7 +16,7 @@ export default async function AdminPage() {
   if (!(await isAdmin(session.user.id))) notFound()
   const dashboard = await getFoundersDashboard()
   return (
-    <MainLayout headerProps={{ title: 'Painel da Luma' }}>
+    <MainLayout headerProps={{ title: 'Painel da Watchhaul' }}>
       <div className="max-w-5xl mx-auto px-4 py-6">
         <AdminTabs active="/admin" />
         <FoundersView {...dashboard} />
