@@ -28,17 +28,23 @@ const STEPS = [
   {
     icon: PackagePlus,
     title: 'Cadastre um produto',
-    text: 'Crie sua conta, tire uma foto e coloque preço e estoque. Leva um minuto.',
+    text: 'Crie sua conta, tire uma foto e coloque preço e estoque.',
+    time: '1 minuto',
+    timeIcon: Clock,
   },
   {
     icon: Radio,
     title: 'Entre ao vivo',
-    text: 'Pelo celular mesmo. Mostre os produtos, converse no chat e fixe o que está apresentando.',
+    text: 'Pelo celular mesmo, logo em seguida. Mostre os produtos, converse no chat e fixe o que está apresentando.',
+    time: '+1 minuto',
+    timeIcon: Clock,
   },
   {
     icon: Wallet,
     title: 'Venda e receba',
-    text: 'O comprador paga na hora pela Watchhaul. Você envia o pedido e recebe sua parte.',
+    text: 'O comprador paga durante a live. No Pix, a confirmação chega na hora; você envia o pedido e recebe sua parte.',
+    time: 'Na hora',
+    timeIcon: Zap,
   },
 ]
 
@@ -118,18 +124,32 @@ export default async function SellersPage() {
 
         {/* How it works */}
         <section id="como-funciona" className="mt-10 scroll-mt-20">
-          <h2 className="text-gray-900 text-xl font-semibold mb-4">Como funciona</h2>
+          <h2 className="text-gray-900 text-xl font-semibold">Como funciona</h2>
+          <p className="text-gray-500 text-sm mt-1 mb-4">Do cadastro à primeira venda em poucos minutos.</p>
           <ol className="grid md:grid-cols-3 gap-3">
             {STEPS.map((step, i) => (
-              <li key={step.title} className="bg-white rounded-md shadow-card p-5">
+              <li key={step.title} className="relative bg-white rounded-md shadow-card p-5">
                 <div className="flex items-center gap-3 mb-3">
                   <span className="w-8 h-8 rounded-full bg-primary text-white text-sm font-semibold flex items-center justify-center">
                     {i + 1}
                   </span>
                   <step.icon className="w-5 h-5 text-primary" />
+                  <span className="ml-auto inline-flex items-center gap-1.5 rounded-md bg-primary/10 text-primary text-base font-bold px-3 py-1">
+                    <step.timeIcon className="w-4 h-4" />
+                    {step.time}
+                  </span>
                 </div>
                 <h3 className="text-gray-900 font-semibold">{step.title}</h3>
                 <p className="text-gray-500 text-sm mt-1">{step.text}</p>
+                {/* Arrow to the next step: down on phones, right on wide screens */}
+                {i < STEPS.length - 1 && (
+                  <span
+                    aria-hidden
+                    className="absolute z-10 flex items-center justify-center w-7 h-7 rounded-full bg-primary text-white shadow-card ring-4 ring-gray-100 left-1/2 -bottom-[20px] -translate-x-1/2 rotate-90 md:rotate-0 md:left-auto md:bottom-auto md:translate-x-0 md:-right-[20px] md:top-1/2 md:-translate-y-1/2"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </span>
+                )}
               </li>
             ))}
           </ol>

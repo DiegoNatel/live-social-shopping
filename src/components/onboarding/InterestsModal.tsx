@@ -6,7 +6,7 @@ import Image from 'next/image'
 import * as Dialog from '@radix-ui/react-dialog'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn } from '@/lib/utils'
-import { Check, Search, ChevronRight } from 'lucide-react'
+import { Check, Search } from 'lucide-react'
 
 // Featured categories with icons (top horizontal scroll)
 const featuredCategories = [
@@ -285,10 +285,6 @@ export function InterestsModal({ open, onComplete }: InterestsModalProps) {
                     </button>
                   )
                 })}
-                <button className="flex items-center gap-1 px-3 py-2.5 text-sm font-semibold text-sky-blue hover:bg-gray-100 rounded-lg whitespace-nowrap transition-colors">
-                  Ver tudo
-                  <ChevronRight className="w-4 h-4" />
-                </button>
               </div>
             </div>
 

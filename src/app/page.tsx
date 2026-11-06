@@ -16,7 +16,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     getStreams({ live: true, category }),
     getStreams({ live: false, upcoming: true, category }),
     getStreams({ live: false, ended: true, recorded: true, category }),
-    // Same order as the "Ver tudo" pages (/trending and /deals), so each section previews its page
+    // Same order as /trending and /deals, so each section matches that page
     getProducts({ sort: 'trending', inStock: true, limit: 4, category }),
     getProducts({ onSale: true, inStock: true, sort: 'discount', limit: 4, category }),
     session ? getUser(session.user.id) : null,

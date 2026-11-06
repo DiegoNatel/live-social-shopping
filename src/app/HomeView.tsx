@@ -79,7 +79,6 @@ export function HomeView({
         <section className={cn('mt-8', category && liveStreams.length === 0 && 'hidden')}>
           <SectionHeader
             title="Ao Vivo Agora"
-            href="/discover"
             count={liveStreams.length}
           />
           <div className="mt-4 flex gap-4 overflow-x-auto no-scrollbar px-4 pb-2">
@@ -95,7 +94,6 @@ export function HomeView({
         <section className={cn('mt-8', category && flashDeals.length === 0 && 'hidden')}>
           <SectionHeader
             title="Ofertas Relâmpago"
-            href="/deals"
             // The real biggest discount shown below, not a fixed figure
             badge={(() => {
               const best = Math.max(0, ...flashDeals.map(p => (p.originalPrice ? Math.round((1 - p.price / p.originalPrice) * 100) : 0)))
@@ -113,7 +111,6 @@ export function HomeView({
         <section className={cn('mt-8', category && upcomingStreams.length === 0 && 'hidden')}>
           <SectionHeader
             title="Em Breve"
-            href="/schedule"
           />
           <div className="mt-4 px-4 space-y-2">
             {upcomingStreams.map((stream, index) => (
@@ -138,7 +135,6 @@ export function HomeView({
         <section className={cn('mt-8', category && trendingProducts.length === 0 && 'hidden')}>
           <SectionHeader
             title="Em Alta"
-            href="/trending"
           />
           <div className="mt-4 grid grid-cols-2 md:grid-cols-4 gap-3 px-4">
             {trendingProducts.map((product, index) => (
@@ -184,12 +180,11 @@ export function HomeView({
 interface SectionHeaderProps {
   title: string
   icon?: React.ReactNode
-  href?: string
   count?: number
   badge?: string
 }
 
-function SectionHeader({ title, icon, href, count, badge }: SectionHeaderProps) {
+function SectionHeader({ title, icon, count, badge }: SectionHeaderProps) {
   return (
     <div className="flex items-center justify-between px-4">
       <div className="flex items-center gap-2">
@@ -206,15 +201,6 @@ function SectionHeader({ title, icon, href, count, badge }: SectionHeaderProps) 
           </span>
         )}
       </div>
-      {href && (
-        <Link
-          href={href}
-          className="flex items-center gap-1 text-sky-blue text-sm hover:underline"
-        >
-          Ver tudo
-          <ChevronRight className="w-4 h-4" />
-        </Link>
-      )}
     </div>
   )
 }
