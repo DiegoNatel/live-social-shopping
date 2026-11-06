@@ -33,8 +33,9 @@ export function ProductCarousel({ products, onProductClick, onBeforeAdd, variant
 
   const handleQuickAdd = (e: React.MouseEvent, product: Product) => {
     e.stopPropagation()
-    // Size/color has to be chosen in the product modal first
-    const add = () => (product.variants?.length ? openProductModal(product) : addItem(product))
+    // Size/color has to be chosen in the product modal first; a shop still being set up
+    // can't sell, and the modal explains that
+    const add = () => (product.variants?.length || product.sellerReady === false ? openProductModal(product) : addItem(product))
     if (onBeforeAdd) onBeforeAdd(add)
     else add()
   }

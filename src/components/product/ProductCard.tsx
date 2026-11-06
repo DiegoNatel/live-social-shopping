@@ -36,8 +36,9 @@ export function ProductCard({
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.stopPropagation()
-    // Size/color has to be chosen in the product modal first
-    if (product.variants?.length) openProductModal(product)
+    // Size/color has to be chosen in the product modal first; a shop still being set up
+    // can't sell, and the modal explains that
+    if (product.variants?.length || product.sellerReady === false) openProductModal(product)
     else addItem(product)
   }
 

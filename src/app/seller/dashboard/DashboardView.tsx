@@ -18,8 +18,9 @@ import type { ReturnRequest, SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
 import { ReturnRequests } from './ReturnRequests'
 import { GuestInvites, StreamGuestsButton } from './GuestPanels'
-import { PayoutPanel } from './PayoutPanel'
-import { ShipFromPanel, ShipOrderButton } from './ShippingPanels'
+import { SetupChecklist, setupComplete, type SetupState } from './SetupChecklist'
+import { SetupGate } from './SetupGate'
+import { ShipOrderButton } from './ShippingPanels'
 import type { GuestInvite } from '@/lib/guests'
 import {
   Radio,
@@ -39,6 +40,7 @@ import {
   Clock,
   Star,
   Gavel,
+  Store,
 } from 'lucide-react'
 
 export interface DashboardData {
@@ -55,10 +57,18 @@ export interface DashboardData {
   payout: { walletId: string | null } | null
   // CEP the seller ships from (null until set)
   shipFromZip: string | null
+  // Tab to open first (from ?tab=, e.g. links in the profile menu)
+  initialTab?: DashboardTab
+  // Arrived right after publishing a product (?published=1)
+  justPublished?: boolean
 }
 
-export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, returnRequests, stats: totals, invites, payout, shipFromZip }: DashboardData) {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'streams' | 'auctions' | 'analytics'>('overview')
+export type DashboardTab = 'overview' | 'products' | 'streams' | 'auctions' | 'analytics'
+
+export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, returnRequests, stats: totals, invites, payout, shipFromZip, initialTab = 'overview', justPublished = false }: DashboardData) {
+  const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab)
+  // Asks the seller to finish setting up before something that needs buyers to buy
+  const [gate, setGate] = useState<{ kind: 'live'; streamId: string } | { kind: 'auction' } | null>(null)
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
   const [auctionStreamId, setAuctionStreamId] = useState<string | undefined>()
@@ -118,10 +128,16 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
     router.refresh()
   }
 
+  // Auctions end in an order the winner pays right away, so they wait for the shop to be set up
+  const openAuction = () => (canSell ? setShowAuctionModal(true) : setGate({ kind: 'auction' }))
+
   const openGuestAuction = (streamId: string) => {
     setAuctionStreamId(streamId)
-    setShowAuctionModal(true)
+    openAuction()
   }
+
+  // Going live is allowed before the shop is set up, but the seller is told buyers can't buy yet
+  const startLive = (streamId: string) => (canSell ? setStreamStatus(streamId, 'live') : setGate({ kind: 'live', streamId }))
 
   // Period-over-period changes and conversion need analytics we don't collect yet
   const stats = {
@@ -134,39 +150,55 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
   }
 
   const nextStream = streams.find(s => s.isLive) ?? streams[0]
+  // Buyers can only buy once the seller set where they receive (with payments on) and ship from
+  const setup: SetupState = { wallet: payout ? !!payout.walletId : null, zip: !!shipFromZip }
+  const canSell = setupComplete(setup)
 
   return (
     <MainLayout headerProps={{ showSearch: false, showCart: false }}>
       <div className="max-w-6xl mx-auto px-4 py-4 pb-24">
         {/* Seller Info */}
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
+          {/* Like a social profile: tapping your photo or name opens your page */}
+          <Link href={creatorPath(seller.username)} className="flex items-center gap-3 min-w-0 group">
             <Avatar src={seller.avatar} alt={seller.name} size="lg" isVerified={seller.isVerified} />
-            <div>
-              <h2 className="text-gray-900 font-semibold">{seller.name}</h2>
-              <p className="text-gray-500 text-sm">
-                {formatViewerCount(seller.followers)} seguidores ·{' '}
-                <Link href={creatorPath(seller.username)} className="text-sky-blue hover:underline">
-                  Ver minha página
-                </Link>
+            <div className="min-w-0">
+              <h2 className="text-gray-900 font-semibold truncate group-hover:underline">{seller.name}</h2>
+              <p className="text-gray-500 text-sm truncate">
+                @{seller.username} · {formatViewerCount(seller.followers)} seguidores
               </p>
             </div>
-          </div>
+          </Link>
           <div className="flex flex-col items-end gap-1">
-            <Button
-              size="sm"
-              leftIcon={<Radio className="w-4 h-4" />}
-              className="bg-coral-pink hover:bg-coral-pink-600"
-              onClick={() => setActiveTab('streams')}
-            >
-              Iniciar Live
-            </Button>
+            <div className="flex items-center gap-2">
+              <Link
+                href={creatorPath(seller.username)}
+                className="inline-flex items-center justify-center gap-1.5 h-9 px-3 rounded-md bg-gray-100 text-gray-900 text-sm font-semibold hover:bg-gray-200 transition-colors"
+              >
+                <Store className="w-4 h-4" />
+                Minha loja
+              </Link>
+              <Button
+                size="sm"
+                leftIcon={<Radio className="w-4 h-4" />}
+                className="bg-coral-pink hover:bg-coral-pink-600"
+                onClick={() => setActiveTab('streams')}
+              >
+                Iniciar Live
+              </Button>
+            </div>
             <button onClick={switchToBuyer} className="text-gray-500 text-xs hover:text-gray-900 hover:underline">
               Mudar para modo comprador
             </button>
           </div>
         </div>
 
+        {justPublished && !canSell && (
+          <p className="rounded-md bg-tropical-green/10 text-gray-900 text-sm px-4 py-3 mb-3">
+            <strong>Produto publicado!</strong> Ele já aparece na sua loja. Para os compradores conseguirem comprar, faça os passos abaixo.
+          </p>
+        )}
+        <SetupChecklist setup={setup} />
         {actionError && <p className="text-coral-pink text-sm mb-4">{actionError}</p>}
 
         {pendingInvites > 0 && activeTab !== 'streams' && (
@@ -215,8 +247,6 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
           {stats.hostRevenue > 0 && ` Inclui ${formatCurrency(stats.hostRevenue)} da sua parte nas vendas de convidados.`}
         </p>
 
-        {payout && <PayoutPanel walletId={payout.walletId} />}
-        <ShipFromPanel zip={shipFromZip} />
 
         {/* Tabs */}
         <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 -mx-4 px-4">
@@ -395,7 +425,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             </div>
             <div className="space-y-2">
               {products.map((product) => (
-                <ProductRow key={product.id} product={product} />
+                <ProductRow key={product.id} product={product} notSellable={!canSell} />
               ))}
             </div>
           </div>
@@ -458,7 +488,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                         </Link>
                       </>
                     ) : (
-                      <Button size="sm" isLoading={busyStreamId === stream.id} onClick={() => setStreamStatus(stream.id, 'live')}>
+                      <Button size="sm" isLoading={busyStreamId === stream.id} onClick={() => startLive(stream.id)}>
                         Iniciar agora
                       </Button>
                     )}
@@ -497,7 +527,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
               <Button 
                 size="sm" 
                 leftIcon={<Plus className="w-4 h-4" />}
-                onClick={() => setShowAuctionModal(true)}
+                onClick={openAuction}
                 
               >
                 Criar Leilão
@@ -567,7 +597,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             
             {/* Quick Create Auction Card */}
             <motion.button
-              onClick={() => setShowAuctionModal(true)}
+              onClick={openAuction}
               className="w-full mt-4 p-6 rounded-md border-2 border-dashed border-gray-300 bg-white flex flex-col items-center justify-center gap-2 hover:border-primary transition-colors"
               whileHover={{ scale: 1.01 }}
               whileTap={{ scale: 0.99 }}
@@ -596,16 +626,27 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
       </div>
 
       {/* Floating Action Button: schedule a live (the Lives tab has its own button, and this one would cover the cards' buttons) */}
-      {activeTab !== 'streams' && (
-        <Link href="/seller/streams/new" aria-label="Agendar live">
-          <motion.span
-            className="fixed bottom-24 right-4 w-14 h-14 rounded-full bg-coral-pink text-white shadow-lg flex items-center justify-center"
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-          >
-            <Plus className="w-6 h-6" />
-          </motion.span>
-        </Link>
+
+      {gate && (
+        <SetupGate
+          setup={setup}
+          title={gate.kind === 'live' ? 'Seus compradores ainda não podem comprar' : 'Antes de criar um leilão'}
+          text={
+            gate.kind === 'live'
+              ? 'Você pode entrar ao vivo, mas ninguém vai conseguir comprar seus produtos até você completar:'
+              : 'Quem ganha o leilão paga na hora, então sua loja precisa estar pronta para vender. Falta:'
+          }
+          onClose={() => setGate(null)}
+          onContinue={
+            gate.kind === 'live'
+              ? () => {
+                  setGate(null)
+                  setStreamStatus(gate.streamId, 'live')
+                }
+              : undefined
+          }
+          continueLabel="Entrar ao vivo mesmo assim"
+        />
       )}
 
       {/* Create Auction Modal */}

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { cache } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import { MainLayout } from '@/components/layout/MainLayout'
 import { ProductGrid } from '@/components/product/ProductGrid'
 import { ProductModal } from '@/components/product/ProductModal'
@@ -8,7 +8,8 @@ import { StreamCard } from '@/components/stream/StreamCard'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { getCreatorPage } from '@/lib/db'
-import { formatNumber } from '@/lib/utils'
+import { creatorPath, formatNumber } from '@/lib/utils'
+import { findRenamedUsername } from '@/lib/username'
 import { CreatorActions } from './CreatorActions'
 
 export const dynamic = 'force-dynamic'
@@ -34,8 +35,14 @@ export async function generateMetadata({ params }: { params: Promise<{ username:
 const plural = (n: number, one: string, many: string) => `${formatNumber(n)} ${n === 1 ? one : many}`
 
 export default async function CreatorPage({ params }: { params: Promise<{ username: string }> }) {
-  const data = await load((await params).username)
-  if (!data) notFound()
+  const { username } = await params
+  const data = await load(username)
+  if (!data) {
+    // An old link from before the seller changed their username
+    const renamed = await findRenamedUsername(decodeURIComponent(username).toLowerCase())
+    if (renamed) permanentRedirect(creatorPath(renamed))
+    notFound()
+  }
   const { creator, products, live, upcoming, recordings } = data
   const isLive = live.length > 0
 

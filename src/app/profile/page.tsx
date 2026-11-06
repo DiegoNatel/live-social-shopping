@@ -10,7 +10,9 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store'
 import { authClient } from '@/lib/auth-client'
-import { creatorPath, formatNumber, formatCurrency } from '@/lib/utils'
+import { formatNumber, formatCurrency } from '@/lib/utils'
+import { MenuButton, MenuItem, MenuSection } from './menu'
+import { SellerProfile } from './SellerProfile'
 import {
   Settings,
   ChevronRight,
@@ -83,6 +85,15 @@ export default function ProfilePage() {
     )
   }
 
+  // Sellers in seller mode get their shop and tools instead of the buyer's menu
+  if (isSeller && mode === 'seller') {
+    return (
+      <MainLayout headerProps={{ title: 'Meu Perfil', showAvatar: false }}>
+        <SellerProfile user={user} isAdmin={isAdmin} onSwitchToBuyer={switchMode} onLogout={handleLogout} />
+      </MainLayout>
+    )
+  }
+
   return (
     <MainLayout headerProps={{ title: 'Meu Perfil', showAvatar: false }}>
       <div className="max-w-3xl mx-auto px-4 py-4">
@@ -97,11 +108,6 @@ export default function ProfilePage() {
           />
           <h1 className="text-gray-900 font-semibold text-xl">{user.name}</h1>
           <p className="text-gray-500">@{user.username}</p>
-          {isSeller && (
-            <Link href={creatorPath(user.username)} className="inline-block text-sky-blue text-sm hover:underline mt-1">
-              Ver minha página de vendedor
-            </Link>
-          )}
           
           {/* Stats */}
           <div className="flex items-center justify-center gap-6 mt-4">
@@ -296,56 +302,3 @@ function StatCard({ icon, value, label, color }: StatCardProps) {
     </div>
   )
 }
-
-// Menu Section Component
-function MenuSection({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="rounded-xl bg-white shadow-card overflow-hidden">
-      <h3 className="text-gray-400 text-xs font-medium uppercase tracking-wide px-4 py-2 bg-gray-50 border-b border-gray-100">
-        {title}
-      </h3>
-      {children}
-    </div>
-  )
-}
-
-// Menu Item Component
-// Like MenuItem, for an action instead of a link
-function MenuButton({ icon, label, onClick }: { icon: React.ReactNode; label: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick} className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors text-left">
-      <div className="flex items-center gap-3">
-        <span className="text-gray-500">{icon}</span>
-        <span className="text-gray-900">{label}</span>
-      </div>
-      <ChevronRight className="w-5 h-5 text-gray-400" />
-    </button>
-  )
-}
-
-interface MenuItemProps {
-  icon: React.ReactNode
-  label: string
-  href: string
-  badge?: string
-}
-
-function MenuItem({ icon, label, href, badge }: MenuItemProps) {
-  return (
-    <Link href={href}>
-      <div className="flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors">
-        <div className="flex items-center gap-3">
-          <span className="text-gray-500">{icon}</span>
-          <span className="text-gray-900">{label}</span>
-          {badge && (
-            <span className="px-2 py-0.5 rounded-full bg-sky-blue-50 text-sky-blue text-xs font-medium">
-              {badge}
-            </span>
-          )}
-        </div>
-        <ChevronRight className="w-5 h-5 text-gray-400" />
-      </div>
-    </Link>
-  )
-}
-

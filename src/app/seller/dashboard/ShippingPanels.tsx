@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
+import { CheckCircle2 } from 'lucide-react'
 
 // The CEP the seller ships from. Until it's set, buyers pay a flat shipping fee for their items.
 export function ShipFromPanel({ zip }: { zip: string | null }) {
@@ -32,12 +33,18 @@ export function ShipFromPanel({ zip }: { zip: string | null }) {
 
   if (!editing && zip) {
     return (
-      <p className="text-gray-500 text-xs mb-6">
-        Seus envios saem do CEP {zip.replace(/^(\d{5})(\d{3})$/, '$1-$2')}.{' '}
-        <button onClick={() => setEditing(true)} className="text-sky-blue hover:underline">
+      <div className="rounded-md bg-white shadow-card p-4 mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <CheckCircle2 className="w-5 h-5 text-tropical-green shrink-0" />
+          <div className="min-w-0">
+            <p className="text-gray-900 font-medium">CEP {zip.replace(/^(\d{5})(\d{3})$/, '$1-$2')}</p>
+            <p className="text-gray-500 text-sm">O comprador vê o frete real a partir daqui.</p>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
           Alterar
-        </button>
-      </p>
+        </Button>
+      </div>
     )
   }
 

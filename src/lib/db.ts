@@ -2,6 +2,7 @@ import 'server-only'
 import { getCloudflareContext } from '@opennextjs/cloudflare'
 import type { User, Product, ProductVariant, Stream, Category, Auction, AuctionBid } from '@/types'
 import { normalizeTag } from './interests'
+import { missingSetup, setupCols } from './seller-setup'
 
 export function getDb(): D1Database {
   return getCloudflareContext().env.DB
@@ -52,13 +53,18 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
     itemType: 'product',
     isActive: row.is_active === undefined ? undefined : !!row.is_active,
     isBlocked: !!row.blocked_at,
+    // Only in buyer-facing lists (they select the seller's set-up columns)
+    sellerReady:
+      row.seller_has_wallet === undefined
+        ? undefined
+        : missingSetup({ shipFromZip: row.seller_ship_from_zip, hasWallet: !!row.seller_has_wallet }).length === 0,
   }
 }
 
 // ---------- Products ----------
 
 const PRODUCT_SELECT = `
-  SELECT p.*, ${userCols('u', 'seller_')}
+  SELECT p.*, ${userCols('u', 'seller_')}, ${setupCols('u', 'seller_')}
   FROM products p JOIN users u ON u.id = p.seller_id
   WHERE p.is_active = 1`
 
@@ -514,6 +520,15 @@ export async function getPurchaseStats(userId: string) {
     .bind(userId)
     .first<Row>()
   return { purchases: row?.purchases ?? 0, totalSpent: fromCents(row?.spent ?? 0)! }
+}
+
+// Count for the seller's profile header: products on sale
+export async function getSellerProfileStats(userId: string) {
+  const products = await getDb()
+    .prepare('SELECT count(*) AS n FROM products WHERE seller_id = ? AND is_active = 1 AND blocked_at IS NULL')
+    .bind(userId)
+    .first<number>('n')
+  return { products: products ?? 0 }
 }
 
 // Auction status follows the clock, not the value stored at creation

@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CircleHelp } from 'lucide-react'
+import { CheckCircle2, CircleHelp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PLATFORM_FEE_PERCENT } from '@/lib/fees'
@@ -35,12 +35,18 @@ export function PayoutPanel({ walletId }: { walletId: string | null }) {
 
   if (!editing && walletId) {
     return (
-      <p className="text-gray-500 text-xs mb-6">
-        Suas vendas caem na carteira Asaas …{walletId.slice(-4)}.{' '}
-        <button onClick={() => setEditing(true)} className="text-sky-blue hover:underline">
+      <div className="rounded-md bg-white shadow-card p-4 mb-6 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3 min-w-0">
+          <CheckCircle2 className="w-5 h-5 text-tropical-green shrink-0" />
+          <div className="min-w-0">
+            <p className="text-gray-900 font-medium">Carteira Asaas …{walletId.slice(-4)}</p>
+            <p className="text-gray-500 text-sm">Sua parte de cada venda paga cai direto nela.</p>
+          </div>
+        </div>
+        <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>
           Alterar
-        </button>
-      </p>
+        </Button>
+      </div>
     )
   }
 

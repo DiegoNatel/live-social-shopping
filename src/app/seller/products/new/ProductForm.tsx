@@ -82,7 +82,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
       }),
     })
     if (res.ok) {
-      router.push('/seller/dashboard')
+      router.push('/seller/dashboard?published=1')
       router.refresh()
       return
     }

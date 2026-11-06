@@ -3,6 +3,8 @@ import { str, num, int, isoDate, badRequest, readJson } from '@/lib/validate'
 import { getDb } from '@/lib/db'
 import { getStreamAuctions } from '@/lib/engagement'
 import { broadcast, scheduleAuctionClose } from '@/lib/live'
+import { sellersMissingSetup } from '@/lib/seller-readiness'
+import { listSteps } from '@/lib/seller-setup'
 
 export async function POST(request: Request) {
   const sellerId = await requireSeller()
@@ -17,6 +19,14 @@ export async function POST(request: Request) {
   const startsAt = b.startsAt === 'now' ? new Date().toISOString() : isoDate(b.startsAt)
   if (!productId || startingPrice === null || minimumIncrement === null || durationMinutes === null || !startsAt) {
     return badRequest('Dados do leilão incompletos')
+  }
+  // The winner pays right away, so the shop must be able to sell (see lib/seller-setup.ts)
+  const missing = (await sellersMissingSetup([sellerId])).get(sellerId)
+  if (missing) {
+    return Response.json(
+      { message: `Antes de criar um leilão, cadastre ${listSteps(missing)} em Recebimento e envio.` },
+      { status: 400 }
+    )
   }
 
   const id = await createAuction(sellerId, {

@@ -8,6 +8,7 @@ import { quoteShipping, ShippingError, type ShippingOptionId } from './shipping'
 import { canRefund, type RefundStatus } from './refunds'
 import { maxInstallments } from './fees'
 import { asaasEnv } from './payments/asaas'
+import { notifyMissedSale, sellersMissingSetup, SELLER_NOT_READY_MESSAGE } from './seller-readiness'
 import type { Address, OrderStatus, PaymentMethod } from '@/types'
 
 export type NewAddress = Omit<Address, 'id' | 'isDefault'>
@@ -29,7 +30,7 @@ export interface NewOrderInput {
 
 export class OrderError extends Error {
   constructor(
-    public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON' | 'PRICE_CHANGED' | 'SHIPPING',
+    public code: 'EMPTY' | 'NOT_FOUND' | 'OUT_OF_STOCK' | 'INVALID' | 'COUPON' | 'PRICE_CHANGED' | 'SHIPPING' | 'SELLER_NOT_READY',
     message: string
   ) {
     super(message)
@@ -173,6 +174,17 @@ export async function createOrder(userId: string, input: NewOrderInput, { notify
   const db = getDb()
   const fixedUnitPriceCents = input.auctionId ? await wonAuctionPrice(userId, input) : undefined
   const { lines, subtotal, qtyByProduct, qtyByVariant, qtyByFlashSale } = await priceCart(input.items, { fixedUnitPriceCents })
+  // Sellers who haven't set up where they receive or where they ship from can't sell yet:
+  // the buyer is told, and the seller is reminded with a link to what's missing
+  const notReady = await sellersMissingSetup(lines.map(l => l.sellerId))
+  if (notReady.size > 0) {
+    await Promise.all(
+      [...notReady].map(([sellerId, missing]) =>
+        notifyMissedSale(sellerId, lines.find(l => l.sellerId === sellerId)!.name, missing).catch(() => {})
+      )
+    )
+    throw new OrderError('SELLER_NOT_READY', SELLER_NOT_READY_MESSAGE)
+  }
   // Guest sellers' products sold through a host's live: the host gets HOST_SHARE of the line
   const splits = await liveSplits([...qtyByProduct.keys()], input.auctionId)
 

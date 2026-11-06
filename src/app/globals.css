@@ -24,6 +24,9 @@
   body {
     @apply bg-page text-gray-900 antialiased;
     font-family: 'Inter', system-ui, sans-serif;
+    /* Inter's contextual alternates turn "4x02" into "4×02" and "->" into an arrow, which
+       changes usernames, product names and sizes people typed; show text as typed */
+    font-feature-settings: 'calt' 0;
   }
 
   /* Custom scrollbar */

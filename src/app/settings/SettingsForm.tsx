@@ -10,6 +10,7 @@ import { loadSession } from '@/components/auth/SessionSync'
 interface SettingsFormProps {
   email: string
   initial: { name: string; phone: string; bio: string }
+  username: string
   hasPassword: boolean
 }
 
@@ -18,11 +19,37 @@ function Status({ message }: { message: { ok: boolean; text: string } | null }) 
   return <p className={message.ok ? 'text-tropical-green-700 text-sm' : 'text-coral-pink text-sm'}>{message.text}</p>
 }
 
-export function SettingsForm({ email, initial, hasPassword }: SettingsFormProps) {
+export function SettingsForm({ email, initial, username: initialUsername, hasPassword }: SettingsFormProps) {
   const router = useRouter()
   const [profile, setProfile] = useState(initial)
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
+
+  const [savedUsername, setSavedUsername] = useState(initialUsername)
+  const [username, setUsername] = useState(initialUsername)
+  const [usernameMsg, setUsernameMsg] = useState<{ ok: boolean; text: string } | null>(null)
+  const [savingUsername, setSavingUsername] = useState(false)
+  // As it will be saved: lowercase, without a leading @
+  const typedUsername = username.trim().replace(/^@+/, '').toLowerCase()
+
+  const saveUsername = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSavingUsername(true)
+    setUsernameMsg(null)
+    const res = await fetch('/api/me/username', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: typedUsername }),
+    })
+    const data = (await res.json().catch(() => null)) as { username?: string; message?: string } | null
+    setSavingUsername(false)
+    if (!res.ok || !data?.username) return setUsernameMsg({ ok: false, text: data?.message ?? 'Não foi possível salvar' })
+    setSavedUsername(data.username)
+    setUsername(data.username)
+    setUsernameMsg({ ok: true, text: 'Nome de usuário salvo. Links antigos da sua página continuam funcionando.' })
+    await loadSession()
+    router.refresh()
+  }
 
   const [passwords, setPasswords] = useState({ current: '', next: '' })
   const [passwordMsg, setPasswordMsg] = useState<{ ok: boolean; text: string } | null>(null)
@@ -73,6 +100,33 @@ export function SettingsForm({ email, initial, hasPassword }: SettingsFormProps)
 
   return (
     <div className="space-y-4">
+      <form id="perfil" onSubmit={saveUsername} className="bg-white rounded-md shadow-card p-6 space-y-4 scroll-mt-20">
+        <h2 className="text-gray-900 font-medium">Nome de usuário</h2>
+        <FormField label="Nome de usuário" hint="Letras minúsculas, números, ponto e sublinhado. De 3 a 30 caracteres.">
+          <div className="flex items-center rounded-md border border-gray-300 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary">
+            <span className="pl-3 text-gray-400 select-none">@</span>
+            <input
+              className="flex-1 min-w-0 h-11 px-1 pr-3 bg-transparent outline-none text-gray-900"
+              value={username}
+              maxLength={31}
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              onChange={e => setUsername(e.target.value)}
+            />
+          </div>
+        </FormField>
+        <p className="text-gray-500 text-sm break-all">
+          Endereço da sua página: <span className="text-gray-900">watchhaul.com/creator/{typedUsername || '…'}</span>
+        </p>
+        <Status message={usernameMsg} />
+        <div className="flex justify-end">
+          <Button type="submit" isLoading={savingUsername} disabled={!typedUsername || typedUsername === savedUsername}>
+            Salvar nome de usuário
+          </Button>
+        </div>
+      </form>
+
       <form onSubmit={saveProfile} className="bg-white rounded-md shadow-card p-6 space-y-4">
         <h2 className="text-gray-900 font-medium">Seus dados</h2>
         <FormField label="E-mail" hint="O e-mail não pode ser alterado por aqui">
