@@ -5,7 +5,7 @@ export const COMPANY = {
   legalName: '[RAZÃO SOCIAL]',
   cnpj: '[CNPJ]',
   address: '[ENDEREÇO COMPLETO]',
-  supportEmail: '[E-MAIL DE SUPORTE]',
+  supportEmail: 'contato@watchhaul.com',
   // LGPD "encarregado" (data protection officer) contact
   dpoName: '[NOME DO ENCARREGADO]',
   dpoEmail: '[E-MAIL DO ENCARREGADO]',
