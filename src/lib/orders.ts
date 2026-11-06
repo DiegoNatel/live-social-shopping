@@ -37,7 +37,8 @@ export class OrderError extends Error {
 }
 
 const newId = () => crypto.randomUUID()
-const orderNumber = () => `LM-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`
+// WH = Watchhaul. Older orders keep their VB- (VivoBuy) and LM- (Luma) numbers; nothing parses the prefix
+const orderNumber = () => `WH-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`
 
 export type CartItemInput = NewOrderInput['items'][number]
 
