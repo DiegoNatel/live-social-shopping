@@ -10,7 +10,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { useUserStore } from '@/store'
 import { authClient } from '@/lib/auth-client'
-import { formatNumber, formatCurrency } from '@/lib/utils'
+import { creatorPath, formatNumber, formatCurrency } from '@/lib/utils'
 import {
   Settings,
   ChevronRight,
@@ -97,6 +97,11 @@ export default function ProfilePage() {
           />
           <h1 className="text-gray-900 font-semibold text-xl">{user.name}</h1>
           <p className="text-gray-500">@{user.username}</p>
+          {isSeller && (
+            <Link href={creatorPath(user.username)} className="inline-block text-sky-blue text-sm hover:underline mt-1">
+              Ver minha página de vendedor
+            </Link>
+          )}
           
           {/* Stats */}
           <div className="flex items-center justify-center gap-6 mt-4">

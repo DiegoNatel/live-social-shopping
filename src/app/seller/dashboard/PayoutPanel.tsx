@@ -2,6 +2,8 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { CircleHelp } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { PLATFORM_FEE_PERCENT } from '@/lib/fees'
@@ -46,10 +48,17 @@ export function PayoutPanel({ walletId }: { walletId: string | null }) {
     <div className="rounded-md bg-white shadow-card border-l-4 border-sunset-gold p-4 mb-6">
       <p className="text-gray-900 font-medium mb-1">Receba suas vendas</p>
       <p className="text-gray-500 text-sm mb-3">
-        Os pagamentos são feitos pelo Asaas. Crie uma conta grátis em asaas.com e cole aqui o ID da sua carteira
-        (Asaas → Minha conta → Integrações). A cada venda paga, sua parte cai direto lá, já descontada a taxa da Watchhaul de{' '}
+        Os pagamentos são feitos pelo Asaas. Crie uma conta grátis em asaas.com e cole aqui o Wallet ID da sua conta
+        (no Asaas: ícone de perfil → Integrações). A cada venda paga, sua parte cai direto lá, já descontada a taxa da Watchhaul de{' '}
         {PLATFORM_FEE_PERCENT}%. Em vendas parceladas, sua parte cai mês a mês, a cada parcela, e a taxa do Asaas sai de cada parte da venda.
       </p>
+      <Link
+        href="/como-receber"
+        className="inline-flex items-center gap-1 text-sky-blue text-sm font-medium hover:underline mb-3"
+      >
+        <CircleHelp className="w-4 h-4" />
+        Como criar a conta e achar o Wallet ID (passo a passo)
+      </Link>
       <Input placeholder="00000000-0000-0000-0000-000000000000" value={value} onChange={e => setValue(e.target.value)} />
       {error && <p className="text-coral-pink text-sm mt-2">{error}</p>}
       <div className="flex justify-end gap-2 mt-3">

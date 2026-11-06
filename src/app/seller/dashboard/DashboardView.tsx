@@ -12,7 +12,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Button } from '@/components/ui/Button'
 import { Badge, LiveBadge } from '@/components/ui/Badge'
 import { CreateAuctionModal, type AuctionFormData } from '@/components/auction/CreateAuctionModal'
-import { BR_TIME_ZONE, formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
+import { BR_TIME_ZONE, creatorPath, formatCurrency, formatNumber, formatViewerCount, formatRelativeTime } from '@/lib/utils'
 import type { User, Product, Stream, Auction } from '@/types'
 import type { ReturnRequest, SellerOrder } from '@/lib/db'
 import { ProductRow } from './ProductRow'
@@ -144,7 +144,12 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             <Avatar src={seller.avatar} alt={seller.name} size="lg" isVerified={seller.isVerified} />
             <div>
               <h2 className="text-gray-900 font-semibold">{seller.name}</h2>
-              <p className="text-gray-500 text-sm">{formatViewerCount(seller.followers)} seguidores</p>
+              <p className="text-gray-500 text-sm">
+                {formatViewerCount(seller.followers)} seguidores ·{' '}
+                <Link href={creatorPath(seller.username)} className="text-sky-blue hover:underline">
+                  Ver minha página
+                </Link>
+              </p>
             </div>
           </div>
           <div className="flex flex-col items-end gap-1">
