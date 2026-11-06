@@ -2,6 +2,7 @@ import type { Metadata } from 'next'
 import Link from 'next/link'
 import { ChevronRight, ExternalLink } from 'lucide-react'
 import { MainLayout } from '@/components/layout/MainLayout'
+import { BackLink } from '@/components/ui/BackLink'
 import { PLATFORM_FEE_PERCENT } from '@/lib/fees'
 
 export const metadata: Metadata = {
@@ -73,7 +74,8 @@ export default function ComoReceberPage() {
   return (
     <MainLayout headerProps={{ title: 'Como receber suas vendas', showSearch: false }}>
       <div className="max-w-2xl mx-auto px-4 py-6 pb-24">
-        <h1 className="text-gray-900 text-2xl font-semibold">Como receber suas vendas</h1>
+        <BackLink fallback="/seller/dashboard" />
+        <h1 className="text-gray-900 text-2xl font-semibold mt-3">Como receber suas vendas</h1>
         <p className="text-gray-500 mt-2">
           Os pagamentos da Watchhaul passam pelo Asaas, uma conta digital gratuita. Você cria a sua uma vez e copia um código para o seu
           painel. Leva uns 5 minutos, mais o tempo de aprovação do Asaas.
