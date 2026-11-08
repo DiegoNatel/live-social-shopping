@@ -4,6 +4,8 @@ import { cookies } from 'next/headers'
 import { SessionSync } from '@/components/auth/SessionSync'
 import { ModeProvider } from '@/components/layout/ModeProvider'
 import { LiveAlerts } from '@/components/layout/LiveAlerts'
+import { EarlyInputRestore } from '@/components/layout/EarlyInputRestore'
+import { EARLY_INPUT_SCRIPT } from '@/lib/early-input'
 import { MODE_COOKIE, parseMode } from '@/lib/mode'
 
 export const metadata: Metadata = {
@@ -45,10 +47,15 @@ export default async function RootLayout({
   const mode = parseMode((await cookies()).get(MODE_COOKIE)?.value)
   return (
     <html lang="pt-BR">
+      <head>
+        {/* Records typing that happens before React loads, so it isn't lost (lib/early-input.ts) */}
+        <script dangerouslySetInnerHTML={{ __html: EARLY_INPUT_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-page">
         <SessionSync />
         <ModeProvider initial={mode}>{children}</ModeProvider>
         <LiveAlerts />
+        <EarlyInputRestore />
       </body>
     </html>
   )
