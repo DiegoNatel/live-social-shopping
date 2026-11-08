@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useHydrated } from '@/lib/use-hydrated'
 import { motion, AnimatePresence } from 'framer-motion'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -22,6 +23,8 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
   
   const [step, setStep] = useState<Step>('form')
   const [isLoading, setIsLoading] = useState(false)
+  // Submitting before this would put the password in the address bar (see lib/use-hydrated.ts)
+  const hydrated = useHydrated()
   const [showPassword, setShowPassword] = useState(false)
   const [agreed, setAgreed] = useState(false)
   
@@ -194,7 +197,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                 )}
 
                 {/* Form */}
-                <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+                <form method="post" onSubmit={handleSubmit} className="space-y-4" noValidate>
                   <div>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -334,6 +337,7 @@ export function SignupForm({ googleEnabled, next }: { googleEnabled: boolean; ne
                     fullWidth
                     size="lg"
                     isLoading={isLoading}
+                    disabled={!hydrated}
                     className="mt-6"
                   >
                     Criar conta

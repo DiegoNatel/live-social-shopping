@@ -11,11 +11,10 @@ import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/components/seller/FormField'
 import { uploadImage } from '@/components/seller/ImageUpload'
 import { cn } from '@/lib/utils'
+import { parseBrlAmount, INVALID_PRICE_MESSAGE } from '@/lib/money'
 import type { Category } from '@/types'
 import { setupComplete, type SetupState } from './SetupChecklist'
 import { SetupGate } from './SetupGate'
-
-const toAmount = (text: string) => text.trim().replace(/\./g, '').replace(',', '.')
 
 interface SellerStartProps {
   categories: Category[]
@@ -74,6 +73,8 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip, nee
   const publish = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!image) return setError('Adicione uma foto do produto.')
+    const amount = parseBrlAmount(price)
+    if (amount === null || amount <= 0) return setError(INVALID_PRICE_MESSAGE)
     const cep = zip.replace(/\D/g, '')
     if (cep && cep.length !== 8) return setError('Confira o CEP ou deixe em branco por enquanto.')
     setSaving(true)
@@ -81,7 +82,7 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip, nee
     const res = await fetch('/api/seller/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, price: toAmount(price), stock, category, images: [image] }),
+      body: JSON.stringify({ name, price: amount, stock, category, images: [image] }),
     })
     const data = (await res.json().catch(() => null)) as { id?: string; message?: string } | null
     if (!res.ok || !data?.id) {

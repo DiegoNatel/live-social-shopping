@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useHydrated } from '@/lib/use-hydrated'
 import { useRouter } from 'next/navigation'
 import { Button } from '@/components/ui/Button'
 import { FormField, inputClass } from '@/components/seller/FormField'
@@ -22,6 +23,8 @@ function Status({ message }: { message: { ok: boolean; text: string } | null }) 
 export function SettingsForm({ email, initial, username: initialUsername, hasPassword }: SettingsFormProps) {
   const router = useRouter()
   const [profile, setProfile] = useState(initial)
+  // Submitting before this would put the password in the address bar (see lib/use-hydrated.ts)
+  const hydrated = useHydrated()
   const [profileMsg, setProfileMsg] = useState<{ ok: boolean; text: string } | null>(null)
   const [savingProfile, setSavingProfile] = useState(false)
 
@@ -167,7 +170,7 @@ export function SettingsForm({ email, initial, username: initialUsername, hasPas
       </form>
 
       {hasPassword && (
-        <form onSubmit={changePassword} className="bg-white rounded-md shadow-card p-6 space-y-4">
+        <form method="post" onSubmit={changePassword} className="bg-white rounded-md shadow-card p-6 space-y-4">
           <h2 className="text-gray-900 font-medium">Trocar senha</h2>
           <FormField label="Senha atual">
             <input
@@ -191,7 +194,7 @@ export function SettingsForm({ email, initial, username: initialUsername, hasPas
           </FormField>
           <Status message={passwordMsg} />
           <div className="flex justify-end">
-            <Button type="submit" isLoading={savingPassword}>
+            <Button type="submit" isLoading={savingPassword} disabled={!hydrated}>
               Trocar senha
             </Button>
           </div>

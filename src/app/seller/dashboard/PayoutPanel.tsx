@@ -16,21 +16,27 @@ export function PayoutPanel({ walletId }: { walletId: string | null }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
 
-  const save = async () => {
+  // walletId null removes it: the shop stops selling until a new one is saved
+  const save = async (walletId: string | null = value.trim()) => {
     setBusy(true)
     setError('')
     const res = await fetch('/api/seller/payout', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ walletId: value.trim() }),
+      body: JSON.stringify({ walletId }),
     })
     setBusy(false)
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { message?: string } | null
       return setError(data?.message ?? 'Não foi possível salvar')
     }
-    setEditing(false)
+    if (walletId === null) setValue('')
+    setEditing(walletId === null)
     router.refresh()
+  }
+
+  const remove = () => {
+    if (window.confirm('Remover a carteira? Sua loja deixa de aceitar pedidos até você cadastrar outra.')) save(null)
   }
 
   if (!editing && walletId) {
@@ -67,13 +73,18 @@ export function PayoutPanel({ walletId }: { walletId: string | null }) {
       </Link>
       <Input placeholder="00000000-0000-0000-0000-000000000000" value={value} onChange={e => setValue(e.target.value)} />
       {error && <p className="text-coral-pink text-sm mt-2">{error}</p>}
-      <div className="flex justify-end gap-2 mt-3">
+      <div className="flex flex-wrap justify-end gap-2 mt-3">
+        {walletId && (
+          <Button variant="ghost" size="sm" className="mr-auto text-coral-pink" disabled={busy} onClick={remove}>
+            Remover carteira
+          </Button>
+        )}
         {walletId && (
           <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>
             Cancelar
           </Button>
         )}
-        <Button size="sm" isLoading={busy} disabled={!value.trim()} onClick={save}>
+        <Button size="sm" isLoading={busy} disabled={!value.trim()} onClick={() => save()}>
           Salvar
         </Button>
       </div>

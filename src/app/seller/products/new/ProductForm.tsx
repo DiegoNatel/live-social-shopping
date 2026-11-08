@@ -8,9 +8,13 @@ import { FormField, inputClass } from '@/components/seller/FormField'
 import { ImageUpload } from '@/components/seller/ImageUpload'
 import { Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { parseBrlAmount, toPriceInput, INVALID_PRICE_MESSAGE } from '@/lib/money'
 import type { Category } from '@/types'
+import type { SellerProduct } from '@/lib/seller'
 
 interface VariantRow {
+  // Set for a variant that already exists (editing), so it's updated instead of recreated
+  id?: string
   type: 'size' | 'color'
   name: string
   value: string
@@ -26,24 +30,37 @@ const emptyVariant = (type: VariantRow['type']): VariantRow => ({
   priceModifier: '',
 })
 
-export function ProductForm({ categories }: { categories: Category[] }) {
+const text = (n: number | null | undefined) => (n === null || n === undefined ? '' : String(n))
+
+// Creates a product, or edits every field of an existing one (`product`)
+export function ProductForm({ categories, product }: { categories: Category[]; product?: SellerProduct }) {
   const router = useRouter()
+  const editing = !!product
   const [form, setForm] = useState({
-    name: '',
-    description: '',
-    price: '',
-    originalPrice: '',
-    stock: '',
-    category: categories[0]?.slug ?? '',
-    tags: '',
+    name: product?.name ?? '',
+    description: product?.description ?? '',
+    price: product ? toPriceInput(product.price) : '',
+    originalPrice: product?.originalPrice ? toPriceInput(product.originalPrice) : '',
+    stock: product ? String(product.stock) : '',
+    category: product?.category || categories[0]?.slug || '',
+    tags: product?.tags.join(', ') ?? '',
     // Package for shipping quotes (optional; a small parcel when empty)
-    weightG: '',
-    heightCm: '',
-    widthCm: '',
-    lengthCm: '',
+    weightG: text(product?.package.weightG),
+    heightCm: text(product?.package.heightCm),
+    widthCm: text(product?.package.widthCm),
+    lengthCm: text(product?.package.lengthCm),
   })
-  const [images, setImages] = useState<string[]>([])
-  const [variants, setVariants] = useState<VariantRow[]>([])
+  const [images, setImages] = useState<string[]>(product?.images ?? [])
+  const [variants, setVariants] = useState<VariantRow[]>(
+    product?.variants.map(v => ({
+      id: v.id,
+      type: v.type,
+      name: v.name,
+      value: v.type === 'color' ? v.value : '#000000',
+      stock: String(v.stock),
+      priceModifier: v.priceModifier ? toPriceInput(v.priceModifier) : '',
+    })) ?? []
+  )
   const updateVariant = (i: number, patch: Partial<VariantRow>) =>
     setVariants(vs => vs.map((v, j) => (j === i ? { ...v, ...patch } : v)))
   const [error, setError] = useState('')
@@ -57,32 +74,38 @@ export function ProductForm({ categories }: { categories: Category[] }) {
       setError('Adicione pelo menos uma imagem.')
       return
     }
+    const price = parseBrlAmount(form.price)
+    const originalPrice = form.originalPrice.trim() ? parseBrlAmount(form.originalPrice) : undefined
+    if (price === null || price <= 0) return setError(INVALID_PRICE_MESSAGE)
+    if (originalPrice === null) return setError('Preço original inválido. Use o formato 1.299,90')
     setIsSaving(true)
     setError('')
-    const res = await fetch('/api/seller/products', {
-      method: 'POST',
+    const res = await fetch(product ? `/api/seller/products/${product.id}` : '/api/seller/products', {
+      method: editing ? 'PUT' : 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         name: form.name,
         description: form.description,
-        price: form.price.replace(',', '.'),
-        originalPrice: form.originalPrice ? form.originalPrice.replace(',', '.') : undefined,
+        price,
+        originalPrice,
         stock: form.stock,
         category: form.category,
         images,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
         package: { weightG: form.weightG, heightCm: form.heightCm, widthCm: form.widthCm, lengthCm: form.lengthCm },
         variants: variants.map(v => ({
+          id: v.id,
           type: v.type,
           name: v.name,
           value: v.type === 'color' ? v.value : v.name,
           stock: v.stock,
-          priceModifier: v.priceModifier ? v.priceModifier.replace(',', '.') : undefined,
+          // Sent as typed ("15,00", "-10,00"); the server reads Brazilian format
+          priceModifier: v.priceModifier.trim() || undefined,
         })),
       }),
     })
     if (res.ok) {
-      router.push('/seller/dashboard?published=1')
+      router.push(editing ? '/seller/dashboard' : '/seller/dashboard?published=1')
       router.refresh()
       return
     }
@@ -92,9 +115,14 @@ export function ProductForm({ categories }: { categories: Category[] }) {
   }
 
   return (
-    <MainLayout headerProps={{ title: 'Novo produto', showBack: true }}>
+    <MainLayout headerProps={{ title: editing ? 'Editar produto' : 'Novo produto', showBack: true }}>
       <form onSubmit={handleSubmit} className="max-w-2xl mx-auto px-4 py-6">
         <div className="bg-white rounded-md shadow-card p-6 space-y-4">
+          {product && !product.isActive && (
+            <p className="text-sm bg-gray-100 text-gray-600 rounded-md px-3 py-2">
+              Este produto está pausado. Salvar não o reativa; para voltar a vender, use &quot;Reativar produto&quot; no painel.
+            </p>
+          )}
           <FormField label="Nome do produto">
             <input className={inputClass} value={form.name} onChange={set('name')} maxLength={120} required />
           </FormField>
@@ -107,8 +135,8 @@ export function ProductForm({ categories }: { categories: Category[] }) {
             />
           </FormField>
           <div className="grid grid-cols-2 gap-4">
-            <FormField label="Preço (R$)">
-              <input className={inputClass} inputMode="decimal" value={form.price} onChange={set('price')} required />
+            <FormField label="Preço (R$)" hint="Ex.: 1.299,90">
+              <input className={inputClass} inputMode="decimal" placeholder="79,90" value={form.price} onChange={set('price')} required />
             </FormField>
             <FormField label="Preço original (R$)" hint="Opcional, para mostrar desconto">
               <input className={inputClass} inputMode="decimal" value={form.originalPrice} onChange={set('originalPrice')} />
@@ -229,7 +257,7 @@ export function ProductForm({ categories }: { categories: Category[] }) {
               Cancelar
             </Button>
             <Button type="submit" isLoading={isSaving}>
-              Salvar produto
+              {editing ? 'Salvar alterações' : 'Salvar produto'}
             </Button>
           </div>
         </div>

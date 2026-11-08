@@ -158,14 +158,21 @@ async function createSplitCharge(order: OrderRow, customer: string, parts: Split
     const kept = parts.map(p => (rejected.has(p) ? { ...p, walletId: null, held: 'wallet_rejected' as const } : p))
     const result = { charge: await charge(kept.filter(p => p.walletId)), parts: kept }
     if (named.length) {
-      await getDb().batch(
-        named.map(p =>
+      const db = getDb()
+      await db.batch(
+        named.flatMap(p => [
+          // A wallet Asaas refuses doesn't exist: removing it stops the shop selling (buyers see
+          // it's still being set up) until the seller saves the right one, instead of every
+          // later sale being held too
+          db
+            .prepare('UPDATE users SET asaas_wallet_id = NULL WHERE id = ? AND asaas_wallet_id = ?')
+            .bind(p.userId, p.walletId),
           notify(
             p.userId, 'order_update', 'Confira sua carteira Asaas',
-            `O Asaas recusou o ID da carteira cadastrado no seu painel. Sua parte do pedido ${order.id} ficou com a Watchhaul e será repassada; corrija o ID para receber as próximas vendas direto.`,
-            '/seller/dashboard'
-          )
-        )
+            `O Asaas recusou o ID da carteira cadastrado no seu painel. Sua parte do pedido ${order.id} ficou com a Watchhaul e será repassada. Removemos o ID recusado: cadastre o Wallet ID certo para voltar a vender.`,
+            '/seller/settings?focus=wallet'
+          ),
+        ])
       )
     }
     return result
