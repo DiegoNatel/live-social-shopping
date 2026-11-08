@@ -78,6 +78,13 @@ export const getCharge = (id: string) => call<Charge>('GET', `/payments/${encode
 export const getPixQrCode = (id: string) =>
   call<{ encodedImage: string; payload: string; expirationDate: string }>('GET', `/payments/${encodeURIComponent(id)}/pixQrCode`)
 
+// Wallet ids are random UUIDs. One made of a handful of repeated digits is the form's example
+// (00000000-0000-…) or made up, never a real wallet: this format check is all we can do before
+// Asaas sees it in a charge (it has no lookup for other accounts' wallets).
+export function isPlaceholderWalletId(walletId: string) {
+  return new Set(walletId.toLowerCase().replace(/-/g, '')).size < 5
+}
+
 // Watchhaul's own wallet: splitting to it is refused by Asaas (it's already the one charging)
 let ownWallet: Promise<string | null> | undefined
 export function getOwnWalletId() {

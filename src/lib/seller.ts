@@ -36,7 +36,8 @@ export interface ProductInput {
   category: string
   images: string[]
   tags: string[]
-  variants: { type: 'size' | 'color'; name: string; value: string; stock: number; priceModifier: number }[]
+  // id: an existing variant being edited (ignored when creating)
+  variants: { id?: string; type: 'size' | 'color'; name: string; value: string; stock: number; priceModifier: number }[]
   // Shipping package; null values use DEFAULT_PACKAGE in lib/shipping.ts
   package?: { weightG: number | null; heightCm: number | null; widthCm: number | null; lengthCm: number | null }
 }
@@ -67,6 +68,121 @@ export async function createProduct(sellerId: string, p: ProductInput) {
   ])
   return id
 }
+
+// Saves the whole product from the edit form. Variants sent with their id are updated in
+// place, ones left out are removed, and new ones added. Carts and orders refer to variants by
+// type and name (not id), so this doesn't break anything already in a cart; past orders keep
+// their own copy of the name and price.
+export async function replaceProduct(sellerId: string, productId: string, p: ProductInput): Promise<'ok' | 'not_found' | 'blocked'> {
+  const db = getDb()
+  const product = await db
+    .prepare('SELECT blocked_at FROM products WHERE id = ? AND seller_id = ?')
+    .bind(productId, sellerId)
+    .first<{ blocked_at: string | null }>()
+  if (!product) return 'not_found'
+  if (product.blocked_at) return 'blocked'
+
+  const { results: existing } = await db
+    .prepare('SELECT id FROM product_variants WHERE product_id = ?')
+    .bind(productId)
+    .all<{ id: string }>()
+  const existingIds = new Set(existing.map(v => v.id))
+  const kept = p.variants.filter(v => v.id && existingIds.has(v.id))
+  const keptIds = kept.map(v => v.id!)
+
+  await db.batch([
+    db
+      .prepare(
+        `UPDATE products SET
+           category_slug = coalesce((SELECT slug FROM categories WHERE slug = ?), category_slug),
+           name = ?, description = ?, price_cents = ?, original_price_cents = ?, stock = ?, images = ?, tags = ?,
+           weight_g = ?, height_cm = ?, width_cm = ?, length_cm = ?
+         WHERE id = ? AND seller_id = ?`
+      )
+      .bind(
+        p.category, p.name, p.description, cents(p.price), p.originalPrice ? cents(p.originalPrice) : null, p.stock,
+        JSON.stringify(p.images), JSON.stringify(p.tags),
+        p.package?.weightG ?? null, p.package?.heightCm ?? null, p.package?.widthCm ?? null, p.package?.lengthCm ?? null,
+        productId, sellerId
+      ),
+    db
+      .prepare(
+        `DELETE FROM product_variants WHERE product_id = ?${keptIds.length ? ` AND id NOT IN (${keptIds.map(() => '?').join(',')})` : ''}`
+      )
+      .bind(productId, ...keptIds),
+    ...p.variants.map((v, i) =>
+      v.id && existingIds.has(v.id)
+        ? db
+            .prepare(
+              `UPDATE product_variants SET type = ?, name = ?, value = ?, stock = ?, price_modifier_cents = ?, sort_order = ?
+               WHERE id = ? AND product_id = ?`
+            )
+            .bind(v.type, v.name, v.value, v.stock, cents(v.priceModifier), i, v.id, productId)
+        : db
+            .prepare(
+              `INSERT INTO product_variants (id, product_id, type, name, value, stock, price_modifier_cents, sort_order)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+            )
+            .bind(newId(), productId, v.type, v.name, v.value, v.stock, cents(v.priceModifier), i)
+    ),
+  ])
+  return 'ok'
+}
+
+// A seller's own product with everything the edit form shows, paused or not
+export async function getSellerProduct(sellerId: string, productId: string) {
+  const db = getDb()
+  const row = await db
+    .prepare(
+      `SELECT id, category_slug, name, description, price_cents, original_price_cents, stock, images, tags,
+              weight_g, height_cm, width_cm, length_cm, is_active, blocked_at
+       FROM products WHERE id = ? AND seller_id = ?`
+    )
+    .bind(productId, sellerId)
+    .first<{
+      id: string; category_slug: string | null; name: string; description: string | null; price_cents: number
+      original_price_cents: number | null; stock: number; images: string; tags: string | null
+      weight_g: number | null; height_cm: number | null; width_cm: number | null; length_cm: number | null
+      is_active: number; blocked_at: string | null
+    }>()
+  if (!row) return null
+  const { results: variants } = await db
+    .prepare('SELECT id, type, name, value, stock, price_modifier_cents FROM product_variants WHERE product_id = ? ORDER BY sort_order')
+    .bind(productId)
+    .all<{ id: string; type: 'size' | 'color'; name: string; value: string; stock: number; price_modifier_cents: number }>()
+  const parseList = (json: string | null) => {
+    try {
+      const list = JSON.parse(json ?? '[]')
+      return Array.isArray(list) ? list.filter((x): x is string => typeof x === 'string') : []
+    } catch {
+      return []
+    }
+  }
+  return {
+    id: row.id,
+    category: row.category_slug ?? '',
+    name: row.name,
+    description: row.description ?? '',
+    price: row.price_cents / 100,
+    originalPrice: row.original_price_cents === null ? null : row.original_price_cents / 100,
+    stock: row.stock,
+    images: parseList(row.images),
+    tags: parseList(row.tags),
+    package: { weightG: row.weight_g, heightCm: row.height_cm, widthCm: row.width_cm, lengthCm: row.length_cm },
+    isActive: row.is_active === 1,
+    isBlocked: !!row.blocked_at,
+    variants: variants.map(v => ({
+      id: v.id,
+      type: v.type,
+      name: v.name,
+      value: v.value,
+      stock: v.stock,
+      priceModifier: v.price_modifier_cents / 100,
+    })),
+  }
+}
+
+export type SellerProduct = NonNullable<Awaited<ReturnType<typeof getSellerProduct>>>
 
 export async function updateProduct(
   sellerId: string,

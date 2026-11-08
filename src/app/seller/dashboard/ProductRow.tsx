@@ -8,6 +8,7 @@ import { Pencil } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { inputClass } from '@/components/seller/FormField'
 import { cn, formatCurrency } from '@/lib/utils'
+import { parseBrlAmount, toPriceInput, INVALID_PRICE_MESSAGE } from '@/lib/money'
 import type { Product } from '@/types'
 
 // A seller's product with inline editing of price and stock, and pause/reactivate.
@@ -17,7 +18,7 @@ export function ProductRow({ product, notSellable = false }: { product: Product;
   const paused = product.isActive === false
   const basePrice = product.flashSale?.regularPrice ?? product.price
   const [isEditing, setIsEditing] = useState(false)
-  const [price, setPrice] = useState(String(basePrice).replace('.', ','))
+  const [price, setPrice] = useState(toPriceInput(basePrice))
   const [stock, setStock] = useState(String(product.stock))
   const [isSaving, setIsSaving] = useState(false)
   const [error, setError] = useState('')
@@ -41,7 +42,10 @@ export function ProductRow({ product, notSellable = false }: { product: Product;
   }
 
   const save = async () => {
-    if (await update({ price: price.replace(',', '.'), stock })) setIsEditing(false)
+    const amount = parseBrlAmount(price)
+    if (amount === null || amount <= 0) return setError(INVALID_PRICE_MESSAGE)
+    if (!/^\d+$/.test(stock.trim())) return setError('Estoque inválido: use um número inteiro')
+    if (await update({ price: amount, stock: Number(stock) })) setIsEditing(false)
   }
 
   return (
@@ -102,6 +106,11 @@ export function ProductRow({ product, notSellable = false }: { product: Product;
           </div>
           {product.flashSale && (
             <p className="text-xs text-gray-400">A oferta relâmpago aplica o desconto sobre este preço.</p>
+          )}
+          {!product.isBlocked && (
+            <Link href={`/seller/products/${product.id}/edit`} className="inline-block text-sky-blue text-sm font-medium hover:underline">
+              Editar tudo: nome, fotos, descrição, variações e embalagem
+            </Link>
           )}
           {error && <p className="text-coral-pink text-sm">{error}</p>}
           <div className="flex flex-wrap justify-between gap-2">

@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { X, Gavel, Clock, DollarSign, TrendingUp, ChevronDown, Search, Check } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { cn, formatCurrency } from '@/lib/utils'
+import { parseBrlAmount } from '@/lib/money'
 import type { Product } from '@/types'
 
 interface CreateAuctionModalProps {
@@ -55,7 +56,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
   ]
   
   const handleSubmit = () => {
-    if (!selectedProduct || !startingPrice) return
+    if (!isFormValid) return
     
     let startTime: 'now' | Date = 'now'
     if (startOption === 'scheduled' && scheduledDate && scheduledTime) {
@@ -64,8 +65,8 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
     
     onCreateAuction({
       productId: selectedProduct.id,
-      startingPrice: parseFloat(startingPrice),
-      minimumIncrement: parseFloat(minimumIncrement),
+      startingPrice: parseBrlAmount(startingPrice)!,
+      minimumIncrement: parseBrlAmount(minimumIncrement)!,
       duration: parseInt(duration),
       startTime,
     })
@@ -87,7 +88,10 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
     setStep('config')
   }
   
-  const isFormValid = selectedProduct && startingPrice && parseFloat(startingPrice) > 0
+  // Brazilian format ("1.299,90"); a value that can't be read keeps the button disabled
+  const startingAmount = parseBrlAmount(startingPrice)
+  const incrementAmount = parseBrlAmount(minimumIncrement)
+  const isFormValid = !!selectedProduct && !!startingAmount && startingAmount > 0 && !!incrementAmount && incrementAmount > 0
 
   if (!isOpen) return null
 

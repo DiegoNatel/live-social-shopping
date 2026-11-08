@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useHydrated } from '@/lib/use-hydrated'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { authClient } from '@/lib/auth-client'
@@ -11,6 +12,8 @@ const MIN_PASSWORD_LENGTH = 8
 export function ResetPasswordForm({ token, problem }: { token: string | null; problem?: 'missing' | 'expired' }) {
   const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  // Submitting before this would put the password in the address bar (see lib/use-hydrated.ts)
+  const hydrated = useHydrated()
   const [done, setDone] = useState(false)
   const [expired, setExpired] = useState(!token)
   const [error, setError] = useState('')
@@ -52,7 +55,7 @@ export function ResetPasswordForm({ token, problem }: { token: string | null; pr
             </Link>
           </>
         ) : (
-          <form onSubmit={handleSubmit} className="space-y-4 mt-5">
+          <form method="post" onSubmit={handleSubmit} className="space-y-4 mt-5">
             <div className="relative">
               <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -65,7 +68,7 @@ export function ResetPasswordForm({ token, problem }: { token: string | null; pr
               />
             </div>
             {error && <p className="text-coral-pink text-sm">{error}</p>}
-            <Button type="submit" fullWidth size="lg" isLoading={isLoading}>
+            <Button type="submit" fullWidth size="lg" isLoading={isLoading} disabled={!hydrated}>
               Salvar senha
             </Button>
           </form>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import { useHydrated } from '@/lib/use-hydrated'
 import Link from 'next/link'
 import { Button } from '@/components/ui/Button'
 import { authClient } from '@/lib/auth-client'
@@ -9,6 +10,8 @@ import { Mail } from 'lucide-react'
 export function ForgotPasswordForm() {
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  // Submitting before this would put the password in the address bar (see lib/use-hydrated.ts)
+  const hydrated = useHydrated()
   const [sent, setSent] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +40,7 @@ export function ForgotPasswordForm() {
         ) : (
           <>
             <p className="text-gray-500 mb-6">Enviaremos um link para o seu e-mail.</p>
-            <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <form method="post" onSubmit={handleSubmit} className="space-y-4" noValidate>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                 <input
@@ -52,7 +55,7 @@ export function ForgotPasswordForm() {
                 />
               </div>
               {error && <p className="text-coral-pink text-sm">{error}</p>}
-              <Button type="submit" fullWidth size="lg" isLoading={isLoading}>
+              <Button type="submit" fullWidth size="lg" isLoading={isLoading} disabled={!hydrated}>
                 Enviar link
               </Button>
             </form>

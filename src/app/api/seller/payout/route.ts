@@ -1,9 +1,10 @@
 import { requireSeller } from '@/lib/seller'
 import { getDb } from '@/lib/db'
-import { asaasEnabled, getOwnWalletId } from '@/lib/payments/asaas'
+import { asaasEnabled, getOwnWalletId, isPlaceholderWalletId } from '@/lib/payments/asaas'
 
 // The seller's Asaas wallet id (Asaas → Minha conta → Integrações → Carteira), where their
-// part of each sale is sent. { walletId: null } removes it.
+// part of each sale is sent. { walletId: null } removes it (the shop then can't sell until a
+// new one is saved).
 export async function PUT(request: Request) {
   const sellerId = await requireSeller()
   if (sellerId instanceof Response) return sellerId
@@ -12,6 +13,14 @@ export async function PUT(request: Request) {
   const walletId = typeof raw === 'string' ? raw.trim().toLowerCase() : null
   if (raw !== null && !(walletId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(walletId))) {
     return Response.json({ message: 'ID da carteira inválido. Ele tem o formato 00000000-0000-0000-0000-000000000000.' }, { status: 400 })
+  }
+  // The example from the form, or another made-up id ("11111111-…"): a real Asaas wallet id is
+  // random. Accepting it would mark the shop ready to sell with nowhere to send the money.
+  if (walletId && isPlaceholderWalletId(walletId)) {
+    return Response.json(
+      { message: 'Esse não é um ID de carteira real. Copie o Wallet ID da sua conta Asaas (perfil → Integrações).' },
+      { status: 400 }
+    )
   }
   // Watchhaul's own wallet would make every charge with this seller's products fail
   if (walletId && asaasEnabled() && walletId === (await getOwnWalletId().catch(() => null))) {

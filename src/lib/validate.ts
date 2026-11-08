@@ -1,9 +1,17 @@
+import { parseBrlAmount } from './money'
+
 // Small helpers for validating JSON request bodies
 export const str = (v: unknown, max = 200) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : null)
 
 export const num = (v: unknown, min: number, max: number) => {
   const n = typeof v === 'number' ? v : typeof v === 'string' && v.trim() ? Number(v) : NaN
   return Number.isFinite(n) && n >= min && n <= max ? n : null
+}
+
+// A price in reais: a number, or text as a seller types it ("1.299,90"; see lib/money.ts)
+export const money = (v: unknown, min: number, max: number) => {
+  const n = parseBrlAmount(v)
+  return n !== null && n >= min && n <= max ? n : null
 }
 
 export const int = (v: unknown, min: number, max: number) => {

@@ -1,5 +1,5 @@
 import { requireSeller, createAuction } from '@/lib/seller'
-import { str, num, int, isoDate, badRequest, readJson } from '@/lib/validate'
+import { str, money, int, isoDate, badRequest, readJson } from '@/lib/validate'
 import { getDb } from '@/lib/db'
 import { getStreamAuctions } from '@/lib/engagement'
 import { broadcast, scheduleAuctionClose } from '@/lib/live'
@@ -13,8 +13,8 @@ export async function POST(request: Request) {
   const b = await readJson(request)
   if (!b) return badRequest('Dados inválidos')
   const productId = str(b.productId, 64)
-  const startingPrice = num(b.startingPrice, 0.01, 1_000_000)
-  const minimumIncrement = num(b.minimumIncrement, 0.01, 100_000)
+  const startingPrice = money(b.startingPrice, 0.01, 1_000_000)
+  const minimumIncrement = money(b.minimumIncrement, 0.01, 100_000)
   const durationMinutes = int(b.durationMinutes, 1, 7 * 24 * 60)
   const startsAt = b.startsAt === 'now' ? new Date().toISOString() : isoDate(b.startsAt)
   if (!productId || startingPrice === null || minimumIncrement === null || durationMinutes === null || !startsAt) {
