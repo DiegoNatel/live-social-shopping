@@ -13,6 +13,7 @@ import { authClient } from '@/lib/auth-client'
 import { formatNumber, formatCurrency } from '@/lib/utils'
 import { MenuButton, MenuItem, MenuSection } from './menu'
 import { SellerProfile } from './SellerProfile'
+import { flushCart, cartSignedOut } from '@/lib/cart-sync'
 import {
   Settings,
   ChevronRight,
@@ -62,7 +63,10 @@ export default function ProfilePage() {
   }, [user])
 
   const handleLogout = async () => {
+    // Save the bag to the account, then take it out of this browser
+    await flushCart()
     await authClient.signOut()
+    await cartSignedOut()
     setSession(null)
     setMode('buyer')
     router.push('/')
