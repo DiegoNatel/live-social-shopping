@@ -4,12 +4,16 @@ import type { User, CartItem, Product, Notification } from '@/types'
 import { availableStock, unitPrice, type AppliedCoupon } from '@/lib/pricing'
 
 // The same choice of variants gives the same key, whether it was saved as undefined, {} or in another key order
-const variantKey = (variants?: Record<string, string>) =>
+export const variantKey = (variants?: Record<string, string>) =>
   JSON.stringify(Object.entries(variants ?? {}).filter(([, v]) => v).sort(([a], [b]) => a.localeCompare(b)))
 
 // Cart Store
 interface CartState {
   items: CartItem[]
+  // The account this bag is saved to (see lib/cart-sync.ts); null while signed out
+  owner: string | null
+  // A change that hasn't reached the account yet
+  unsaved: boolean
   addItem: (product: Product, quantity?: number, variants?: Record<string, string>) => void
   // Both take the cart line id: the same product can be in the cart with different variants
   removeItem: (lineId: string) => void
@@ -28,6 +32,8 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      owner: null,
+      unsaved: false,
       appliedCoupon: null,
       setCoupon: (coupon) => set({ appliedCoupon: coupon }),
       

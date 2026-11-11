@@ -2,6 +2,7 @@ import 'server-only'
 import { getDb } from './db'
 import { str } from './validate'
 import type { Address } from '@/types'
+import { addressErrors, addressCepErrors, firstAddressError } from './address-rules'
 
 type Row = Record<string, any>
 const MAX_ADDRESSES = 10
@@ -22,8 +23,9 @@ export function toAddress(r: Row): Address {
   }
 }
 
-// Validates an address from a request body; name/phone fall back to the given defaults
-export function parseAddress(a: Record<string, unknown>, defaults: { name?: string; phone?: string } = {}) {
+// Reads an address from a request body; name/phone fall back to the given defaults.
+// Returns the address, or a message saying what's wrong with it (see address-rules.ts).
+export async function parseAddress(a: Record<string, unknown>, defaults: { name?: string; phone?: string } = {}) {
   const zipCode = str(a.zipCode, 9)?.replace(/\D/g, '') ?? ''
   const address = {
     name: str(a.name, 100) ?? defaults.name ?? null,
@@ -36,10 +38,9 @@ export function parseAddress(a: Record<string, unknown>, defaults: { name?: stri
     zipCode,
     phone: str(a.phone, 20) ?? defaults.phone ?? '',
   }
-  const { name, street, number, neighborhood, city, state } = address
-  if (zipCode.length !== 8 || !name || !street || !number || !neighborhood || !city || !state || !/^[A-Z]{2}$/.test(state)) {
-    return null
-  }
+  if (!address.name) return 'Informe o nome de quem recebe'
+  const error = firstAddressError(addressErrors(address)) ?? firstAddressError(await addressCepErrors(address))
+  if (error) return error
   return address as Omit<Address, 'id' | 'isDefault'>
 }
 

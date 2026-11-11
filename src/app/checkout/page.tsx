@@ -30,6 +30,7 @@ import { PixIcon } from '@/components/ui/Icons'
 import { authClient } from '@/lib/auth-client'
 import { PaymentPanel } from '@/components/checkout/PaymentPanel'
 import { lookupCep } from '@/lib/cep'
+import { addressErrors, addressCepErrors, type AddressErrors, type AddressField } from '@/lib/address-rules'
 import { ShippingOptions } from '@/components/checkout/ShippingOptions'
 import type { ShippingOption } from '@/lib/shipping'
 import type { PaymentInfo } from '@/lib/payments'
@@ -120,12 +121,24 @@ export default function CheckoutPage() {
   // one filled in (e.g. the saved address) is a new address: its number and complement are
   // cleared too, so the old ones aren't sent by mistake.
   const [cepError, setCepError] = useState('')
+  // What's wrong with each field, shown once the buyer tries to continue
+  const [addressProblems, setAddressProblems] = useState<AddressErrors>({})
+  const [checkingAddress, setCheckingAddress] = useState(false)
+  // The order API refused the address
+  const [addressMessage, setAddressMessage] = useState('')
+  const setField = (key: AddressField | 'complement') => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = key === 'state' ? e.target.value.toUpperCase() : e.target.value
+    setAddress(a => ({ ...a, [key]: value }))
+    setAddressProblems(p => ({ ...p, [key]: undefined }))
+  }
   const changeCep = async (zipCode: string) => {
     setAddress(a => ({ ...a, zipCode }))
+    setAddressProblems(p => ({ ...p, zipCode: undefined }))
     const found = await lookupCep(zipCode)
     if (!found) return setCepError('')
-    if (found === 'NOT_FOUND') return setCepError('CEP não encontrado')
+    if (found === 'NOT_FOUND') return setCepError('CEP não encontrado. Confira os números.')
     setCepError('')
+    setAddressProblems({})
     const digits = zipCode.replace(/\D/g, '')
     const isNewAddress = digits !== filledCep.current
     filledCep.current = digits
@@ -142,7 +155,22 @@ export default function CheckoutPage() {
     )
   }
 
-  const handleAddressSubmit = () => {
+  // The address has to be complete and match its CEP before paying (the order API checks again)
+  const handleAddressSubmit = async () => {
+    setAddressMessage('')
+    let problems = addressErrors(address)
+    if (Object.keys(problems).length === 0) {
+      setCheckingAddress(true)
+      problems = await addressCepErrors(address)
+      setCheckingAddress(false)
+    }
+    setAddressProblems(problems)
+    if (Object.keys(problems).length > 0) {
+      const first = (Object.keys(address) as (keyof typeof address)[]).find(k => k in problems)
+      document.getElementById(`address-${first}`)?.focus()
+      return
+    }
+    setCepError('')
     setStep('payment')
   }
 
@@ -182,6 +210,9 @@ export default function CheckoutPage() {
       } else if (data?.error === 'TAX_ID') {
         setPaymentSetup(p => (p ? { ...p, savedTaxId: null } : p))
         setOrderError(data.message ?? 'Informe seu CPF')
+      } else if (data?.error === 'ADDRESS') {
+        setStep('address')
+        setAddressMessage(data.message ?? 'Confira o endereço de entrega.')
       } else if (data?.error === 'COUPON') {
         // Drop the coupon so the totals update and the order can be placed without it
         setCoupon(null)
@@ -274,9 +305,11 @@ export default function CheckoutPage() {
                   placeholder="00000-000"
                   inputMode="numeric"
                   maxLength={9}
+                  id="address-zipCode"
+                  autoComplete="postal-code"
                   value={address.zipCode}
                   onChange={(e) => changeCep(e.target.value)}
-                  error={cepError || undefined}
+                  error={cepError || addressProblems.zipCode}
                 />
                 
                 <div className="grid grid-cols-3 gap-4">
@@ -284,30 +317,38 @@ export default function CheckoutPage() {
                     <Input
                       label="Rua"
                       placeholder="Nome da rua"
+                      id="address-street"
+                      autoComplete="address-line1"
                       value={address.street}
-                      onChange={(e) => setAddress({ ...address, street: e.target.value })}
+                      onChange={setField('street')}
+                      error={addressProblems.street}
                     />
                   </div>
                   <Input
                     label="Número"
                     placeholder="123"
+                    id="address-number"
                     value={address.number}
-                    onChange={(e) => setAddress({ ...address, number: e.target.value })}
+                    onChange={setField('number')}
+                    error={addressProblems.number}
                   />
                 </div>
                 
                 <Input
                   label="Complemento"
                   placeholder="Apto, bloco, etc."
+                  id="address-complement"
                   value={address.complement}
-                  onChange={(e) => setAddress({ ...address, complement: e.target.value })}
+                  onChange={setField('complement')}
                 />
                 
                 <Input
                   label="Bairro"
                   placeholder="Bairro"
+                  id="address-neighborhood"
                   value={address.neighborhood}
-                  onChange={(e) => setAddress({ ...address, neighborhood: e.target.value })}
+                  onChange={setField('neighborhood')}
+                  error={addressProblems.neighborhood}
                 />
                 
                 <div className="grid grid-cols-3 gap-4">
@@ -315,21 +356,28 @@ export default function CheckoutPage() {
                     <Input
                       label="Cidade"
                       placeholder="Cidade"
+                      id="address-city"
+                      autoComplete="address-level2"
                       value={address.city}
-                      onChange={(e) => setAddress({ ...address, city: e.target.value })}
+                      onChange={setField('city')}
+                      error={addressProblems.city}
                     />
                   </div>
                   <Input
                     label="Estado"
                     placeholder="SP"
+                    id="address-state"
+                    maxLength={2}
                     value={address.state}
-                    onChange={(e) => setAddress({ ...address, state: e.target.value })}
+                    onChange={setField('state')}
+                    error={addressProblems.state}
                   />
                 </div>
               </div>
 
+              {addressMessage && <p role="alert" className="text-coral-pink text-sm mt-4">{addressMessage}</p>}
               <div className="mt-6">
-                <Button fullWidth size="lg" onClick={handleAddressSubmit}>
+                <Button fullWidth size="lg" onClick={handleAddressSubmit} isLoading={checkingAddress}>
                   Continuar para Pagamento
                 </Button>
               </div>

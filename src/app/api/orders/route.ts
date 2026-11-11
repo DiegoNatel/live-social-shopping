@@ -48,11 +48,11 @@ export async function POST(request: Request) {
 
   // Recipient defaults to the account holder
   const profile = await getUser(session.user.id)
-  const address = parseAddress(body.address ?? {}, {
+  const address = await parseAddress(body.address ?? {}, {
     name: profile?.user.name ?? session.user.name,
     phone: (session.user as { phone?: string | null }).phone ?? '',
   })
-  if (!address) return bad('Endereço incompleto')
+  if (typeof address === 'string') return Response.json({ error: 'ADDRESS', message: address }, { status: 400 })
 
   // Asaas needs the buyer's CPF; checked before the order takes any stock
   let taxId: string | null = null

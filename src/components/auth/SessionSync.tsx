@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import { authClient } from '@/lib/auth-client'
 import { useUserStore, useNotificationStore } from '@/store'
 import { BR_TIME_ZONE } from '@/lib/utils'
+import { cartSignedIn, cartSignedOut } from '@/lib/cart-sync'
 import type { User } from '@/types'
 
 type MeResponse =
@@ -39,8 +40,9 @@ function countVisit(signedIn: boolean) {
 }
 
 export function SessionSync() {
-  const { data: session, isPending } = authClient.useSession()
+  const { data: session, isPending, error } = authClient.useSession()
   const sessionId = session?.session.id
+  const userId = session?.user.id
 
   useEffect(() => {
     if (isPending) return
@@ -52,6 +54,15 @@ export function SessionSync() {
       useNotificationStore.getState().reset()
     }
   }, [sessionId, isPending])
+
+  // The shopping bag follows the account: loaded on sign-in, gone from this browser on sign-out.
+  // A failed session check (offline) isn't a sign-out, so the bag is left alone.
+  const sessionFailed = !!error
+  useEffect(() => {
+    if (isPending) return
+    if (userId) cartSignedIn(userId)
+    else if (!sessionFailed) cartSignedOut()
+  }, [userId, isPending, sessionFailed])
 
   return null
 }

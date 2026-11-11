@@ -12,6 +12,7 @@ import { inputClass } from '@/components/seller/FormField'
 import { uploadImage } from '@/components/seller/ImageUpload'
 import { cn } from '@/lib/utils'
 import { parseBrlAmount, INVALID_PRICE_MESSAGE } from '@/lib/money'
+import { PACKAGE_PRESETS, type PackagePresetId } from '@/lib/package-presets'
 import type { Category } from '@/types'
 import { setupComplete, type SetupState } from './SetupChecklist'
 import { SetupGate } from './SetupGate'
@@ -27,7 +28,8 @@ interface SellerStartProps {
 }
 
 // A seller's first minute: one screen for the first product, then straight to a live.
-// Everything else (variations, package size, how they get paid) waits for the dashboard.
+// The package size is asked here (one tap), because freight is quoted from it from the first sale.
+// Everything else (variations, how they get paid) waits for the dashboard.
 export function SellerStart({ categories, sellerName, isSeller, shipFromZip, needsWallet }: SellerStartProps) {
   const router = useRouter()
   const fileRef = useRef<HTMLInputElement>(null)
@@ -39,6 +41,11 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip, nee
   const [stock, setStock] = useState('1')
   const [category, setCategory] = useState(categories[0]?.slug ?? '')
   const [zip, setZip] = useState(shipFromZip ?? '')
+  // Package for freight quotes: a ready-made size, or 'custom' with the seller's own numbers
+  const [packageSize, setPackageSize] = useState<PackagePresetId | 'custom' | null>(null)
+  const [custom, setCustom] = useState({ weightG: '', heightCm: '', widthCm: '', lengthCm: '' })
+  const setMeasure = (key: keyof typeof custom) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setCustom(c => ({ ...c, [key]: e.target.value.replace(/\D/g, '') }))
   const [saving, setSaving] = useState(false)
   const [startingLive, setStartingLive] = useState(false)
   const [error, setError] = useState('')
@@ -77,12 +84,17 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip, nee
     if (amount === null || amount <= 0) return setError(INVALID_PRICE_MESSAGE)
     const cep = zip.replace(/\D/g, '')
     if (cep && cep.length !== 8) return setError('Confira o CEP ou deixe em branco por enquanto.')
+    if (!packageSize) return setError('Escolha o tamanho do pacote, para o frete sair certo.')
+    if (packageSize === 'custom' && Object.values(custom).some(v => !v)) {
+      return setError('Informe o peso e as três medidas do pacote.')
+    }
+    const pkg = packageSize === 'custom' ? custom : PACKAGE_PRESETS.find(p => p.id === packageSize)!.package
     setSaving(true)
     setError('')
     const res = await fetch('/api/seller/products', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, price: amount, stock, category, images: [image] }),
+      body: JSON.stringify({ name, price: amount, stock, category, images: [image], package: pkg }),
     })
     const data = (await res.json().catch(() => null)) as { id?: string; message?: string } | null
     if (!res.ok || !data?.id) {
@@ -240,6 +252,45 @@ export function SellerStart({ categories, sellerName, isSeller, shipFromZip, nee
                 </button>
               ))}
             </div>
+          </div>
+          <div role="radiogroup" aria-labelledby="package-size-label">
+            <p id="package-size-label" className="text-sm text-gray-700">Tamanho do pacote</p>
+            <p className="text-xs text-gray-400 mb-1.5">Já embalado. O frete do comprador é calculado por ele.</p>
+            <div className="grid grid-cols-2 gap-2">
+              {[...PACKAGE_PRESETS, { id: 'custom' as const, label: 'Outro tamanho', hint: 'informar peso e medidas' }].map(p => (
+                <button
+                  key={p.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={packageSize === p.id}
+                  onClick={() => setPackageSize(p.id)}
+                  className={cn(
+                    'rounded-md border px-3 py-2 text-left',
+                    packageSize === p.id ? 'border-primary bg-primary-50' : 'border-gray-300 bg-white'
+                  )}
+                >
+                  <span className="block text-sm text-gray-900">{p.label}</span>
+                  <span className="block text-xs text-gray-500">{p.hint}</span>
+                </button>
+              ))}
+            </div>
+            {packageSize === 'custom' && (
+              <div className="grid grid-cols-4 gap-2 mt-2">
+                {(
+                  [
+                    ['weightG', 'Peso (g)'],
+                    ['heightCm', 'Altura (cm)'],
+                    ['widthCm', 'Largura (cm)'],
+                    ['lengthCm', 'Compr. (cm)'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <label key={key} className="block text-xs text-gray-600">
+                    {label}
+                    <input inputMode="numeric" value={custom[key]} onChange={setMeasure(key)} className={cn(inputClass, 'mt-1 px-2')} />
+                  </label>
+                ))}
+              </div>
+            )}
           </div>
           <label className="block text-sm text-gray-700">
             CEP de onde você envia <span className="text-gray-400">(opcional)</span>
