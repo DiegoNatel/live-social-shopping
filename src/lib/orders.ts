@@ -1,5 +1,5 @@
 import 'server-only'
-import { getDb, activeFlashSales, flashPriceCents } from './db'
+import { getDb, activeFlashSales, flashPriceCents, auctionHold } from './db'
 import { checkCoupon } from './coupons'
 import { toAddress } from './addresses'
 import { computeTotals, VARIANT_TYPES, type AppliedCoupon } from './pricing'
@@ -72,11 +72,11 @@ export async function priceCart(items: CartItemInput[], opts: { fixedUnitPriceCe
   const [{ results: products }, { results: variantRows }, flashSales] = await Promise.all([
     db
       .prepare(
-        `SELECT id, seller_id, name, price_cents, stock FROM products
+        `SELECT id, seller_id, name, price_cents, stock, ${auctionHold('products')} AS held FROM products
          WHERE is_active = 1 AND id IN (${ids.map(() => '?').join(',')})`
       )
       .bind(...ids)
-      .all<{ id: string; seller_id: string; name: string; price_cents: number; stock: number }>(),
+      .all<{ id: string; seller_id: string; name: string; price_cents: number; stock: number; held: number }>(),
     db
       .prepare(
         `SELECT id, product_id, type, name, stock, price_modifier_cents FROM product_variants
@@ -132,6 +132,10 @@ export async function priceCart(items: CartItemInput[], opts: { fixedUnitPriceCe
   for (const [productId, qty] of qtyByProduct) {
     const product = byId.get(productId)!
     if (product.stock < qty) throw new OrderError('OUT_OF_STOCK', `Estoque insuficiente: ${product.name}`)
+    // Units held by an auction go to its winner (whose own order has a fixed price)
+    if (!opts.fixedUnitPriceCents?.has(productId) && product.stock - product.held < qty) {
+      throw new OrderError('OUT_OF_STOCK', `${product.name} está reservado para um leilão`)
+    }
   }
   for (const [variantId, qty] of qtyByVariant) {
     const v = variantRows.find(v => v.id === variantId)!

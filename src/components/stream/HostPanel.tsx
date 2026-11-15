@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { cn, formatCurrency } from '@/lib/utils'
 import type { Stream } from '@/types'
 
-type Tab = 'pin' | 'poll' | 'flash' | 'live'
+type Tab = 'pin' | 'poll' | 'flash' | 'auction' | 'live'
 
 const field = 'w-full h-9 px-3 rounded-md bg-white/10 text-white text-sm placeholder:text-white/40 outline-none focus:bg-white/15'
 
@@ -39,6 +39,27 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
     durationMinutes: '10',
     quantity: suggestedQuantity(firstProductId),
   })
+
+  // An auction for one unit of a product, starting now (the same API the dashboard uses)
+  const [auction, setAuction] = useState({ productId: firstProductId, startingPrice: '', minimumIncrement: '10', durationMinutes: '15' })
+  const startAuction = async () => {
+    setBusy(true)
+    setMessage(null)
+    const res = await fetch('/api/seller/auctions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...auction, durationMinutes: Number(auction.durationMinutes), startsAt: 'now', streamId: stream.id }),
+    }).catch(() => null)
+    setBusy(false)
+    if (!res?.ok) {
+      const data = (await res?.json().catch(() => null)) as { message?: string } | null
+      return setMessage({ ok: false, text: data?.message ?? 'Não foi possível criar o leilão.' })
+    }
+    setMessage({ ok: true, text: 'Leilão no ar!' })
+    setAuction(a => ({ ...a, startingPrice: '' }))
+    // Without the live room (or if its message is missed) the page still shows the auction
+    router.refresh()
+  }
 
   const call = async (path: string, method: string, body?: object, okText = 'Pronto!') => {
     setBusy(true)
@@ -88,6 +109,7 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
             ['pin', 'Produto'],
             ['poll', 'Enquete'],
             ['flash', 'Oferta'],
+            ['auction', 'Leilão'],
             ['live', 'Live'],
           ] as [Tab, string][]
         ).map(([id, label]) => (
@@ -202,14 +224,70 @@ export function HostPanel({ stream, pinnedId, hasPoll, hasFlashSale, onClose }: 
         </div>
       )}
 
+      {tab === 'auction' && (
+        <div className="space-y-2">
+          {stream.products.length === 0 ? (
+            <p className="text-white/50 text-sm">Esta live não tem produtos.</p>
+          ) : (
+            <>
+              <select className={field} aria-label="Produto" value={auction.productId} onChange={e => setAuction(a => ({ ...a, productId: e.target.value }))}>
+                {stream.products.map(p => (
+                  <option key={p.id} value={p.id} className="text-gray-900">
+                    {p.name}
+                  </option>
+                ))}
+              </select>
+              <div className="grid grid-cols-3 gap-2">
+                <label className="text-xs text-white/60">
+                  Lance inicial
+                  <input
+                    className={cn(field, 'mt-0.5')}
+                    inputMode="decimal"
+                    placeholder="50,00"
+                    value={auction.startingPrice}
+                    onChange={e => setAuction(a => ({ ...a, startingPrice: e.target.value }))}
+                  />
+                </label>
+                <label className="text-xs text-white/60">
+                  Incremento
+                  <select className={cn(field, 'mt-0.5')} value={auction.minimumIncrement} onChange={e => setAuction(a => ({ ...a, minimumIncrement: e.target.value }))}>
+                    {['5', '10', '20', '50', '100'].map(v => (
+                      <option key={v} value={v} className="text-gray-900">
+                        R$ {v}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="text-xs text-white/60">
+                  Duração
+                  <select className={cn(field, 'mt-0.5')} value={auction.durationMinutes} onChange={e => setAuction(a => ({ ...a, durationMinutes: e.target.value }))}>
+                    {[['2', '2 min'], ['5', '5 min'], ['15', '15 min'], ['30', '30 min']].map(([v, label]) => (
+                      <option key={v} value={v} className="text-gray-900">
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <p className="text-white/50 text-xs">Uma unidade vai para quem der o maior lance. Começa agora.</p>
+              <Button size="sm" fullWidth isLoading={busy} disabled={!auction.productId || !auction.startingPrice.trim()} onClick={startAuction}>
+                Começar leilão
+              </Button>
+            </>
+          )}
+        </div>
+      )}
+
       {tab === 'live' && (
         <div className="space-y-2">
           <p className="text-white/60 text-sm">
-            {stream.isLive
-              ? 'Você está ao vivo. Use os botões ao lado do vídeo para microfone e câmera.'
-              : 'A live ainda não começou. Ao iniciar, sua câmera e microfone são ligados e seus seguidores são avisados.'}
+            {stream.hasEnded
+              ? 'Esta live foi encerrada.'
+              : stream.isLive
+                ? 'Você está ao vivo. Use os botões ao lado do vídeo para microfone e câmera.'
+                : 'A live ainda não começou. Ao iniciar, sua câmera e microfone são ligados e seus seguidores são avisados.'}
           </p>
-          {stream.isLive ? (
+          {stream.hasEnded ? null : stream.isLive ? (
             <Button size="sm" variant="secondary" fullWidth isLoading={busy} onClick={() => setStatus('ended')}>
               Encerrar live
             </Button>

@@ -44,7 +44,11 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
     images: parseList(row.images),
     category: row.category_slug,
     variants,
-    stock: row.stock,
+    // Buyers see what's left after the units held by auctions (see auctionHold)
+    stock: Math.max(0, row.stock - (row.auction_hold ?? 0)),
+    auction: row.auction_hold
+      ? { live: !!row.auction_running, streamId: row.auction_running && row.auction_running !== 'none' ? row.auction_running : undefined }
+      : undefined,
     // Stored unrounded (reviews update it incrementally)
     rating: Math.round(row.rating * 10) / 10,
     reviews: row.reviews_count,
@@ -63,8 +67,24 @@ function toProduct(row: Row, variants: ProductVariant[] = []): Product {
 
 // ---------- Products ----------
 
+// Units of a product (table alias `p`) that an auction is holding, so they can't be bought
+// directly: one for each auction that is scheduled or running, and one for each auction that
+// got bids and ended in the last AUCTION_HOLD_HOURS without a paid-or-pending order yet
+// (the winner's time to pay). Once the order exists the stock itself has gone down.
+export const AUCTION_HOLD_HOURS = 24
+export const auctionHold = (p: string) => `(SELECT count(*) FROM auctions ah WHERE ah.product_id = ${p}.id AND (
+    ah.ends_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now')
+    OR (ah.ends_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now', '-${AUCTION_HOLD_HOURS} hours')
+        AND EXISTS (SELECT 1 FROM bids hb WHERE hb.auction_id = ah.id)
+        AND NOT EXISTS (SELECT 1 FROM orders ho WHERE ho.auction_id = ah.id AND ho.status != 'cancelled'))))`
+
+// The auction on a product that's taking bids right now ('none' = running outside a live)
+const RUNNING_AUCTION = `(SELECT coalesce(ar.stream_id, 'none') FROM auctions ar WHERE ar.product_id = p.id
+    AND ar.starts_at <= strftime('%Y-%m-%dT%H:%M:%fZ', 'now') AND ar.ends_at > strftime('%Y-%m-%dT%H:%M:%fZ', 'now') LIMIT 1)`
+
 const PRODUCT_SELECT = `
-  SELECT p.*, ${userCols('u', 'seller_')}, ${setupCols('u', 'seller_')}
+  SELECT p.*, ${userCols('u', 'seller_')}, ${setupCols('u', 'seller_')},
+         ${auctionHold('p')} AS auction_hold, ${RUNNING_AUCTION} AS auction_running
   FROM products p JOIN users u ON u.id = p.seller_id
   WHERE p.is_active = 1`
 
@@ -579,9 +599,12 @@ export async function getSellerDashboard(sellerId: string) {
       getStreams({ live: false, ended: true, hostId: sellerId }),
       db
         .prepare(
-          `SELECT a.*, ${AUCTION_STATUS} AS live_status, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count
+          `SELECT a.*, ${AUCTION_STATUS} AS live_status, (SELECT count(*) FROM bids b WHERE b.auction_id = a.id) AS bid_count,
+                  (SELECT w.name FROM users w WHERE w.id = a.winner_id) AS winner_name,
+                  (SELECT o.id FROM orders o WHERE o.auction_id = a.id AND o.status != 'cancelled') AS order_id,
+                  (SELECT o.status FROM orders o WHERE o.auction_id = a.id AND o.status != 'cancelled') AS order_status
            FROM auctions a JOIN products p ON p.id = a.product_id
-           WHERE p.seller_id = ? ORDER BY a.starts_at`
+           WHERE p.seller_id = ? ORDER BY a.starts_at DESC`
         )
         .bind(sellerId)
         .all<Row>(),
@@ -646,6 +669,8 @@ export async function getSellerDashboard(sellerId: string) {
     status: a.live_status,
     winnerId: a.winner_id ?? undefined,
     streamId: a.stream_id ?? undefined,
+    winnerName: a.winner_name ?? undefined,
+    order: a.order_id ? { id: a.order_id, paid: PAID_ORDER.includes(`'${a.order_status}'`) } : undefined,
   }))
 
   const recentOrders: SellerOrder[] = orderRows.map(o => ({
