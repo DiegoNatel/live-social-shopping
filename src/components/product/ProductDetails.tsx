@@ -45,8 +45,8 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
   const creatorHref = creatorPath(product.seller.username)
 
   const isLiked = favoriteIds.includes(product.id)
-  const discount = product.originalPrice 
-    ? calculateDiscount(product.originalPrice, product.price) 
+  const discount = product.originalPrice
+    ? calculateDiscount(product.originalPrice, product.price)
     : 0
   const price = unitPrice(product, selectedVariants)
   const stock = availableStock(product, selectedVariants)
@@ -124,13 +124,13 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
               />
             </motion.div>
           </AnimatePresence>
-          
+
           {/* Discount badge */}
           {discount > 0 && (
             <DiscountBadge percentage={discount} className="absolute top-4 left-4" />
           )}
         </div>
-        
+
         {/* Thumbnail strip */}
         {product.images.length > 1 && (
           <div className="flex gap-2 p-3 overflow-x-auto no-scrollbar">
@@ -159,7 +159,7 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
               <Title className={cn('text-deep-ocean font-semibold leading-tight', inModal ? 'text-lg md:text-xl' : 'text-xl md:text-2xl')}>
                 {product.name}
               </Title>
-              
+
               {/* Rating */}
               <div className="flex items-center gap-2 mt-2">
                 <div className="flex items-center gap-1 text-sunset-gold">
@@ -171,7 +171,7 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
                 </span>
               </div>
             </div>
-            
+
             <div className={cn('flex gap-2', inModal && 'md:mr-8')}>
               <button
                 aria-label={isLiked ? 'Remover dos favoritos' : 'Favoritar'}
@@ -203,7 +203,7 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
                 </span>
               )}
             </div>
-            
+
             {product.flashSale && (
               <p className="flex items-center gap-1 mt-1 text-coral-pink text-sm font-medium">
                 <Zap className="w-4 h-4 fill-current" />
@@ -221,7 +221,7 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
               </span>
               <span className="text-tropical-green text-sm">(5% OFF)</span>
             </div>
-            
+
             {/* Installments */}
             {installments && (
               <p className="text-gray-500 text-sm mt-2">
@@ -353,7 +353,7 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
               {product.description}
             </p>
           </div>
-  
+
           {inModal && (
             <Link
               href={`/product/${encodeURIComponent(product.id)}`}
@@ -375,7 +375,11 @@ export function ProductDetails({ product, inModal = false, Title = 'h1', onLeave
           {(missing.length > 0 || stock === 0) && (
             <p className="text-gray-500 text-sm mb-2 text-center">
               {stock === 0
-                ? 'Esgotado'
+                ? product.auction
+                  ? product.auction.live
+                    ? <>Em leilão agora.{' '}{product.auction.streamId && <Link href={`/live/${product.auction.streamId}`} className="text-sky-blue font-medium hover:underline">Dar lance na live</Link>}</>
+                    : 'Reservado para um leilão'
+                  : 'Esgotado'
                 : `Selecione: ${missing.map(t => VARIANT_LABELS[t].toLowerCase()).join(' e ')}`}
             </p>
           )}

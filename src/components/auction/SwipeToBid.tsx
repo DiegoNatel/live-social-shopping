@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { motion, useMotionValue, useTransform, animate, PanInfo } from 'framer-motion'
 import { ChevronRight, Gavel, Check } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -16,56 +16,56 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
   const [isComplete, setIsComplete] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const constraintsRef = useRef<HTMLDivElement>(null)
-  
+
   const x = useMotionValue(0)
   const trackWidth = 280 // Width of the slider track
   const thumbWidth = 64 // Width of the thumb
   const maxDrag = trackWidth - thumbWidth - 8 // Account for padding
-  
+
   // Progress calculation (0 to 1)
   const progress = useTransform(x, [0, maxDrag], [0, 1])
-  
+
   // Background color transitions from orange to green as you swipe
   const backgroundColor = useTransform(
     x,
     [0, maxDrag * 0.5, maxDrag],
     ['rgb(251, 146, 60)', 'rgb(250, 204, 21)', 'rgb(34, 197, 94)']
   )
-  
+
   // Text opacity decreases as you swipe
   const textOpacity = useTransform(x, [0, maxDrag * 0.6], [1, 0])
-  
+
   // Checkmark opacity increases at the end
   const checkOpacity = useTransform(x, [maxDrag * 0.7, maxDrag], [0, 1])
-  
+
   const handleDragStart = () => {
     if (!disabled && !isComplete) {
       setIsDragging(true)
     }
   }
-  
+
   const handleDrag = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     // Handled by motion
   }
-  
+
   const handleDragEnd = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     setIsDragging(false)
-    
+
     if (disabled || isComplete) return
-    
+
     const currentX = x.get()
-    
+
     // If dragged more than 85% of the way, consider it complete
     if (currentX >= maxDrag * 0.85) {
       // Animate to end
       animate(x, maxDrag, { type: 'spring', stiffness: 300, damping: 30 })
       setIsComplete(true)
-      
+
       // Trigger haptic feedback if available
       if (navigator.vibrate) {
         navigator.vibrate(50)
       }
-      
+
       // Wait for animation then trigger callback
       setTimeout(() => {
         onBidConfirmed()
@@ -81,6 +81,13 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
     animate(x, 0, { type: 'spring', stiffness: 400, damping: 40 })
   }, [x])
 
+  // Ready for the next bid shortly after one is sent (it used to stay locked until a reload)
+  useEffect(() => {
+    if (!isComplete) return
+    const timer = setTimeout(reset, 1500)
+    return () => clearTimeout(timer)
+  }, [isComplete, reset])
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -92,10 +99,10 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
     <div className={cn('space-y-3', className)}>
       {/* Bid Amount Display */}
       <div className="text-center">
-        <p className="text-sm text-gray-500 mb-1">Seu lance</p>
+        <p className="text-sm text-gray-500 mb-1">Seu próximo lance</p>
         <p className="text-3xl font-bold text-gray-900">{formatCurrency(bidAmount)}</p>
       </div>
-      
+
       {/* Swipe Slider */}
       <div className="relative">
         <motion.div
@@ -104,7 +111,7 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
             'relative h-16 rounded-full overflow-hidden transition-opacity',
             disabled && 'opacity-50 cursor-not-allowed'
           )}
-          style={{ 
+          style={{
             backgroundColor,
             width: trackWidth,
             margin: '0 auto'
@@ -124,7 +131,7 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
               }}
             />
           )}
-          
+
           {/* Chevrons Animation (hint to swipe) */}
           {!isComplete && !disabled && (
             <div className="absolute inset-y-0 right-4 flex items-center pointer-events-none">
@@ -139,7 +146,7 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
               </motion.div>
             </div>
           )}
-          
+
           {/* Instruction Text */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -149,7 +156,7 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
               Arraste para dar lance
             </span>
           </motion.div>
-          
+
           {/* Success Checkmark */}
           <motion.div
             className="absolute inset-0 flex items-center justify-center pointer-events-none"
@@ -157,7 +164,7 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
           >
             <Check className="w-8 h-8 text-white" strokeWidth={3} />
           </motion.div>
-          
+
           {/* Draggable Thumb */}
           <motion.div
             className={cn(
@@ -181,22 +188,22 @@ export function SwipeToBid({ bidAmount, onBidConfirmed, disabled = false, classN
             )}
           </motion.div>
         </motion.div>
-        
+
         {/* Pulse ring effect when dragging */}
         {isDragging && (
           <motion.div
             className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-orange-400"
             initial={{ width: 64, height: 64, opacity: 0.8 }}
-            animate={{ 
-              width: [64, 100], 
-              height: [64, 100], 
-              opacity: [0.8, 0] 
+            animate={{
+              width: [64, 100],
+              height: [64, 100],
+              opacity: [0.8, 0]
             }}
             transition={{ duration: 0.8, repeat: Infinity }}
           />
         )}
       </div>
-      
+
       {/* Status Text */}
       {isComplete && (
         <motion.p

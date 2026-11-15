@@ -29,6 +29,9 @@ export interface Product {
   tags?: string[]
   itemType?: ItemType // 'product' by default
   isActive?: boolean // false when the seller paused it (only in the seller's own lists)
+  // Set while an auction holds units of this product (stock is already what's left);
+  // live: taking bids right now, in the live streamId when it has one
+  auction?: { live: boolean; streamId?: string }
   isBlocked?: boolean // removed by moderation: the seller can't reactivate it
   // false while the seller hasn't finished setting up (wallet, ship-from CEP): shown, not buyable
   sellerReady?: boolean
@@ -266,6 +269,9 @@ export interface Auction {
   status: 'upcoming' | 'active' | 'ended'
   winnerId?: string
   streamId?: string // If auction is part of a live stream
+  // Seller dashboard only: who won, and the order they placed for it (if any yet)
+  winnerName?: string
+  order?: { id: string; paid: boolean }
 }
 
 export interface AuctionBid {

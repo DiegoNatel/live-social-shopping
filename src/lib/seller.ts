@@ -1,5 +1,5 @@
 import 'server-only'
-import { getDb } from './db'
+import { getDb, auctionHold } from './db'
 import { getSession } from './auth'
 import { notify } from './orders'
 import { canSellInStream } from './guests'
@@ -338,13 +338,18 @@ export interface AuctionInput {
 
 // Returns the new auction's id, NOT_FOUND for a product that isn't the seller's, or
 // STREAM_FORBIDDEN for a live the seller neither hosts nor was accepted into as a guest
-export async function createAuction(sellerId: string, a: AuctionInput): Promise<string | 'NOT_FOUND' | 'STREAM_FORBIDDEN'> {
+export async function createAuction(
+  sellerId: string,
+  a: AuctionInput
+): Promise<string | 'NOT_FOUND' | 'STREAM_FORBIDDEN' | 'NO_STOCK' | 'IN_AUCTION'> {
   const db = getDb()
-  const owns = await db
-    .prepare('SELECT 1 FROM products WHERE id = ? AND seller_id = ? AND is_active = 1')
+  const product = await db
+    .prepare(`SELECT stock, ${auctionHold('products')} AS held FROM products WHERE id = ? AND seller_id = ? AND is_active = 1`)
     .bind(a.productId, sellerId)
-    .first()
-  if (!owns) return 'NOT_FOUND'
+    .first<{ stock: number; held: number }>()
+  if (!product) return 'NOT_FOUND'
+  // Each auction sells one unit, so there must be one that no other auction is holding
+  if (product.stock - product.held < 1) return product.held > 0 ? 'IN_AUCTION' : 'NO_STOCK'
   if (a.streamId && !(await canSellInStream(sellerId, a.streamId))) return 'STREAM_FORBIDDEN'
 
   const id = newId()

@@ -17,9 +17,9 @@ export async function POST(request: Request) {
   const minimumIncrement = money(b.minimumIncrement, 0.01, 100_000)
   const durationMinutes = int(b.durationMinutes, 1, 7 * 24 * 60)
   const startsAt = b.startsAt === 'now' ? new Date().toISOString() : isoDate(b.startsAt)
-  if (!productId || startingPrice === null || minimumIncrement === null || durationMinutes === null || !startsAt) {
-    return badRequest('Dados do leilão incompletos')
-  }
+  if (!productId || durationMinutes === null || !startsAt) return badRequest('Dados do leilão incompletos')
+  if (startingPrice === null) return badRequest('Lance inicial inválido: use um valor de R$ 0,01 a R$ 1.000.000')
+  if (minimumIncrement === null) return badRequest('Incremento inválido: use um valor de R$ 0,01 a R$ 100.000')
   // The winner pays right away, so the shop must be able to sell (see lib/seller-setup.ts)
   const missing = (await sellersMissingSetup([sellerId])).get(sellerId)
   if (missing) {
@@ -37,7 +37,14 @@ export async function POST(request: Request) {
     startsAt,
     streamId: str(b.streamId, 64) ?? undefined,
   })
-  if (id === 'NOT_FOUND') return new Response('Product not found', { status: 404 })
+  if (id === 'NOT_FOUND') return Response.json({ message: 'Produto não encontrado ou pausado' }, { status: 404 })
+  if (id === 'IN_AUCTION') {
+    return Response.json(
+      { message: 'Este produto já está em leilão. Espere o leilão terminar (e o ganhador pagar) ou aumente o estoque.' },
+      { status: 409 }
+    )
+  }
+  if (id === 'NO_STOCK') return Response.json({ message: 'Este produto está sem estoque' }, { status: 409 })
   if (id === 'STREAM_FORBIDDEN') {
     return Response.json({ message: 'Você só pode criar leilões nas suas lives ou nas que aceitou convite' }, { status: 403 })
   }

@@ -13,7 +13,8 @@ interface CreateAuctionModalProps {
   isOpen: boolean
   onClose: () => void
   products: Product[]
-  onCreateAuction: (data: AuctionFormData) => void
+  // Resolves to what went wrong (shown here, keeping the form), or null when the auction was created
+  onCreateAuction: (data: AuctionFormData) => Promise<string | null>
 }
 
 export interface AuctionFormData {
@@ -34,11 +35,13 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
   const [startOption, setStartOption] = useState<'now' | 'scheduled'>('now')
   const [scheduledDate, setScheduledDate] = useState('')
   const [scheduledTime, setScheduledTime] = useState('')
-  
+  const [error, setError] = useState('')
+  const [saving, setSaving] = useState(false)
+
   const filteredProducts = products.filter(p =>
     p.name.toLowerCase().includes(productSearch.toLowerCase())
   )
-  
+
   const durationOptions = [
     { value: '15', label: '15 minutos' },
     { value: '30', label: '30 minutos' },
@@ -46,7 +49,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
     { value: '120', label: '2 horas' },
     { value: '1440', label: '24 horas' },
   ]
-  
+
   const incrementOptions = [
     { value: '5', label: 'R$ 5,00' },
     { value: '10', label: 'R$ 10,00' },
@@ -54,23 +57,27 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
     { value: '50', label: 'R$ 50,00' },
     { value: '100', label: 'R$ 100,00' },
   ]
-  
-  const handleSubmit = () => {
-    if (!isFormValid) return
-    
+
+  const handleSubmit = async () => {
+    if (!isFormValid || saving) return
+
     let startTime: 'now' | Date = 'now'
     if (startOption === 'scheduled' && scheduledDate && scheduledTime) {
       startTime = new Date(`${scheduledDate}T${scheduledTime}`)
     }
-    
-    onCreateAuction({
+
+    setSaving(true)
+    setError('')
+    const problem = await onCreateAuction({
       productId: selectedProduct.id,
       startingPrice: parseBrlAmount(startingPrice)!,
       minimumIncrement: parseBrlAmount(minimumIncrement)!,
       duration: parseInt(duration),
       startTime,
     })
-    
+    setSaving(false)
+    if (problem) return setError(problem)
+
     // Reset form
     setStep('product')
     setSelectedProduct(null)
@@ -80,14 +87,15 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
     setStartOption('now')
     onClose()
   }
-  
+
   const handleSelectProduct = (product: Product) => {
     setSelectedProduct(product)
     // Suggest starting price as 50% of product price
-    setStartingPrice(Math.floor(product.price * 0.5).toString())
+    setStartingPrice((Math.round(product.price * 50) / 100).toFixed(2).replace('.', ','))
+    setError('')
     setStep('config')
   }
-  
+
   // Brazilian format ("1.299,90"); a value that can't be read keeps the button disabled
   const startingAmount = parseBrlAmount(startingPrice)
   const incrementAmount = parseBrlAmount(minimumIncrement)
@@ -111,7 +119,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
         />
-        
+
         {/* Modal */}
         <motion.div
           className="relative w-full max-w-lg max-h-[90vh] overflow-hidden rounded-3xl bg-white shadow-2xl"
@@ -132,14 +140,14 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                 </p>
               </div>
             </div>
-            
+
             <button
               onClick={onClose}
               className="absolute top-6 right-6 w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center text-gray-500 hover:bg-gray-200 transition-colors"
             >
               <X className="w-4 h-4" />
             </button>
-            
+
             {/* Progress Steps */}
             <div className="flex gap-2 mt-4">
               <div className={cn(
@@ -152,7 +160,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
               )} />
             </div>
           </div>
-          
+
           {/* Content */}
           <div className="p-6 overflow-y-auto max-h-[60vh]">
             {step === 'product' ? (
@@ -168,7 +176,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                     className="w-full pl-10 pr-4 py-3 rounded-xl border border-gray-200 focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 outline-none transition-all"
                   />
                 </div>
-                
+
                 {/* Product List */}
                 <div className="space-y-2">
                   {filteredProducts.map((product) => (
@@ -231,7 +239,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                     </button>
                   </div>
                 )}
-                
+
                 {/* Starting Price */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -252,7 +260,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                     Sugestão: {formatCurrency((selectedProduct?.price || 0) * 0.5)} (50% do preço)
                   </p>
                 </div>
-                
+
                 {/* Minimum Increment */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -276,7 +284,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Duration */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -300,7 +308,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                     ))}
                   </div>
                 </div>
-                
+
                 {/* Start Time */}
                 <div>
                   <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-2">
@@ -331,7 +339,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                       Agendar
                     </button>
                   </div>
-                  
+
                   {startOption === 'scheduled' && (
                     <div className="grid grid-cols-2 gap-3">
                       <input
@@ -352,9 +360,10 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
               </div>
             )}
           </div>
-          
+
           {/* Footer */}
           <div className="p-6 pt-4 border-t border-gray-100 bg-gray-50">
+            {error && <p role="alert" className="text-coral-pink text-sm mb-3">{error}</p>}
             <div className="flex gap-3">
               {step === 'config' && (
                 <Button
@@ -369,6 +378,7 @@ export function CreateAuctionModal({ isOpen, onClose, products, onCreateAuction 
                 className="flex-1 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600"
                 onClick={step === 'product' ? () => selectedProduct && setStep('config') : handleSubmit}
                 disabled={step === 'product' ? !selectedProduct : !isFormValid}
+                isLoading={saving}
               >
                 {step === 'product' ? 'Próximo' : 'Criar Leilão'}
               </Button>

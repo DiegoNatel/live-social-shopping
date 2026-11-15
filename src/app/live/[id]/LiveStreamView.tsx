@@ -48,12 +48,12 @@ interface LiveStreamViewProps {
 
 export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   const router = useRouter()
-  const { isFollowing, followHost, unfollowHost, isAuthenticated } = useUserStore()
+  const { isFollowing, followHost, unfollowHost, isAuthenticated, user } = useUserStore()
   const { openProductModal } = useUIStore()
   const [loginAsk, setLoginAsk] = useState<LoginAsk | null>(null)
   const askLogin = (title: string) => setLoginAsk({ title })
   useGuestWatchTime(!isAuthenticated, () => setLoginAsk(ask => ask ?? { title: 'Está gostando da live?' }))
-  
+
   const [isMuted, setIsMuted] = useState(true)
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
@@ -188,23 +188,23 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
     return () => clearTimeout(timer)
   }, [notice])
   const [chatHeight, setChatHeight] = useState(50) // percentage of viewport height
-  
+
   const videoRef = useRef<HTMLDivElement>(null)
   const controlsTimerRef = useRef<NodeJS.Timeout | null>(null)
   const chatPanelRef = useRef<HTMLDivElement>(null)
-  
+
   // Motion values for chat panel drag
   const y = useMotionValue(0)
-  
+
   // Handle drag end to snap to positions
   const handleDragEnd = useCallback((event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const viewportHeight = window.innerHeight
     const draggedPixels = info.offset.y
     const draggedPercent = (draggedPixels / viewportHeight) * 100
-    
+
     // Calculate new height based on drag direction
     let newHeight = chatHeight - draggedPercent
-    
+
     // Snap points: 25%, 50%, 75%
     if (newHeight < 15) {
       // If dragged too low, close chat
@@ -217,7 +217,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
     } else {
       setChatHeight(75)
     }
-    
+
     // Reset motion value
     animate(y, 0, { type: 'spring', stiffness: 300, damping: 30 })
   }, [chatHeight, y])
@@ -227,13 +227,13 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
     if (controlsTimerRef.current) {
       clearTimeout(controlsTimerRef.current)
     }
-    
+
     if (showControls) {
       controlsTimerRef.current = setTimeout(() => {
         setShowControls(false)
       }, 3000)
     }
-    
+
     return () => {
       if (controlsTimerRef.current) {
         clearTimeout(controlsTimerRef.current)
@@ -267,6 +267,8 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
   }
 
   const isUserFollowing = isFollowing(stream.host.id)
+  // The host is known from the account, so the tools don't depend on the live room connecting
+  const isHost = room.isHost || (!!user && user.id === stream.host.id)
 
   // Products insist on an account too, but "Agora não" still goes ahead
   const askBeforeShopping = (action: () => void) => {
@@ -293,6 +295,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
     // Without the live room, reload to see the new price
     if (room.status !== 'open') router.refresh()
   }
+
+  // Sellers watch their own auctions but don't bid on them
+  const canBidOn = (auction: Auction) => auction.product.seller.id !== user?.id
 
   const toggleMobilePanel = (panel: 'poll' | 'auctions' | 'host') => {
     const opening = mobilePanel !== panel
@@ -323,7 +328,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       status={room.status}
       canChat={room.canChat}
       ended={hasEnded || !!stream.hasEnded}
-      isHost={room.isHost}
+      isHost={isHost}
       hostId={stream.host.id}
       error={room.error}
       onSend={room.sendChat}
@@ -360,7 +365,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
     <div className="min-h-screen bg-black flex flex-col lg:flex-row">
       <LoginPrompt ask={loginAsk} onClose={() => setLoginAsk(null)} />
       {/* Video Section */}
-      <div 
+      <div
         ref={videoRef}
         className="relative w-full lg:flex-1 h-screen lg:h-screen"
         onClick={handleVideoClick}
@@ -394,7 +399,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             </div>
 
             <div className="flex items-center gap-2">
-              <button 
+              <button
                 onClick={(e) => { e.stopPropagation(); setIsMuted(!isMuted); }}
                 className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white"
               >
@@ -407,12 +412,14 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               >
                 <Share2 className="w-5 h-5" />
               </button>
+              {!isHost && (
               <ReportButton
                 type="stream"
                 id={stream.id}
                 onAskLogin={() => askLogin('Entre para denunciar')}
                 className="w-10 h-10 rounded-full bg-black/50 backdrop-blur-sm flex items-center justify-center text-white"
               />
+              )}
             </div>
           </div>
 
@@ -434,6 +441,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                 </h3>
                 <p className="text-white/60 text-xs">{formatViewerCount(stream.host.followers)} seguidores</p>
               </div>
+              {!isHost && (
               <Button
                 variant={isUserFollowing ? 'ghost' : 'primary'}
                 size="sm"
@@ -442,6 +450,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
               >
                 {isUserFollowing ? 'Seguindo' : 'Seguir'}
               </Button>
+              )}
             </div>
           </div>
 
@@ -467,11 +476,11 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     <div className="space-y-2">
                       {bidMessage && <p className="text-coral-pink text-sm bg-black/60 rounded px-2 py-1">{bidMessage}</p>}
                       {activeAuctions.map(auction => (
-                        <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+                        <AuctionCard key={auction.id} compact canBid={canBidOn(auction)} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
                       ))}
                     </div>
                   )}
-                  {mobilePanel === 'host' && room.isHost && (
+                  {mobilePanel === 'host' && isHost && (
                     <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!activePoll} hasFlashSale={!!activeFlash} onClose={() => setMobilePanel(null)} />
                   )}
                 </motion.div>
@@ -497,7 +506,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
             {/* Products Carousel */}
             <div className={cn('pb-2', isChatOpen && chatHeight === 75 && 'hidden')}>
-              <ProductCarousel 
+              <ProductCarousel
                 products={products}
                 onProductClick={openProduct}
                 onBeforeAdd={askBeforeShopping}
@@ -513,9 +522,9 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   label={formatViewerCount(likes)}
                   onClick={sendHeart}
                 />
-                <ActionButton 
-                  icon={<MessageCircle className="w-5 h-5" />} 
-                  label="Chat" 
+                <ActionButton
+                  icon={<MessageCircle className="w-5 h-5" />}
+                  label="Chat"
                   active={isChatOpen}
                   onClick={() => {
                     // The chat and a poll/auction panel don't both fit on a phone
@@ -539,7 +548,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     onClick={() => toggleMobilePanel('poll')}
                   />
                 )}
-                {room.isHost && (
+                {isHost && (
                   <ActionButton
                     icon={<Wrench className="w-5 h-5" />}
                     label="Ferramentas"
@@ -548,7 +557,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   />
                 )}
               </div>
-              
+
               {/* Flash Sale Indicator */}
               {activeFlash && (
                 <motion.button
@@ -591,7 +600,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     <Heart className="w-5 h-5" />
                     <span className="text-sm font-medium">{formatViewerCount(likes)}</span>
                   </button>
-                  <button 
+                  <button
                     onClick={() => setIsMuted(!isMuted)}
                     aria-label={isMuted ? 'Ativar som' : 'Desativar som'}
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
@@ -605,12 +614,14 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   >
                     <Share2 className="w-5 h-5" />
                   </button>
+                  {!isHost && (
                   <ReportButton
                     type="stream"
                     id={stream.id}
                     onAskLogin={() => askLogin('Entre para denunciar')}
                     className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white"
                   />
+                  )}
                   <button
                     onClick={toggleFullscreen}
                     aria-label="Tela cheia"
@@ -648,6 +659,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                     </h3>
                     <p className="text-white/60 text-sm">{formatViewerCount(stream.host.followers)} seguidores</p>
                   </div>
+                  {!isHost && (
                   <Button
                     variant={isUserFollowing ? 'ghost' : 'primary'}
                     size="sm"
@@ -655,6 +667,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                   >
                     {isUserFollowing ? 'Seguindo' : 'Seguir'}
                   </Button>
+                  )}
                 </div>
               </motion.div>
             )}
@@ -686,7 +699,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
 
       {/* Side Panel - Desktop */}
       <div className="hidden lg:flex lg:w-96 flex-col h-screen bg-deep-ocean border-l border-white/10">
-        {room.isHost && (
+        {isHost && (
           <div className="p-4 border-b border-white/10">
             <HostPanel stream={stream} pinnedId={pinnedId} hasPoll={!!activePoll} hasFlashSale={!!activeFlash} />
           </div>
@@ -711,7 +724,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
           <div className="p-4 border-b border-white/10 space-y-3 max-h-[50vh] overflow-y-auto">
             {bidMessage && <p className="text-coral-pink text-sm">{bidMessage}</p>}
             {activeAuctions.map(auction => (
-              <AuctionCard key={auction.id} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+              <AuctionCard key={auction.id} canBid={canBidOn(auction)} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
             ))}
           </div>
         )}
@@ -728,7 +741,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
             <span className="w-2 h-2 rounded-full bg-tropical-green animate-pulse" />
             Produtos da Live ({products.length})
           </h3>
-          <ProductCarousel 
+          <ProductCarousel
             products={products}
             onProductClick={openProduct}
             onBeforeAdd={askBeforeShopping}
@@ -782,7 +795,7 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
                 ))}
               </div>
             </motion.div>
-            
+
             {/* Chat Content */}
             <div className="flex-1 overflow-hidden">
               {chat}
@@ -817,11 +830,31 @@ export function LiveStreamView({ stream, ...initial }: LiveStreamViewProps) {
       </AnimatePresence>
 
       {hasEnded && (
-        <div className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-6">
-          <div className="text-center">
-            <h2 className="text-white text-xl font-semibold mb-2">A live terminou</h2>
-            <p className="text-white/60 text-sm mb-4">Obrigado por assistir! Siga {stream.host.name} para saber da próxima.</p>
-            <Button onClick={() => router.push('/')}>Ver outras lives</Button>
+        <div className="fixed inset-0 z-50 bg-black/80 overflow-y-auto">
+          <div className="min-h-full flex flex-col items-center justify-center gap-4 p-6">
+            <div className="text-center">
+              <h2 className="text-white text-xl font-semibold mb-2">A live terminou</h2>
+              <p className="text-white/60 text-sm mb-4">
+                {activeAuctions.length > 0
+                  ? 'O leilão continua até o tempo acabar. Você ainda pode dar lances aqui.'
+                  : isFollowing(stream.host.id) || isHost
+                    ? 'Obrigado por assistir!'
+                    : `Obrigado por assistir! Siga ${stream.host.name} para saber da próxima.`}
+              </p>
+              {activeAuctions.length === 0 && <Button onClick={() => router.push('/')}>Ver outras lives</Button>}
+            </div>
+            {/* An auction that outlives the live stays open for bids until its own end */}
+            {activeAuctions.length > 0 && (
+              <div className="w-full max-w-sm space-y-3">
+                {bidMessage && <p className="text-coral-pink text-sm text-center">{bidMessage}</p>}
+                {activeAuctions.map(auction => (
+                  <AuctionCard key={auction.id} compact canBid={canBidOn(auction)} auction={auction} onBid={amount => placeBid(auction.id, amount)} />
+                ))}
+                <Button variant="secondary" fullWidth onClick={() => router.push('/')}>
+                  Ver outras lives
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -874,8 +907,8 @@ function ActionButton({ icon, label, onClick, active }: ActionButtonProps) {
       onClick={(e) => { e.stopPropagation(); onClick?.(); }}
       className={cn(
         'flex-shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-full transition-all',
-        active 
-          ? 'bg-sky-blue/20 text-sky-blue' 
+        active
+          ? 'bg-sky-blue/20 text-sky-blue'
           : 'bg-black/40 backdrop-blur-sm text-white hover:bg-black/60'
       )}
       whileTap={{ scale: 0.95 }}

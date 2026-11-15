@@ -68,7 +68,9 @@ export type DashboardTab = 'overview' | 'products' | 'streams' | 'auctions' | 'a
 export function DashboardView({ seller, products, streams, pastStreams, auctions, recentOrders, returnRequests, stats: totals, invites, payout, shipFromZip, initialTab = 'overview', justPublished = false }: DashboardData) {
   const [activeTab, setActiveTab] = useState<DashboardTab>(initialTab)
   // Asks the seller to finish setting up before something that needs buyers to buy
-  const [gate, setGate] = useState<{ kind: 'live'; streamId: string } | { kind: 'auction' } | null>(null)
+  // (a live gate without a streamId is for "Iniciar Live", which creates the live)
+  const [gate, setGate] = useState<{ kind: 'live'; streamId?: string } | { kind: 'auction' } | null>(null)
+  const [startingLive, setStartingLive] = useState(false)
   const [showAuctionModal, setShowAuctionModal] = useState(false)
   // Live the next auction goes into: the seller's own live by default, or one they're a guest in
   const [auctionStreamId, setAuctionStreamId] = useState<string | undefined>()
@@ -119,13 +121,14 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
         streamId: auctionStreamId ?? streams.find(st => st.isLive)?.id,
       }),
     })
-    setShowAuctionModal(false)
-    setAuctionStreamId(undefined)
     if (!res.ok) {
       const data = (await res.json().catch(() => null)) as { message?: string } | null
-      setActionError(data?.message ?? 'Não foi possível criar o leilão.')
+      return data?.message ?? 'Não foi possível criar o leilão.'
     }
+    setShowAuctionModal(false)
+    setAuctionStreamId(undefined)
     router.refresh()
+    return null
   }
 
   // Auctions end in an order the winner pays right away, so they wait for the shop to be set up
@@ -138,6 +141,41 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
 
   // Going live is allowed before the shop is set up, but the seller is told buyers can't buy yet
   const startLive = (streamId: string) => (canSell ? setStreamStatus(streamId, 'live') : setGate({ kind: 'live', streamId }))
+
+  // "Iniciar Live" really goes live: back to the live that's on, or the one scheduled for the
+  // next half hour, or else a new live with the shop's products, without scheduling first.
+  const goLiveNow = async () => {
+    const onAir = streams.find(s => s.isLive)
+    if (onAir) return router.push(`/live/${onAir.id}`)
+    const soon = streams.find(s => Date.parse(String(s.scheduledTime ?? s.startTime)) - Date.now() < 30 * 60_000)
+    if (soon) return setStreamStatus(soon.id, 'live')
+    const selling = products.filter(p => p.isActive !== false)
+    if (selling.length === 0) {
+      setActiveTab('products')
+      return setActionError('Publique um produto antes de entrar ao vivo.')
+    }
+    setStartingLive(true)
+    setActionError('')
+    const created = await fetch('/api/seller/streams', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        title: `Ao vivo com ${seller.name}`,
+        category: selling[0].category,
+        scheduledAt: new Date(Date.now() + 60_000).toISOString(),
+        thumbnail: selling[0].images[0],
+        productIds: selling.slice(0, 20).map(p => p.id),
+      }),
+    }).catch(() => null)
+    const stream = (await created?.json().catch(() => null)) as { id?: string } | null
+    if (!created?.ok || !stream?.id) {
+      setStartingLive(false)
+      return setActionError('Não foi possível iniciar a live. Tente de novo.')
+    }
+    await setStreamStatus(stream.id, 'live')
+    setStartingLive(false)
+  }
+  const startLiveNow = () => (canSell || streams.some(s => s.isLive) ? goLiveNow() : setGate({ kind: 'live' }))
 
   // Period-over-period changes and conversion need analytics we don't collect yet
   const stats = {
@@ -182,9 +220,10 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                 size="sm"
                 leftIcon={<Radio className="w-4 h-4" />}
                 className="bg-coral-pink hover:bg-coral-pink-600"
-                onClick={() => setActiveTab('streams')}
+                isLoading={startingLive}
+                onClick={startLiveNow}
               >
-                Iniciar Live
+                {streams.some(s => s.isLive) ? 'Voltar para a live' : 'Iniciar Live'}
               </Button>
             </div>
             <button onClick={switchToBuyer} className="text-gray-500 text-xs hover:text-gray-900 hover:underline">
@@ -523,12 +562,12 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
         {activeTab === 'auctions' && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="text-gray-500">{auctions.length} leilões</p>
-              <Button 
-                size="sm" 
+              <p className="text-gray-500">{auctions.length === 1 ? '1 leilão' : `${auctions.length} leilões`}</p>
+              <Button
+                size="sm"
                 leftIcon={<Plus className="w-4 h-4" />}
                 onClick={openAuction}
-                
+
               >
                 Criar Leilão
               </Button>
@@ -540,7 +579,7 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                 const timeLeft = endTime.getTime() - now.getTime()
                 const isActive = auction.status === 'active'
                 const isEnding = timeLeft < 5 * 60 * 1000 && isActive
-                
+
                 return (
                   <div
                     key={auction.id}
@@ -575,26 +614,40 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
                         <div className="flex items-center gap-4 text-gray-500 text-xs mt-2">
                           <span className="flex items-center gap-1">
                             <Users className="w-3 h-3" />
-                            {auction.bids.length} lances
+                            {auction.bids.length === 1 ? '1 lance' : `${auction.bids.length} lances`}
                           </span>
                           <span className={`flex items-center gap-1 ${isEnding ? 'text-red-400' : ''}`}>
                             <Clock className="w-3 h-3" />
-                            {isActive 
-                              ? (timeLeft > 0 
-                                ? `${Math.floor(timeLeft / 60000)}min restantes` 
+                            {isActive
+                              ? (timeLeft > 0
+                                ? `${Math.floor(timeLeft / 60000)}min restantes`
                                 : 'Encerrado')
-                              : auction.status === 'upcoming' 
-                                ? 'Agendado' 
+                              : auction.status === 'upcoming'
+                                ? 'Agendado'
                                 : 'Encerrado'}
                           </span>
                         </div>
+                        {/* Who won, and whether they've paid */}
+                        {auction.status === 'ended' && (
+                          <p className="text-sm mt-2 text-gray-700">
+                            {auction.bids.length === 0
+                              ? 'Terminou sem lances.'
+                              : auction.order?.paid
+                                ? `Arrematado por ${auction.winnerName ?? 'comprador'} · pago (pedido ${auction.order.id})`
+                                : auction.order
+                                  ? `Arrematado por ${auction.winnerName ?? 'comprador'} · pedido ${auction.order.id} aguardando pagamento`
+                                  : auction.winnerName
+                                    ? `Arrematado por ${auction.winnerName} · ainda não finalizou a compra`
+                                    : 'Encerrando…'}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </div>
                 )
               })}
             </div>
-            
+
             {/* Quick Create Auction Card */}
             <motion.button
               onClick={openAuction}
@@ -641,7 +694,8 @@ export function DashboardView({ seller, products, streams, pastStreams, auctions
             gate.kind === 'live'
               ? () => {
                   setGate(null)
-                  setStreamStatus(gate.streamId, 'live')
+                  if (gate.streamId) setStreamStatus(gate.streamId, 'live')
+                  else goLiveNow()
                 }
               : undefined
           }
